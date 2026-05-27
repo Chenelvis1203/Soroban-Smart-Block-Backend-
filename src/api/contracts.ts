@@ -12,6 +12,46 @@ const abiSchema = z.object({
   abi: z.record(z.unknown()).optional(),
 });
 
+const contractStatsQuerySchema = z.object({
+  since: z.string().datetime({ offset: true }).optional(),
+});
+
+export async function getContractFunctionStats(address: string, since?: Date) {
+  const contract = await prisma.contract.findUnique({
+    where: { address },
+    select: { address: true },
+  });
+
+  if (!contract) {
+    return null;
+  }
+
+  const stats = await prisma.transaction.groupBy({
+    by: ['functionName'],
+    where: {
+      contractAddress: address,
+      functionName: { not: null },
+      ...(since ? { ledgerCloseTime: { gte: since } } : {}),
+    },
+    _count: {
+      functionName: true,
+    },
+    _max: {
+      ledgerCloseTime: true,
+    },
+    orderBy: [
+      { _count: { functionName: 'desc' } },
+      { functionName: 'asc' },
+    ],
+  });
+
+  return stats.map((stat) => ({
+    functionName: stat.functionName!,
+    callCount: stat._count.functionName,
+    lastCalledAt: stat._max.ledgerCloseTime,
+  }));
+}
+
 // GET /contracts
 contractRouter.get('/', async (_req: Request, res: Response) => {
   const contracts = await prisma.contract.findMany({
@@ -21,11 +61,23 @@ contractRouter.get('/', async (_req: Request, res: Response) => {
   res.json(contracts);
 });
 
-// GET /contracts/:address/spec — fetch on-chain Wasm spec / ABI as JSON schema
-contractRouter.get('/:address/spec', async (req: Request, res: Response) => {
-  const schema = await fetchContractSpec(req.params.address);
-  if (!schema) return res.status(404).json({ error: 'Spec not found or contract has no embedded spec' });
-  res.json(schema);
+// GET /contracts/:address/stats
+contractRouter.get('/:address/stats', async (req: Request, res: Response) => {
+  try {
+    const { since } = contractStatsQuerySchema.parse(req.query);
+    const stats = await getContractFunctionStats(
+      req.params.address,
+      since ? new Date(since) : undefined,
+    );
+
+    if (stats === null) {
+      return res.status(404).json({ error: 'Contract not found' });
+    }
+
+    return res.json(stats);
+  } catch (e) {
+    return res.status(400).json({ error: String(e) });
+  }
 });
 
 // GET /contracts/:address
