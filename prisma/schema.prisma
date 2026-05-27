@@ -50,6 +50,11 @@ model Transaction {
   @@index([sourceAccount])
   @@index([contractAddress])
   @@index([ledger])
+  // Composite indexes for cursor-based pagination (ledger DESC, id DESC)
+  @@index([contractAddress, ledger, id])
+  @@index([sourceAccount, ledger, id])
+  @@index([status, ledger, id])
+  @@index([ledger, id])
 }
 
 model Event {

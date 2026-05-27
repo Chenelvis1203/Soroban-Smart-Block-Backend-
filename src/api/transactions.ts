@@ -4,46 +4,93 @@ import { z } from 'zod';
 
 export const transactionRouter = Router();
 
-const paginationSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
+const TX_SELECT = {
+  hash: true,
+  ledger: true,
+  ledgerCloseTime: true,
+  sourceAccount: true,
+  contractAddress: true,
+  functionName: true,
+  status: true,
+  humanReadable: true,
+  feeCharged: true,
+};
+
+const listSchema = z.object({
+  // cursor-based (preferred for large datasets)
+  cursor: z.string().optional(),          // opaque cursor = last tx `id` (cuid)
+  // offset-based fallback
+  page:   z.coerce.number().min(1).default(1),
+  limit:  z.coerce.number().min(1).max(100).default(20),
+  // filters
+  contract:  z.string().optional(),
+  account:   z.string().optional(),
+  status:    z.string().optional(),
+  ledgerMin: z.coerce.number().int().min(0).optional(),
+  ledgerMax: z.coerce.number().int().min(0).optional(),
 });
 
-// GET /transactions?page=1&limit=20&contract=&account=
+// GET /transactions
+// Cursor mode:  ?cursor=<id>&limit=20&contract=...&ledgerMin=100&ledgerMax=200
+// Offset mode:  ?page=2&limit=20&contract=...
 transactionRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const { page, limit } = paginationSchema.parse(req.query);
-    const { contract, account, status } = req.query as Record<string, string>;
-    const skip = (page - 1) * limit;
+    const q = listSchema.parse(req.query);
 
     const where = {
-      ...(contract && { contractAddress: contract }),
-      ...(account && { sourceAccount: account }),
-      ...(status && { status }),
+      ...(q.contract  && { contractAddress: q.contract }),
+      ...(q.account   && { sourceAccount: q.account }),
+      ...(q.status    && { status: q.status }),
+      ...((q.ledgerMin !== undefined || q.ledgerMax !== undefined) && {
+        ledger: {
+          ...(q.ledgerMin !== undefined && { gte: q.ledgerMin }),
+          ...(q.ledgerMax !== undefined && { lte: q.ledgerMax }),
+        },
+      }),
     };
 
-    const [transactions, total] = await Promise.all([
+    if (q.cursor) {
+      // Cursor-based: fetch limit+1 to determine if there's a next page
+      const rows = await prisma.transaction.findMany({
+        where,
+        orderBy: [{ ledger: 'desc' }, { id: 'desc' }],
+        cursor: { id: q.cursor },
+        skip: 1,           // skip the cursor row itself
+        take: q.limit + 1,
+        select: TX_SELECT,
+      });
+
+      const hasNext = rows.length > q.limit;
+      const data = hasNext ? rows.slice(0, q.limit) : rows;
+      const nextCursor = hasNext ? (data[data.length - 1] as any).id : null;
+
+      // TX_SELECT omits `id`; re-fetch last id for cursor only when needed
+      const nextCursorId = hasNext
+        ? await prisma.transaction
+            .findFirst({
+              where: { hash: (data[data.length - 1] as any).hash },
+              select: { id: true },
+            })
+            .then((r) => r?.id ?? null)
+        : null;
+
+      return res.json({ data, nextCursor: nextCursorId, hasNext });
+    }
+
+    // Offset-based fallback
+    const skip = (q.page - 1) * q.limit;
+    const [data, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
-        orderBy: { ledger: 'desc' },
+        orderBy: [{ ledger: 'desc' }, { id: 'desc' }],
         skip,
-        take: limit,
-        select: {
-          hash: true,
-          ledger: true,
-          ledgerCloseTime: true,
-          sourceAccount: true,
-          contractAddress: true,
-          functionName: true,
-          status: true,
-          humanReadable: true,
-          feeCharged: true,
-        },
+        take: q.limit,
+        select: TX_SELECT,
       }),
       prisma.transaction.count({ where }),
     ]);
 
-    res.json({ data: transactions, total, page, limit });
+    res.json({ data, total, page: q.page, limit: q.limit, pages: Math.ceil(total / q.limit) });
   } catch (e) {
     res.status(400).json({ error: String(e) });
   }
