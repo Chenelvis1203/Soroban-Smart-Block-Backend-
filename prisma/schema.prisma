@@ -98,6 +98,23 @@ model Event {
   @@index([contractAddress, ledgerSequence])
 }
 
+// Custom event symbol → template bindings submitted by verified project creators
+model EventDefinition {
+  id              String   @id @default(cuid())
+  contractAddress String
+  // The event topic symbol this binding applies to, e.g. "mint_pass"
+  topicSymbol     String
+  // Mustache-style template, e.g. "Minted pass #{{data.id}} to {{data.owner}}"
+  humanTemplate   String
+  // Who submitted this definition (API key or creator identifier)
+  submittedBy     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contractAddress, topicSymbol])
+  @@index([contractAddress])
+}
+
 model IndexerState {
   id         String   @id @default("singleton")
   lastLedger Int      @default(0)

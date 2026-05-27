@@ -3,6 +3,45 @@ import { getContractAbi, decodeArgs, renderHuman } from './registry';
 import { parseInvokeHostFunction } from './xdr-parser';
 import { prismaRead as prisma } from '../db';
 
+/**
+ * Look up a custom EventDefinition for a given contract + topic symbol.
+ * Returns the humanTemplate string if found, otherwise null.
+ */
+export async function lookupCustomEventTemplate(
+  contractAddress: string,
+  topicSymbol: string
+): Promise<string | null> {
+  const def = await prisma.eventDefinition.findUnique({
+    where: { contractAddress_topicSymbol: { contractAddress, topicSymbol } },
+    select: { humanTemplate: true },
+  });
+  return def?.humanTemplate ?? null;
+}
+
+/**
+ * Render a custom template by substituting {{data.key}} and {{topics.N}} placeholders.
+ * Supports: {{data.key}}, {{topics.0}}, {{topics.1}}, etc.
+ */
+export function renderCustomTemplate(
+  template: string,
+  topicValues: unknown[],
+  dataValue: unknown
+): string {
+  return template.replace(/\{\{([\w.]+)\}\}/g, (_match, path: string) => {
+    const parts = path.split('.');
+    if (parts[0] === 'topics' && parts[1] !== undefined) {
+      return String(topicValues[Number(parts[1])] ?? '');
+    }
+    if (parts[0] === 'data') {
+      const val = parts[1] !== undefined && typeof dataValue === 'object' && dataValue !== null
+        ? (dataValue as Record<string, unknown>)[parts[1]]
+        : dataValue;
+      return String(val ?? '');
+    }
+    return _match;
+  });
+}
+
 export interface DecodedTransaction {
   contractAddress: string | null;
   functionName: string | null;
