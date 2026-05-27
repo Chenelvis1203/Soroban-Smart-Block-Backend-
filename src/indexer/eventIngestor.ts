@@ -67,7 +67,7 @@ export async function ingestEvents(startLedger: number, endLedger: number): Prom
  */
 export async function ingestEventsFromMeta(
   txHash: string,
-  ledger: number,
+  ledgerSequence: number,
   ledgerCloseTime: Date,
   metaXdr: string
 ): Promise<number> {
@@ -78,7 +78,7 @@ export async function ingestEventsFromMeta(
     const ledgerEvent: LedgerEvent = {
       contractId: ev.contractId,
       transactionHash: txHash,
-      ledger,
+      ledgerSequence,
       ledgerCloseTime,
       topics: ev.topics,
       data: ev.data,
@@ -122,7 +122,7 @@ async function storeEvent(event: LedgerEvent): Promise<number> {
       topics: event.topics,
       data: { raw: event.data },
       decoded: decoded as object,
-      ledger: event.ledger,
+      ledgerSequence: event.ledgerSequence,
       ledgerCloseTime: event.ledgerCloseTime,
     },
   });

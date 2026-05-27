@@ -18,12 +18,12 @@ walletRouter.get('/:address/transactions', async (req: Request, res: Response) =
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
         where: { sourceAccount: req.params.address },
-        orderBy: { ledger: 'desc' },
+        orderBy: { ledgerSequence: 'desc' },
         skip,
         take: limit,
         select: {
           hash: true,
-          ledger: true,
+          ledgerSequence: true,
           ledgerCloseTime: true,
           contractAddress: true,
           functionName: true,
@@ -56,7 +56,7 @@ walletRouter.get('/:address/events', async (req: Request, res: Response) => {
             { decoded: { path: ['to'], equals: address } },
           ],
         },
-        orderBy: { ledger: 'desc' },
+        orderBy: { ledgerSequence: 'desc' },
         skip,
         take: limit,
       }),

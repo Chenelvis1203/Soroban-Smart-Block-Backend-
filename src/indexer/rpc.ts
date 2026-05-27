@@ -7,7 +7,7 @@ export const rpc = new SorobanRpc.Server(config.stellarRpcUrl, { allowHttp: true
 export interface LedgerEvent {
   contractId: string;
   transactionHash: string;
-  ledger: number;
+  ledgerSequence: number;
   ledgerCloseTime: Date;
   topics: string[];
   data: string;
@@ -76,7 +76,7 @@ export async function fetchEvents(startLedger: number, endLedger: number): Promi
       .map((e) => ({
         contractId: String(e.contractId ?? ''),
         transactionHash: String(e.txHash ?? ''),
-        ledger: Number(e.ledger),
+        ledgerSequence: Number(e.ledger),
         ledgerCloseTime: new Date(e.ledgerClosedAt ?? Date.now()),
         topics: Array.isArray(e.topic) ? e.topic.map((t: any) => t.toXDR('base64')) : [],
         data: e.value?.toXDR ? e.value.toXDR('base64') : String(e.value ?? ''),

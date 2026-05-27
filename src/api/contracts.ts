@@ -86,8 +86,8 @@ contractRouter.get('/:address', async (req: Request, res: Response) => {
   const contract = await prismaRead.contract.findUnique({
     where: { address: req.params.address },
     include: {
-      transactions: { take: 10, orderBy: { ledger: 'desc' }, select: { hash: true, functionName: true, humanReadable: true, ledger: true } },
-      events: { take: 10, orderBy: { ledger: 'desc' }, select: { id: true, eventType: true, decoded: true, ledger: true } },
+      transactions: { take: 10, orderBy: { ledgerSequence: 'desc' }, select: { hash: true, functionName: true, humanReadable: true, ledgerSequence: true } },
+      events: { take: 10, orderBy: { ledgerSequence: 'desc' }, select: { id: true, eventType: true, decoded: true, ledgerSequence: true } },
     },
   });
   if (!contract) return res.status(404).json({ error: 'Contract not found' });

@@ -14,6 +14,17 @@ export async function processLedgerRange(start: number, end: number): Promise<vo
   const events = await fetchEvents(start, end);
 
   for (const event of events) {
+    // Upsert the Ledger row before writing transactions/events (FK constraint)
+    await prisma.ledger.upsert({
+      where: { sequence: event.ledgerSequence },
+      update: {},
+      create: {
+        sequence: event.ledgerSequence,
+        hash: '',               // hash not available from event stream; filled in if known
+        closeTime: event.ledgerCloseTime,
+      },
+    });
+
     await prisma.contract.upsert({
       where: { address: event.contractId },
       update: {},
@@ -29,7 +40,7 @@ export async function processLedgerRange(start: number, end: number): Promise<vo
             await enqueueFailure({
               itemType: 'transaction',
               itemId: event.transactionHash,
-              ledger: event.ledger,
+              ledger: event.ledgerSequence,
               rawXdr,
               error: err,
             });
@@ -42,7 +53,7 @@ export async function processLedgerRange(start: number, end: number): Promise<vo
         update: {},
         create: {
           hash: event.transactionHash,
-          ledger: event.ledger,
+          ledgerSequence: event.ledgerSequence,
           ledgerCloseTime: event.ledgerCloseTime,
           sourceAccount: (txResult as any)?.sourceAccount ?? 'unknown',
           contractAddress: decoded.contractAddress,

@@ -31,9 +31,9 @@ tokenRouter.get('/:address', async (req: Request, res: Response) => {
 tokenRouter.get('/:address/transfers', async (req: Request, res: Response) => {
   const events = await prisma.event.findMany({
     where: { contractAddress: req.params.address, eventType: 'transfer' },
-    orderBy: { ledger: 'desc' },
+    orderBy: { ledgerSequence: 'desc' },
     take: 50,
-    select: { id: true, transactionHash: true, decoded: true, ledger: true, ledgerCloseTime: true },
+    select: { id: true, transactionHash: true, decoded: true, ledgerSequence: true, ledgerCloseTime: true },
   });
   res.json(events);
 });
