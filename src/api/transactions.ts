@@ -6,7 +6,7 @@ export const transactionRouter = Router();
 
 const TX_SELECT = {
   hash: true,
-  ledger: true,
+  ledgerSequence: true,
   ledgerCloseTime: true,
   sourceAccount: true,
   contractAddress: true,
@@ -42,7 +42,7 @@ transactionRouter.get('/', async (req: Request, res: Response) => {
       ...(q.account   && { sourceAccount: q.account }),
       ...(q.status    && { status: q.status }),
       ...((q.ledgerMin !== undefined || q.ledgerMax !== undefined) && {
-        ledger: {
+        ledgerSequence: {
           ...(q.ledgerMin !== undefined && { gte: q.ledgerMin }),
           ...(q.ledgerMax !== undefined && { lte: q.ledgerMax }),
         },
@@ -53,7 +53,7 @@ transactionRouter.get('/', async (req: Request, res: Response) => {
       // Cursor-based: fetch limit+1 to determine if there's a next page
       const rows = await prisma.transaction.findMany({
         where,
-        orderBy: [{ ledger: 'desc' }, { id: 'desc' }],
+        orderBy: [{ ledgerSequence: 'desc' }, { id: 'desc' }],
         cursor: { id: q.cursor },
         skip: 1,           // skip the cursor row itself
         take: q.limit + 1,
@@ -82,7 +82,7 @@ transactionRouter.get('/', async (req: Request, res: Response) => {
     const [data, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
-        orderBy: [{ ledger: 'desc' }, { id: 'desc' }],
+        orderBy: [{ ledgerSequence: 'desc' }, { id: 'desc' }],
         skip,
         take: q.limit,
         select: TX_SELECT,

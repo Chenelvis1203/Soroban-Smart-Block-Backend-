@@ -7,6 +7,7 @@ import { tokenRouter } from './tokens';
 import { renderRouter } from './render';
 import { simulateRouter } from './simulate';
 import { verifyRouter } from './verify';
+import { dexRouter } from './dex';
 
 export const router = Router();
 
@@ -18,3 +19,4 @@ router.use('/tokens', tokenRouter);
 router.use('/render', renderRouter);
 router.use('/simulate', simulateRouter);
 router.use('/verify', verifyRouter);
+router.use('/dex', dexRouter);

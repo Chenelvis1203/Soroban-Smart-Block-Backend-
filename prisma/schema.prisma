@@ -9,18 +9,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Ledger (block) — one row per closed ledger.
+// sequence is the natural PK; closeTime enables timestamp-range queries.
+model Ledger {
+  sequence     Int      @id                // ledger sequence number (block number)
+  hash         String   @unique            // ledger hash
+  closeTime    DateTime                    // ledger close timestamp
+  txCount      Int      @default(0)        // number of transactions in this ledger
+  createdAt    DateTime @default(now())
+
+  transactions Transaction[]
+  events       Event[]
+
+  @@index([sequence])                      // sub-second lookup by ledger number
+  @@index([closeTime])                     // range queries by timestamp
+}
+
 model Contract {
-  id          String   @id @default(cuid())
-  address     String   @unique
-  name        String?
-  description String?
-  abi         Json?    // ABI-like metadata: functions, events, types
-  isToken     Boolean  @default(false)
-  tokenSymbol String?
-  tokenName   String?
+  id            String   @id @default(cuid())
+  address       String   @unique
+  name          String?
+  description   String?
+  abi           Json?    // ABI-like metadata: functions, events, types
+  isToken       Boolean  @default(false)
+  tokenSymbol   String?
+  tokenName     String?
   tokenDecimals Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   transactions Transaction[]
   events       Event[]
@@ -31,7 +47,7 @@ model Contract {
 model Transaction {
   id              String   @id @default(cuid())
   hash            String   @unique
-  ledger          Int
+  ledgerSequence  Int                      // FK → Ledger.sequence
   ledgerCloseTime DateTime
   sourceAccount   String
   contractAddress String?
@@ -43,18 +59,20 @@ model Transaction {
   feeCharged      String?
   createdAt       DateTime @default(now())
 
+  ledger   Ledger    @relation(fields: [ledgerSequence], references: [sequence])
   contract Contract? @relation(fields: [contractAddress], references: [address])
   events   Event[]
 
-  @@index([hash])
+  @@index([hash])                          // sub-second lookup by tx hash
+  @@index([ledgerSequence])               // sub-second lookup by ledger number
   @@index([sourceAccount])
   @@index([contractAddress])
-  @@index([ledger])
-  // Composite indexes for cursor-based pagination (ledger DESC, id DESC)
-  @@index([contractAddress, ledger, id])
-  @@index([sourceAccount, ledger, id])
-  @@index([status, ledger, id])
-  @@index([ledger, id])
+  @@index([status])
+  // Composite indexes for cursor-based pagination (ledgerSequence DESC, id DESC)
+  @@index([contractAddress, ledgerSequence, id])
+  @@index([sourceAccount, ledgerSequence, id])
+  @@index([status, ledgerSequence, id])
+  @@index([ledgerSequence, id])
 }
 
 model Event {
@@ -65,23 +83,83 @@ model Event {
   topics          Json     // raw topics
   data            Json     // raw data
   decoded         Json?    // human-readable decoded event
-  ledger          Int
+  ledgerSequence  Int                      // FK → Ledger.sequence
   ledgerCloseTime DateTime
   createdAt       DateTime @default(now())
 
+  ledger      Ledger      @relation(fields: [ledgerSequence], references: [sequence])
   transaction Transaction @relation(fields: [transactionHash], references: [hash])
   contract    Contract    @relation(fields: [contractAddress], references: [address])
 
   @@index([transactionHash])
   @@index([contractAddress])
   @@index([eventType])
-  @@index([ledger])
+  @@index([ledgerSequence])               // sub-second lookup by ledger number
+  @@index([contractAddress, ledgerSequence])
+}
+
+// Custom event symbol → template bindings submitted by verified project creators
+model EventDefinition {
+  id              String   @id @default(cuid())
+  contractAddress String
+  // The event topic symbol this binding applies to, e.g. "mint_pass"
+  topicSymbol     String
+  // Mustache-style template, e.g. "Minted pass #{{data.id}} to {{data.owner}}"
+  humanTemplate   String
+  // Who submitted this definition (API key or creator identifier)
+  submittedBy     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contractAddress, topicSymbol])
+  @@index([contractAddress])
 }
 
 model IndexerState {
-  id            String   @id @default("singleton")
-  lastLedger    Int      @default(0)
-  updatedAt     DateTime @updatedAt
+  id         String   @id @default("singleton")
+  lastLedger Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+// Bidirectional mapping: classic Stellar asset ↔ SAC contract address
+model SacMapping {
+  id           String   @id @default(cuid())
+  // Classic asset fields
+  assetCode    String   // e.g. "USDC"
+  assetIssuer  String?  // null for XLM (native)
+  assetType    String   // "native" | "credit_alphanum4" | "credit_alphanum12"
+  // Soroban side
+  sacAddress   String   @unique  // derived C-address of the SAC contract
+  // Metadata
+  firstSeenLedger Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ammPools     AmmPool[]
+
+  @@unique([assetCode, assetIssuer])
+  @@index([sacAddress])
+  @@index([assetCode])
+}
+
+// AMM pool that uses one or more SAC-wrapped assets
+model AmmPool {
+  id              String   @id @default(cuid())
+  poolAddress     String   @unique  // Soroban contract address of the pool
+  poolType        String   @default("constant_product")  // constant_product | stable
+  // The two assets in the pool (at least one is a SAC)
+  assetAAddress   String   // SAC address or native token address
+  assetBAddress   String
+  // Reverse links to SacMapping (nullable — one side may be a non-SAC token)
+  sacMappingAId   String?
+  sacMappingBId   String?
+  sacMappingA     SacMapping? @relation(fields: [sacMappingAId], references: [id])
+  firstSeenLedger Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([assetAAddress])
+  @@index([assetBAddress])
 }
 
 model VerificationJob {

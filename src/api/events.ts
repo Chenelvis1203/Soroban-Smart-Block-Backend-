@@ -24,7 +24,7 @@ eventRouter.get('/', async (req: Request, res: Response) => {
     const [events, total] = await Promise.all([
       prisma.event.findMany({
         where,
-        orderBy: { ledger: 'desc' },
+        orderBy: { ledgerSequence: 'desc' },
         skip,
         take: limit,
         select: {
@@ -33,7 +33,7 @@ eventRouter.get('/', async (req: Request, res: Response) => {
           contractAddress: true,
           eventType: true,
           decoded: true,
-          ledger: true,
+          ledgerSequence: true,
           ledgerCloseTime: true,
         },
       }),

@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "index": "ts-node src/indexer/run.ts",
+    "repair": "ts-node src/indexer/repair-run.ts",
     "seed": "ts-node prisma/seed.ts",
     "test": "vitest run"
   },
