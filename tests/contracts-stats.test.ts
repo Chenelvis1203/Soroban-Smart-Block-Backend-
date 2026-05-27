@@ -1,27 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const prismaMock = {
-  contract: {
-    findUnique: vi.fn(),
-  },
-  transaction: {
-    groupBy: vi.fn(),
-  },
-};
+const contractFindUnique = vi.fn();
+const transactionGroupBy = vi.fn();
 
 vi.mock('../src/db', () => ({
-  prisma: prismaMock,
+  prismaRead: {
+    contract: { findUnique: contractFindUnique },
+    transaction: { groupBy: transactionGroupBy },
+  },
+  prismaWrite: {
+    contract: { upsert: vi.fn() },
+  },
+  get prisma() { return (this as any).prismaWrite; },
 }));
 
 describe('getContractFunctionStats', () => {
   beforeEach(() => {
-    prismaMock.contract.findUnique.mockReset();
-    prismaMock.transaction.groupBy.mockReset();
+    contractFindUnique.mockReset();
+    transactionGroupBy.mockReset();
   });
 
   it('returns grouped function stats sorted by call count', async () => {
-    prismaMock.contract.findUnique.mockResolvedValue({ address: 'C123' });
-    prismaMock.transaction.groupBy.mockResolvedValue([
+    contractFindUnique.mockResolvedValue({ address: 'C123' });
+    transactionGroupBy.mockResolvedValue([
       {
         functionName: 'swap',
         _count: { functionName: 7 },
@@ -37,7 +38,7 @@ describe('getContractFunctionStats', () => {
     const { getContractFunctionStats } = await import('../src/api/contracts');
     const result = await getContractFunctionStats('C123');
 
-    expect(prismaMock.transaction.groupBy).toHaveBeenCalledWith({
+    expect(transactionGroupBy).toHaveBeenCalledWith({
       by: ['functionName'],
       where: {
         contractAddress: 'C123',
@@ -66,13 +67,13 @@ describe('getContractFunctionStats', () => {
 
   it('applies the since filter when provided', async () => {
     const since = new Date('2026-05-01T00:00:00.000Z');
-    prismaMock.contract.findUnique.mockResolvedValue({ address: 'C123' });
-    prismaMock.transaction.groupBy.mockResolvedValue([]);
+    contractFindUnique.mockResolvedValue({ address: 'C123' });
+    transactionGroupBy.mockResolvedValue([]);
 
     const { getContractFunctionStats } = await import('../src/api/contracts');
     await getContractFunctionStats('C123', since);
 
-    expect(prismaMock.transaction.groupBy).toHaveBeenCalledWith({
+    expect(transactionGroupBy).toHaveBeenCalledWith({
       by: ['functionName'],
       where: {
         contractAddress: 'C123',
@@ -89,8 +90,8 @@ describe('getContractFunctionStats', () => {
   });
 
   it('returns an empty array when the contract exists but has no transactions', async () => {
-    prismaMock.contract.findUnique.mockResolvedValue({ address: 'C123' });
-    prismaMock.transaction.groupBy.mockResolvedValue([]);
+    contractFindUnique.mockResolvedValue({ address: 'C123' });
+    transactionGroupBy.mockResolvedValue([]);
 
     const { getContractFunctionStats } = await import('../src/api/contracts');
     const result = await getContractFunctionStats('C123');
@@ -99,12 +100,12 @@ describe('getContractFunctionStats', () => {
   });
 
   it('returns null when the contract does not exist', async () => {
-    prismaMock.contract.findUnique.mockResolvedValue(null);
+    contractFindUnique.mockResolvedValue(null);
 
     const { getContractFunctionStats } = await import('../src/api/contracts');
     const result = await getContractFunctionStats('C404');
 
-    expect(prismaMock.transaction.groupBy).not.toHaveBeenCalled();
+    expect(transactionGroupBy).not.toHaveBeenCalled();
     expect(result).toBeNull();
   });
 });

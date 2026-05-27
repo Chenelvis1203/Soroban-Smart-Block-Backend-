@@ -1,18 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getCachedAbi, setCachedAbi, deleteCachedAbi, invalidateCache, ContractAbi } from '../src/indexer/abi-cache';
 
-// Mock prisma
 vi.mock('../src/db', () => ({
-  prisma: {
-    contract: {
-      findUnique: vi.fn(),
-      upsert: vi.fn(),
-      update: vi.fn(),
-    },
+  prismaRead: {
+    contract: { findUnique: vi.fn() },
   },
+  prismaWrite: {
+    contract: { upsert: vi.fn(), update: vi.fn() },
+  },
+  get prisma() { return (this as any).prismaWrite; },
 }));
 
-import { prisma } from '../src/db';
+import { prismaRead, prismaWrite } from '../src/db';
 
 const ADDR = 'CTEST000000000000000000000000000000000000000000000000000001';
 const SAMPLE_ABI: ContractAbi = {
@@ -28,50 +27,50 @@ beforeEach(() => {
 
 describe('getCachedAbi', () => {
   it('returns null when DB has no ABI', async () => {
-    vi.mocked(prisma.contract.findUnique).mockResolvedValue({ abi: null } as any);
+    vi.mocked(prismaRead.contract.findUnique).mockResolvedValue({ abi: null } as any);
     expect(await getCachedAbi(ADDR)).toBeNull();
   });
 
   it('reads from DB on cache miss and caches result', async () => {
-    vi.mocked(prisma.contract.findUnique).mockResolvedValue({ abi: SAMPLE_ABI } as any);
+    vi.mocked(prismaRead.contract.findUnique).mockResolvedValue({ abi: SAMPLE_ABI } as any);
 
     const first = await getCachedAbi(ADDR);
     expect(first).toEqual(SAMPLE_ABI);
-    expect(prisma.contract.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaRead.contract.findUnique).toHaveBeenCalledTimes(1);
 
     // Second call should hit cache, not DB
     const second = await getCachedAbi(ADDR);
     expect(second).toEqual(SAMPLE_ABI);
-    expect(prisma.contract.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaRead.contract.findUnique).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('setCachedAbi', () => {
   it('upserts to DB and updates cache', async () => {
-    vi.mocked(prisma.contract.upsert).mockResolvedValue({} as any);
+    vi.mocked(prismaWrite.contract.upsert).mockResolvedValue({} as any);
 
     await setCachedAbi(ADDR, SAMPLE_ABI);
-    expect(prisma.contract.upsert).toHaveBeenCalledWith(
+    expect(prismaWrite.contract.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ where: { address: ADDR } })
     );
 
     // Should now be in cache — no DB call needed
     const cached = await getCachedAbi(ADDR);
     expect(cached).toEqual(SAMPLE_ABI);
-    expect(prisma.contract.findUnique).not.toHaveBeenCalled();
+    expect(prismaRead.contract.findUnique).not.toHaveBeenCalled();
   });
 });
 
 describe('deleteCachedAbi', () => {
   it('removes from DB and evicts cache', async () => {
-    vi.mocked(prisma.contract.upsert).mockResolvedValue({} as any);
-    vi.mocked(prisma.contract.update).mockResolvedValue({} as any);
-    vi.mocked(prisma.contract.findUnique).mockResolvedValue({ abi: null } as any);
+    vi.mocked(prismaWrite.contract.upsert).mockResolvedValue({} as any);
+    vi.mocked(prismaWrite.contract.update).mockResolvedValue({} as any);
+    vi.mocked(prismaRead.contract.findUnique).mockResolvedValue({ abi: null } as any);
 
     await setCachedAbi(ADDR, SAMPLE_ABI);
     await deleteCachedAbi(ADDR);
 
-    expect(prisma.contract.update).toHaveBeenCalledWith(
+    expect(prismaWrite.contract.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { address: ADDR } })
     );
 
