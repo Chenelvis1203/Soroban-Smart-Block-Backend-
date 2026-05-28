@@ -9,6 +9,7 @@ import { router } from './api/router';
 import { prismaWrite as prisma } from './db';
 import { startIndexerService } from './indexer/indexer';
 import { tieredRateLimit } from './middleware/rateLimit';
+import { replicaGuard } from './middleware/replicaGuard';
 import { swaggerSpec } from './indexer/swaggerSpec';
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(tieredRateLimit);
+app.use(replicaGuard);
 
 // Interactive API docs
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
