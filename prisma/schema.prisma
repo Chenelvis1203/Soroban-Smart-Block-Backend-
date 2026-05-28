@@ -43,7 +43,7 @@ model Contract {
 
   transactions Transaction[]
   events       Event[]
-  sessionAuthorizations SessionAuthorization[]
+  sessionAuthorizations SessionAuthorization[] @relation(name: "SessionAuthorizations")
 
   @@index([address])
 }
