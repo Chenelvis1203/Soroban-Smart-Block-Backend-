@@ -193,6 +193,40 @@ model VerificationJob {
   @@index([status])
 }
 
+// Persistent contract state key tracking for eviction monitoring (#57, #58)
+model ContractState {
+  id                String   @id @default(cuid())
+  contractAddress   String
+  ledgerKey         String   // base64 XDR of the LedgerKey
+  keyType           String   // "contractData" | "contractCode" | "account"
+  status            String   @default("Live")  // "Live" | "Archived" | "Dead"
+  liveUntilLedgerSeq Int?    // from TTL entry; null = unknown
+  lastSeenLedger    Int
+  restoredAtLedger  Int?     // set when status transitions back to Live
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([contractAddress, ledgerKey])
+  @@index([contractAddress])
+  @@index([status])
+  @@index([liveUntilLedgerSeq])
+}
+
+// Log of RestoreFootprintOp restorations (#58)
+model RestorationLog {
+  id              String   @id @default(cuid())
+  transactionHash String   @unique
+  sourceAccount   String
+  ledgerSequence  Int
+  ledgerCloseTime DateTime
+  feeCharged      String?
+  restoredKeys    Json     // array of { ledgerKey, contractAddress }
+  createdAt       DateTime @default(now())
+
+  @@index([sourceAccount])
+  @@index([ledgerSequence])
+}
+
 model FailedItem {
   id          String   @id @default(cuid())
   itemType    String   // "transaction" | "event"
