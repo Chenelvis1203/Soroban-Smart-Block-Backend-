@@ -110,6 +110,20 @@ export function decodeEvent(
 }
 
 function normalizeEventType(raw: string): string {
-  const known = ['transfer', 'mint', 'burn', 'swap', 'approve', 'add_liquidity', 'remove_liquidity'];
-  return known.includes(raw.toLowerCase()) ? raw.toLowerCase() : 'custom';
+  const known = [
+    'transfer',
+    'mint',
+    'burn',
+    'swap',
+    'approve',
+    'add_liquidity',
+    'remove_liquidity',
+    'session_authorization',
+    'authorize_session',
+    'hot_signer_authorized',
+    'ephemeral_key_auth',
+    'authorization_window',
+  ];
+  const normalized = raw.toLowerCase();
+  return known.includes(normalized) ? normalized : normalized || 'custom';
 }

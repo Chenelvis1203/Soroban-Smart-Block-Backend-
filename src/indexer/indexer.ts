@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import { prisma } from '../db';
 import { config } from '../config';
-import { fetchEvents, getLatestLedger, getRpcWebsocketUrl, getTransaction } from './rpc';
+import { fetchEvents, getLatestLedger, getRpcWebsocketUrl, getTransaction, type LedgerEvent } from './rpc';
 import { decodeTransaction, decodeEvent } from './decoder';
 
 const BATCH = config.indexerBatchSize;
@@ -63,11 +63,12 @@ async function processLedgerRange(start: number, end: number) {
     }
 
     const { eventType, decoded } = decodeEvent(event.topics, event.data);
+    const eventId = `${event.transactionHash}-${event.topics[0] ?? '0'}`;
     await prisma.event.upsert({
-      where: { id: `${event.transactionHash}-${event.topics[0] ?? '0'}` },
+      where: { id: eventId },
       update: {},
       create: {
-        id: `${event.transactionHash}-${event.topics[0] ?? '0'}`,
+        id: eventId,
         transactionHash: event.transactionHash,
         contractAddress: event.contractId,
         eventType,
@@ -78,9 +79,141 @@ async function processLedgerRange(start: number, end: number) {
         ledgerCloseTime: event.ledgerCloseTime,
       },
     });
+
+    await processSessionAuthorization(event, eventType, decoded, eventId);
   }
 
   console.log(`Processed ${events.length} events in ledgers ${start}–${end}`);
+}
+
+async function processSessionAuthorization(
+  event: LedgerEvent,
+  eventType: string,
+  decoded: Record<string, unknown>,
+  eventId: string,
+) {
+  const knownAuthEvents = new Set([
+    'session_authorization',
+    'authorize_session',
+    'hot_signer_authorized',
+    'ephemeral_key_auth',
+    'authorization_window',
+  ]);
+  if (!knownAuthEvents.has(eventType)) {
+    return;
+  }
+
+  const hotSigner = extractHotSigner(decoded, event.topics);
+  const startLedger = extractStartLedger(decoded, event.ledger);
+  const expiryLedger = extractExpiryLedger(decoded, startLedger);
+  if (!hotSigner || expiryLedger === undefined || expiryLedger <= startLedger) {
+    return;
+  }
+
+  const allocatedBlocks = Math.max(0, expiryLedger - startLedger);
+
+  await prisma.sessionAuthorization.upsert({
+    where: { eventId },
+    update: {
+      hotSigner,
+      authorizationType: eventType,
+      startLedger,
+      expiryLedger,
+      allocatedBlocks,
+      contractAddress: event.contractId,
+    },
+    create: {
+      eventId,
+      contractAddress: event.contractId,
+      hotSigner,
+      authorizationType: eventType,
+      startLedger,
+      expiryLedger,
+      allocatedBlocks,
+    },
+  });
+}
+
+function extractHotSigner(decoded: Record<string, unknown>, topics: string[]) {
+  if (decoded?.hotSigner) {
+    return String(decoded.hotSigner);
+  }
+  if (decoded?.authorizedSigner) {
+    return String(decoded.authorizedSigner);
+  }
+  if (decoded?.data && typeof decoded.data === 'object' && decoded.data !== null) {
+    const candidate = getNumericOrStringField(decoded.data as Record<string, unknown>, [
+      'hotSigner',
+      'authorizedSigner',
+      'signer',
+      'address',
+    ]);
+    if (candidate) {
+      return String(candidate);
+    }
+  }
+  if (Array.isArray(decoded.topics) && decoded.topics[1] != null) {
+    return String(decoded.topics[1]);
+  }
+  if (topics[1]) {
+    return topics[1];
+  }
+  return undefined;
+}
+
+function extractStartLedger(decoded: Record<string, unknown>, defaultLedger: number) {
+  const rawStart = decoded?.data && typeof decoded.data === 'object'
+    ? getNumericOrStringField(decoded.data as Record<string, unknown>, ['startLedger', 'start_block', 'fromLedger'])
+    : undefined;
+  const parsed = rawStart !== undefined ? Number(rawStart) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultLedger;
+}
+
+function extractExpiryLedger(decoded: Record<string, unknown>, startLedger: number) {
+  const data = decoded?.data;
+  const rawExpiry = typeof data === 'object' && data !== null
+    ? getNumericOrStringField(data as Record<string, unknown>, [
+        'expiryLedger',
+        'expiresAtLedger',
+        'expires_at_ledger',
+        'expirationLedger',
+        'validUntilLedger',
+        'expiresAtBlock',
+        'expiryBlock',
+      ])
+    : undefined;
+
+  if (rawExpiry !== undefined) {
+    const expiry = Number(rawExpiry);
+    if (Number.isFinite(expiry) && expiry > 0) {
+      return expiry;
+    }
+  }
+
+  const duration = typeof data === 'object' && data !== null
+    ? getNumericOrStringField(data as Record<string, unknown>, [
+        'durationBlocks',
+        'allocatedBlocks',
+        'windowBlocks',
+        'expiresInBlocks',
+      ])
+    : undefined;
+  const parsedDuration = duration !== undefined ? Number(duration) : NaN;
+  if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+    return startLedger + parsedDuration;
+  }
+
+  return undefined;
+}
+
+function getNumericOrStringField(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 function sleep(ms: number) {

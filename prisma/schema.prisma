@@ -73,6 +73,25 @@ model Event {
   @@index([ledger])
 }
 
+model SessionAuthorization {
+  id                String   @id @default(cuid())
+  eventId           String?  @unique
+  contractAddress   String
+  hotSigner         String
+  authorizationType String
+  startLedger       Int
+  expiryLedger      Int
+  allocatedBlocks   Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  contract Contract? @relation(fields: [contractAddress], references: [address])
+
+  @@index([contractAddress])
+  @@index([hotSigner])
+  @@index([expiryLedger])
+}
+
 model IndexerState {
   id            String   @id @default("singleton")
   lastLedger    Int      @default(0)
