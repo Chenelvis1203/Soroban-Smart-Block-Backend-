@@ -185,6 +185,7 @@ model VerificationJob {
   matched         Boolean?
   errorMsg        String?
   logs            String?  // compiler stdout/stderr
+  sourceFiles     Json?    // extracted source files: [{ path, content }]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

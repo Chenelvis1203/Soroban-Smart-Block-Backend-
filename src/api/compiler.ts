@@ -112,6 +112,46 @@ export function hashFile(filePath: string): string {
   return crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
+export interface SourceFile {
+  path: string;
+  content: string;
+}
+
+/**
+ * Recursively collects .rs source files from a project directory.
+ * Returns at most 50 files, each capped at 64 KB.
+ */
+export async function extractSourceFiles(projectDir: string): Promise<SourceFile[]> {
+  const results: SourceFile[] = [];
+  const MAX_FILES = 50;
+  const MAX_BYTES = 64 * 1024;
+
+  async function walk(dir: string, base: string): Promise<void> {
+    if (results.length >= MAX_FILES) return;
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (results.length >= MAX_FILES) break;
+      const full = path.join(dir, entry.name);
+      const rel = path.join(base, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'target' || entry.name === '.git') continue;
+        await walk(full, rel);
+      } else if (entry.isFile() && entry.name.endsWith('.rs')) {
+        const stat = await fs.promises.stat(full);
+        const size = Math.min(stat.size, MAX_BYTES);
+        const buf = Buffer.alloc(size);
+        const fd = await fs.promises.open(full, 'r');
+        await fd.read(buf, 0, size, 0);
+        await fd.close();
+        results.push({ path: rel, content: buf.toString('utf8') });
+      }
+    }
+  }
+
+  await walk(projectDir, '');
+  return results;
+}
+
 /**
  * Cleans up a temp directory, ignoring errors.
  */

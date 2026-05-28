@@ -3,7 +3,7 @@ import multer from 'multer';
 import * as path from 'path';
 import * as os from 'os';
 import { prisma } from '../db';
-import { extractArchive, compileSandboxed, hashFile, cleanupDir } from './compiler';
+import { extractArchive, compileSandboxed, hashFile, cleanupDir, extractSourceFiles } from './compiler';
 
 export const verifyRouter = Router();
 
@@ -56,6 +56,23 @@ verifyRouter.get('/:id', async (req: Request, res: Response) => {
   res.json(job);
 });
 
+// GET /verify/:id/snippet — return extracted source code files for a verification job
+verifyRouter.get('/:id/snippet', async (req: Request, res: Response) => {
+  const job = await prisma.verificationJob.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, status: true, sourceFiles: true },
+  });
+  if (!job) {
+    res.status(404).json({ error: 'Job not found' });
+    return;
+  }
+  if (!job.sourceFiles) {
+    res.status(404).json({ error: 'Source files not available. Job may still be pending or failed before extraction.' });
+    return;
+  }
+  res.json({ jobId: job.id, status: job.status, files: job.sourceFiles });
+});
+
 // ── async worker ─────────────────────────────────────────────────────────────
 
 async function runVerification(
@@ -71,6 +88,13 @@ async function runVerification(
     await prisma.verificationJob.update({ where: { id: jobId }, data: { status: 'compiling' } });
 
     extractedDir = await extractArchive(archivePath, mimeType);
+
+    // Capture source files before compilation (they get cleaned up after)
+    const sourceFiles = await extractSourceFiles(extractedDir).catch(() => []);
+    if (sourceFiles.length > 0) {
+      await prisma.verificationJob.update({ where: { id: jobId }, data: { sourceFiles } });
+    }
+
     const { wasmHash, logs } = await compileSandboxed(extractedDir, toolchain);
 
     // Optionally fetch on-chain Wasm hash via RPC
