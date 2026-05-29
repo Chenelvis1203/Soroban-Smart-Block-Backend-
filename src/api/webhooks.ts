@@ -12,6 +12,48 @@ const createSchema = z.object({
   topicSymbol: z.string().optional(),
 });
 
+/**
+ * @swagger
+ * /webhooks:
+ *   post:
+ *     summary: Register a webhook subscription
+ *     description: >
+ *       Register a server endpoint to receive on-chain contract event
+ *       notifications. Each delivery is signed with HMAC-SHA256 using the
+ *       provided secret (X-Webhook-Signature header). Failed deliveries are
+ *       retried with exponential backoff (up to 5 attempts).
+ *     tags: [Webhooks]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [url]
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *                 description: HTTPS endpoint to receive webhook payloads
+ *               secret:
+ *                 type: string
+ *                 minLength: 8
+ *                 description: Signing secret for HMAC-SHA256 signature verification
+ *               contractAddress:
+ *                 type: string
+ *                 description: Filter to a specific contract (omit for all contracts)
+ *               eventType:
+ *                 type: string
+ *                 description: Filter to a specific event type (e.g. "transfer")
+ *               topicSymbol:
+ *                 type: string
+ *                 description: Filter to a specific topic symbol
+ *     responses:
+ *       201:
+ *         description: Subscription created
+ *       400:
+ *         description: Validation error
+ */
 // POST /webhooks — register a new subscription
 webhooksRouter.post('/', async (req: Request, res: Response) => {
   const parsed = createSchema.safeParse(req.body);
@@ -21,6 +63,16 @@ webhooksRouter.post('/', async (req: Request, res: Response) => {
   res.status(201).json(sub);
 });
 
+/**
+ * @swagger
+ * /webhooks:
+ *   get:
+ *     summary: List webhook subscriptions
+ *     tags: [Webhooks]
+ *     responses:
+ *       200:
+ *         description: List of subscriptions (secrets omitted)
+ */
 // GET /webhooks — list all subscriptions
 webhooksRouter.get('/', async (_req: Request, res: Response) => {
   const subs = await prismaRead.webhookSubscription.findMany({
@@ -30,6 +82,23 @@ webhooksRouter.get('/', async (_req: Request, res: Response) => {
   res.json({ data: subs });
 });
 
+/**
+ * @swagger
+ * /webhooks/{id}:
+ *   delete:
+ *     summary: Delete a webhook subscription
+ *     tags: [Webhooks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       204:
+ *         description: Deleted
+ *       404:
+ *         description: Not found
+ */
 // DELETE /webhooks/:id — remove a subscription
 webhooksRouter.delete('/:id', async (req: Request, res: Response) => {
   try {
@@ -40,6 +109,32 @@ webhooksRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /webhooks/{id}:
+ *   patch:
+ *     summary: Enable or disable a webhook subscription
+ *     tags: [Webhooks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [active]
+ *             properties:
+ *               active: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Updated subscription
+ *       404:
+ *         description: Not found
+ */
 // PATCH /webhooks/:id — enable / disable
 webhooksRouter.patch('/:id', async (req: Request, res: Response) => {
   const { active } = z.object({ active: z.boolean() }).parse(req.body);
@@ -51,6 +146,22 @@ webhooksRouter.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /webhooks/{id}/deliveries:
+ *   get:
+ *     summary: Get delivery history for a webhook subscription
+ *     description: Returns the last 50 delivery attempts including status, HTTP response, and retry schedule.
+ *     tags: [Webhooks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Delivery history
+ */
 // GET /webhooks/:id/deliveries — delivery history for a subscription
 webhooksRouter.get('/:id/deliveries', async (req: Request, res: Response) => {
   const deliveries = await prismaRead.webhookDelivery.findMany({

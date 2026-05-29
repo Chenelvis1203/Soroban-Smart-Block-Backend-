@@ -2,6 +2,30 @@ import rateLimit from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
 
 /**
+ * @swagger
+ * components:
+ *   schemas:
+ *     RateLimitInfo:
+ *       type: object
+ *       description: >
+ *         IP-based rate limiting is applied to all API endpoints. Pass an
+ *         X-API-Key header to access higher throughput tiers.
+ *       properties:
+ *         tiers:
+ *           type: object
+ *           properties:
+ *             public:
+ *               type: string
+ *               example: "100 requests/minute (no key required)"
+ *             developer:
+ *               type: string
+ *               example: "300 requests/minute (API_KEYS_DEVELOPER)"
+ *             premium:
+ *               type: string
+ *               example: "1000 requests/minute (API_KEYS_PREMIUM)"
+ */
+
+/**
  * API-key tiers (set via X-API-Key header).
  * Keys are loaded from env: API_KEYS_DEVELOPER, API_KEYS_PREMIUM (comma-separated).
  */

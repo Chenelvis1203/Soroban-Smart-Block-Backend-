@@ -19,6 +19,57 @@ const listSchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
 });
 
+/**
+ * @swagger
+ * /storage:
+ *   get:
+ *     summary: List storage efficiency logs
+ *     description: >
+ *       Returns per-transaction storage efficiency records showing declared
+ *       footprint bytes vs actual bytes consumed. The delta (unusedBytes) is
+ *       the unutilised storage space developers are paying rent on.
+ *     tags: [Storage]
+ *     parameters:
+ *       - in: query
+ *         name: contract
+ *         schema: { type: string }
+ *         description: Filter by contract address
+ *       - in: query
+ *         name: ledgerMin
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: ledgerMax
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: minEfficiency
+ *         schema: { type: number, minimum: 0, maximum: 100 }
+ *         description: Minimum efficiency percentage (0–100)
+ *       - in: query
+ *         name: maxEfficiency
+ *         schema: { type: number, minimum: 0, maximum: 100 }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20, maximum: 100 }
+ *     responses:
+ *       200:
+ *         description: Paginated list of storage efficiency logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/StorageEfficiencyLog'
+ *                 total: { type: integer }
+ *                 page: { type: integer }
+ *                 limit: { type: integer }
+ *                 pages: { type: integer }
+ */
 storageRouter.get('/', async (req: Request, res: Response) => {
   try {
     const q = listSchema.parse(req.query);
@@ -55,6 +106,32 @@ storageRouter.get('/', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /storage/{txHash}:
+ *   get:
+ *     summary: Get storage efficiency log for a transaction
+ *     description: >
+ *       Returns the storage footprint vs actual usage breakdown for a single
+ *       transaction. Use unusedBytes to see how much rent-paying storage was
+ *       declared but not consumed.
+ *     tags: [Storage]
+ *     parameters:
+ *       - in: path
+ *         name: txHash
+ *         required: true
+ *         schema: { type: string }
+ *         description: Transaction hash
+ *     responses:
+ *       200:
+ *         description: Storage efficiency log
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/StorageEfficiencyLog'
+ *       404:
+ *         description: Not found
+ */
 storageRouter.get('/:txHash', async (req: Request, res: Response) => {
   const row = await prisma.storageEfficiencyLog.findUnique({
     where: { transactionHash: req.params.txHash },
