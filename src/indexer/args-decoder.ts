@@ -1,5 +1,6 @@
 import { xdr, scValToNative, Address } from '@stellar/stellar-sdk';
 import type { AbiParam } from './registry';
+import { isCheckedArithmeticFunction, analyzeCheckedArithmetic, checkedArithmeticToDecodedArg } from './checked-arithmetic-decoder';
 
 export interface DecodedArg {
   raw: unknown;       // native JS value (BigInt, string, object, …)
@@ -29,6 +30,12 @@ export function decodeScVal(val: xdr.ScVal, param: AbiParam, decimals?: number):
       case type === 'i32' || type === 'u32': {
         const raw = scValToNative(val) as number;
         return { raw, formatted: String(raw) };
+      }
+
+      // ── 256-bit Integers ──────────────────────────────────────────────────
+      case type === 'i256' || type === 'u256': {
+        const raw = decode256BitInteger(val);
+        return { raw, formatted: raw?.toString() ?? 'invalid' };
       }
 
       // ── Address ───────────────────────────────────────────────────────────
@@ -126,6 +133,34 @@ export function decodeTypedArgs(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extract a 256-bit integer from an ScVal.
+ * Handles both i256 and u256 types.
+ */
+function decode256BitInteger(val: xdr.ScVal): bigint | null {
+  const typeName = val.switch().name;
+
+  if (typeName === 'scvI256') {
+    const parts = val.i256();
+    const hiHi = BigInt(parts.hiHi().toString());
+    const hiLo = BigInt(parts.hiLo().toString());
+    const loHi = BigInt(parts.loHi().toString());
+    const loLo = BigInt(parts.loLo().toString());
+    return (hiHi << 192n) | (hiLo << 128n) | (loHi << 64n) | loLo;
+  }
+
+  if (typeName === 'scvU256') {
+    const parts = val.u256();
+    const hiHi = BigInt(parts.hiHi().toString());
+    const hiLo = BigInt(parts.hiLo().toString());
+    const loHi = BigInt(parts.loHi().toString());
+    const loLo = BigInt(parts.loLo().toString());
+    return (hiHi << 192n) | (hiLo << 128n) | (loHi << 64n) | loLo;
+  }
+
+  return null;
+}
 
 /**
  * Format a bigint amount with 7 decimal places (Stellar standard) or custom decimals.
