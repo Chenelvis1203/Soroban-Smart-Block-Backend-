@@ -40,8 +40,13 @@ export function decodeScVal(val: xdr.ScVal, param: AbiParam, decimals?: number):
 
       // ── Address ───────────────────────────────────────────────────────────
       case type === 'address': {
-        const raw = Address.fromScVal(val).toString();
-        return { raw, formatted: raw };
+        try {
+          const raw = Address.fromScVal(val).toString();
+          return { raw, formatted: raw };
+        } catch {
+          const raw = String(scValToNative(val));
+          return { raw, formatted: raw };
+        }
       }
 
       // ── Bool ──────────────────────────────────────────────────────────────
