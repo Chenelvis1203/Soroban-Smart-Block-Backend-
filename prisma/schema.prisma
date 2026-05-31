@@ -688,6 +688,69 @@ model AccountActivation {
   @@index([ledgerSequence])
 }
 
+// #218: DTCC Tokenized Securities Settlement ID Bridge
+// Maps on-chain Soroban settlement transactions to DTCC settlement IDs
+model DtccSettlementBridge {
+  id                  String   @id @default(cuid())
+  transactionHash     String   @unique
+  dtccSettlementId    String   // DTCC-assigned settlement identifier (e.g. "DTCC-2026-0001234")
+  securityId          String   // ISIN or CUSIP of the tokenized security
+  securityType        String   // "equity" | "bond" | "etf" | "other"
+  sellerAddress       String   // Soroban address of the seller
+  buyerAddress        String   // Soroban address of the buyer
+  quantity            String   // token quantity (string for precision)
+  settlementAmount    String   // cash leg amount in USD cents (string for precision)
+  currency            String   @default("USD")
+  settlementStatus    String   @default("pending") // "pending" | "settled" | "failed" | "cancelled"
+  settlementDate      DateTime?
+  contractAddress     String?  // tokenized security contract
+  ledgerSequence      Int
+  ledgerCloseTime     DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([dtccSettlementId])
+  @@index([securityId])
+  @@index([sellerAddress])
+  @@index([buyerAddress])
+  @@index([settlementStatus])
+  @@index([ledgerSequence])
+}
+
+// #219: Commodity Compliance Dual-Signer Verification Log
+// Records dual-signer approval events for regulated commodity transactions
+model CommodityDualSignerLog {
+  id                  String   @id @default(cuid())
+  transactionHash     String   @unique
+  commodityType       String   // "crude_oil" | "natural_gas" | "gold" | "wheat" | "other"
+  commodityCode       String   // standardized commodity code (e.g. "WTI", "XAU")
+  contractAddress     String   // commodity token contract
+  traderAddress       String   // initiating trader
+  primarySignerAddress  String // first required signer
+  secondarySignerAddress String // second required signer
+  primarySigned       Boolean  @default(false)
+  secondarySigned     Boolean  @default(false)
+  bothSigned          Boolean  @default(false)
+  quantity            String   // commodity quantity
+  unit                String   // "barrel" | "troy_oz" | "bushel" | "mmbtu" | "other"
+  notionalValueUsd    String?  // estimated USD value
+  regulatoryJurisdiction String @default("CFTC") // "CFTC" | "FCA" | "ESMA" | "other"
+  complianceStatus    String   @default("pending") // "pending" | "approved" | "rejected" | "expired"
+  expiresAt           DateTime?
+  ledgerSequence      Int
+  ledgerCloseTime     DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([commodityCode])
+  @@index([contractAddress])
+  @@index([traderAddress])
+  @@index([primarySignerAddress])
+  @@index([secondarySignerAddress])
+  @@index([complianceStatus])
+  @@index([ledgerSequence])
+}
+
 // i18n translation dictionary
 model TranslationKey {
   id              String   @id @default(cuid())

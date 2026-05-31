@@ -23,6 +23,8 @@ import { analyticsRouter } from './analytics';
 import { portfolioRouter } from './portfolio';
 import { exportsRouter } from './exports';
 import { syncStateRouter } from './sync-state';
+import { dtccSettlementRouter } from './dtcc-settlement';
+import { commodityComplianceRouter } from './commodity-compliance';
 
 export const router = Router();
 
@@ -49,3 +51,5 @@ router.use('/analytics', analyticsRouter);
 router.use('/portfolio', portfolioRouter);
 router.use('/exports', exportsRouter);
 router.use('/sync-state', syncStateRouter);
+router.use('/dtcc-settlement', dtccSettlementRouter);
+router.use('/commodity-compliance', commodityComplianceRouter);
