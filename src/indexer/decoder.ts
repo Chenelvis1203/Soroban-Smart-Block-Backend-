@@ -2,6 +2,7 @@ import { xdr, scValToNative } from '@stellar/stellar-sdk';
 import { getContractAbi, decodeArgs, renderHuman } from './registry';
 import { parseInvokeHostFunction } from './xdr-parser';
 import { parseSep41Event, isSep41Event } from './sep41-parser';
+import { parseRwaEnforcementEvent, isRwaEnforcementEvent } from './rwa-enforcement-normalizer';
 import { prismaRead as prisma } from '../db';
 import { decodeMastercardFlags } from './identity-verifier';
 
@@ -157,6 +158,25 @@ export function decodeEvent(
       }
     }
 
+    // ── RWA enforcement fast path ───────────────────────────────────────────
+    if (isRwaEnforcementEvent(rawSymbol)) {
+      const parsed = parseRwaEnforcementEvent(topics, data);
+      if (parsed) {
+        return {
+          eventType: rawSymbol,
+          topicSymbol: rawSymbol,
+          decoded: {
+            event: rawSymbol,
+            humanReadable: parsed.humanReadable,
+            issuer: parsed.issuer,
+            from: parsed.from,
+            ...(parsed.amount !== undefined && { amount: parsed.amount }),
+            ...(parsed.reason !== undefined && { reason: parsed.reason }),
+          },
+        };
+      }
+    }
+
     // ── Generic fallback ────────────────────────────────────────────────────
     const dataVal = xdr.ScVal.fromXDR(data, 'base64');
     const decoded: Record<string, unknown> = {
@@ -187,6 +207,9 @@ function normalizeEventType(raw: string): string {
     'hot_signer_authorized',
     'ephemeral_key_auth',
     'authorization_window',
+    'freeze',
+    'seize',
+    'regulatory_action',
   ];
   const normalized = raw.toLowerCase();
   return known.includes(normalized) ? normalized : 'custom';
