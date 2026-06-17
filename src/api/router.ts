@@ -31,7 +31,9 @@ import { settlementBatchRouter } from './settlement-batch';
 import { governanceRouter } from './governance';
 import { systemicRouter } from './systemic';
 import { benchmarkRouter } from './benchmarks';
-import { searchRouter } from './search';
+import { networkRouter } from './network';
+import { emergencyBaseRouter } from './emergency-router';
+import { stellarRouter } from './stellar';
 
 export const router = Router();
 
@@ -66,4 +68,6 @@ router.use('/settlement-batch', settlementBatchRouter);
 router.use('/governance', governanceRouter);
 router.use('/systemic', systemicRouter);
 router.use('/benchmarks', benchmarkRouter);
-router.use('/search', searchRouter);
+router.use('/network', networkRouter);
+router.use('/emergency', emergencyBaseRouter);
+router.use('/stellar', stellarRouter);

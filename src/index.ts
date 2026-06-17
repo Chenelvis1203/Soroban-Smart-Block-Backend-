@@ -24,6 +24,9 @@ import { startGasAnalyticsScheduler } from './indexer/gasAnalytics';
 import { startPortfolioScanner } from './indexer/portfolioScanner';
 import { startVolumeAlertScheduler } from './indexer/volumeAlertRunner';
 import { startSystemicMonitor } from './indexer/systemicMonitor';
+import { startNetworkIndexer } from './indexer/network-indexer';
+import { startEmergencyIndexer } from './indexer/emergency-indexer';
+import { startHealthScoreScheduler } from './indexer/health-scorer';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './logger';
 
@@ -77,6 +80,15 @@ async function main() {
     startPortfolioScanner();
     startVolumeAlertScheduler();
     startSystemicMonitor();
+    startNetworkIndexer().catch((err) =>
+      logger.error('Network indexer failed', { error: String(err) }),
+    );
+    startEmergencyIndexer().catch((err) =>
+      logger.warn('Emergency indexer failed to start', { error: String(err) }),
+    );
+    startHealthScoreScheduler().catch((err) =>
+      logger.warn('Health score scheduler failed to start', { error: String(err) }),
+    );
   }
 
   const httpServer = createServer(app);

@@ -1404,3 +1404,483 @@ model FreezeViolation {
 
   @@index([transactionHash])
 }
+
+// ── Soroban Network Observatory ──────────────────────────────────────────────
+
+enum NodeType {
+  validator
+  full_node
+  watcher
+  archival
+  unknown
+}
+
+enum AlertSeverity {
+  critical
+  warning
+  info
+}
+
+model NetworkNode {
+  id              String   @id @default(cuid())
+  publicKey       String   @unique
+  name            String?
+  organization    String?
+  homeDomain      String?
+  version         String?
+  ledgerVersion   Int?
+  overlayVersion  Int?
+  maxLedgerAge    Int?
+  quorumSet       Json?
+  isValidator     Boolean  @default(false)
+  activeInNetwork Boolean  @default(true)
+  firstSeen       DateTime
+  lastSeen        DateTime
+  uptime24h       Float?
+  uptime7d        Float?
+  uptime30d       Float?
+  avgLatency      Int?
+  p95Latency      Int?
+  agreementRate24h Float?
+  agreementRate7d  Float?
+  agreementRate30d Float?
+  missedSlots24h   Int?
+  missedSlots7d    Int?
+  country         String?
+  city            String?
+  latitude        Float?
+  longitude       Float?
+  organizationUrl String?
+  softwareVersion String?
+  stellarCoreVersion String?
+  historyArchiveUrl String?
+  peerCount       Int?
+  transitiveQuorum Json?
+  nodeType        NodeType @default(unknown)
+  lastHeartbeat   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  nodeEvents      NetworkNodeEvent[]
+  nodeMetrics     NetworkNodeMetric[]
+
+  @@index([publicKey])
+  @@index([isValidator])
+  @@index([activeInNetwork])
+  @@index([lastSeen])
+}
+
+model NetworkNodeEvent {
+  id        String   @id @default(cuid())
+  nodeId    String
+  node      NetworkNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  eventType String
+  details   Json?
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([nodeId])
+  @@index([eventType])
+  @@index([timestamp])
+}
+
+model NetworkNodeMetric {
+  id            String   @id @default(cuid())
+  nodeId        String
+  node          NetworkNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  timestamp     DateTime @default(now())
+  ledgerNum     Int?
+  latency       Int?
+  agreementRate Float?
+  peerCount     Int?
+  createdAt     DateTime @default(now())
+
+  @@index([nodeId, timestamp])
+  @@index([timestamp])
+}
+
+model NetworkConsensusRound {
+  id             String   @id @default(cuid())
+  ledgerSeq      Int      @unique
+  startTime      DateTime
+  endTime        DateTime
+  durationMs     Int
+  externalizeTimeMs Int?
+  txCount        Int
+  successful     Boolean  @default(true)
+  agreementRate  Float?
+  nodesParticipated Int
+  quorumSetSize  Int
+  missedNodes    Json?
+  topologyHash   String?
+  createdAt      DateTime @default(now())
+
+  @@index([ledgerSeq])
+  @@index([startTime])
+  @@index([successful])
+}
+
+model NetworkAlert {
+  id             String   @id @default(cuid())
+  alertType      String
+  severity       AlertSeverity
+  title          String
+  description    String
+  affectedNodes  Json?
+  metricData     Json?
+  acknowledged   Boolean  @default(false)
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([alertType])
+  @@index([severity])
+  @@index([acknowledged])
+  @@index([createdAt])
+}
+
+// ─── Emergency Response Platform ─────────────────────────────────────────────
+
+model EmergencyState {
+  id                       String    @id @default(cuid())
+  contractAddress          String    @unique @map("contract_address")
+  isPaused                 Boolean   @default(false) @map("is_paused")
+  currentPauseId           String?   @map("current_pause_id")
+  totalPauseCount          Int       @default(0) @map("total_pause_count")
+  totalPausedSeconds       BigInt    @default(0) @map("total_paused_seconds")
+  lastPauseDurationSeconds BigInt?   @map("last_pause_duration_seconds")
+  pauserType               String?   @map("pauser_type")
+  decentralizationScore    Decimal?  @map("decentralization_score") @db.Decimal(5, 2)
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@index([contractAddress])
+  @@map("emergency_states")
+}
+
+model PauseEvent {
+  id              String    @id @default(cuid())
+  contractAddress String    @map("contract_address")
+  eventType       String    @map("event_type")
+  pauserAddress   String?   @map("pauser_address")
+  reason          String?
+  txHash          String    @map("tx_hash")
+  blockNumber     BigInt    @map("block_number")
+  timestamp       DateTime
+  durationSeconds BigInt?   @map("duration_seconds")
+  gasCost         BigInt?   @map("gas_cost")
+  metadata        Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  incidentReports IncidentReport[]
+
+  @@index([contractAddress])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([pauserAddress])
+  @@map("pause_events")
+}
+
+model PauserAnalysis {
+  id                    String    @id @default(cuid())
+  contractAddress       String    @unique @map("contract_address")
+  pauserType            String    @map("pauser_type")
+  pauserAddresses       String[]  @map("pauser_addresses")
+  unpauserAddresses     String[]  @map("unpauser_addresses")
+  threshold             Int?
+  totalSigners          Int?      @map("total_signers")
+  timelockDelaySeconds  BigInt?   @map("timelock_delay_seconds")
+  governanceContract    String?   @map("governance_contract")
+  automaticTriggers     Json?     @map("automatic_triggers")
+  analysisMethod        String?   @map("analysis_method")
+  lastAnalyzed          DateTime  @default(now()) @map("last_analyzed")
+
+  @@map("pauser_analyses")
+}
+
+model RecoveryAnalysis {
+  id                      String    @id @default(cuid())
+  contractAddress         String    @unique @map("contract_address")
+  hasFundRecovery         Boolean   @default(false) @map("has_fund_recovery")
+  fundRecoveryFunctions   String[]  @map("fund_recovery_functions")
+  hasUpgradeCapability    Boolean   @default(false) @map("has_upgrade_capability")
+  upgradeFunctions        String[]  @map("upgrade_functions")
+  hasMigrationCapability  Boolean   @default(false) @map("has_migration_capability")
+  migrationFunctions      String[]  @map("migration_functions")
+  hasStateRollback        Boolean   @default(false) @map("has_state_rollback")
+  rollbackFunctions       String[]  @map("rollback_functions")
+  recoveryRobustnessScore Decimal?  @map("recovery_robustness_score") @db.Decimal(5, 2)
+  analysisDetails         Json?     @map("analysis_details")
+  lastAnalyzed            DateTime  @default(now()) @map("last_analyzed")
+
+  @@map("recovery_analyses")
+}
+
+model AlertConfiguration {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  contractAddress String?   @map("contract_address")
+  name            String?
+  alertType       String    @map("alert_type")
+  conditions      Json?
+  channels        Json
+  isActive        Boolean   @default(true) @map("is_active")
+  cooldownMinutes Int       @default(60) @map("cooldown_minutes")
+  lastTriggeredAt DateTime? @map("last_triggered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([contractAddress])
+  @@map("alert_configurations")
+}
+
+model IncidentReport {
+  id                   String    @id @default(cuid())
+  contractAddress      String    @map("contract_address")
+  severity             String
+  status               String    @default("open")
+  pauseEventId         String?   @map("pause_event_id")
+  title                String
+  description          String?
+  timeline             Json?
+  affectedUsersEstimate BigInt?  @map("affected_users_estimate")
+  affectedTvlEstimate  Decimal?  @map("affected_tvl_estimate") @db.Decimal(30, 0)
+  rootCause            String?   @map("root_cause")
+  resolutionNotes      String?   @map("resolution_notes")
+  resolvedAt           DateTime? @map("resolved_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  pauseEvent PauseEvent? @relation(fields: [pauseEventId], references: [id])
+  comments   IncidentComment[]
+
+  @@index([contractAddress])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
+  @@map("incident_reports")
+}
+
+model IncidentComment {
+  id         String   @id @default(cuid())
+  incidentId String   @map("incident_id")
+  author     String
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  incident IncidentReport @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_comments")
+}
+
+model ProtocolHealthScore {
+  id                  String    @id @default(cuid())
+  contractAddress     String    @unique @map("contract_address")
+  protocolName        String?   @map("protocol_name")
+  totalPauses30d      Int       @default(0) @map("total_pauses_30d")
+  totalPauses90d      Int       @default(0) @map("total_pauses_90d")
+  avgPauseDuration30d BigInt?   @map("avg_pause_duration_30d")
+  totalDowntime30d    BigInt?   @map("total_downtime_30d")
+  lastPauseDate       DateTime? @map("last_pause_date")
+  recoveryScore       Decimal?  @map("recovery_score") @db.Decimal(5, 2)
+  decentralizationScore Decimal? @map("decentralization_score") @db.Decimal(5, 2)
+  healthScore         Decimal?  @map("health_score") @db.Decimal(5, 2)
+  riskLevel           String?   @map("risk_level")
+  computedAt          DateTime  @default(now()) @map("computed_at")
+
+  @@index([healthScore])
+  @@map("protocol_health_scores")
+}
+
+// ── Stellar Ecosystem Integration (Classic + Soroban unified view) ─────────
+
+model StellarAccount {
+  id                    String    @id @default(uuid()) @db.Uuid
+  address               String    @unique @db.VarChar(56)
+  xlmBalance            Decimal   @default(0) @map("xlm_balance") @db.Decimal(30, 7)
+  buyingLiabilities     Decimal   @default(0) @map("buying_liabilities") @db.Decimal(30, 7)
+  sellingLiabilities    Decimal   @default(0) @map("selling_liabilities") @db.Decimal(30, 7)
+  sequenceNumber        BigInt?   @map("sequence_number")
+  subentryCount         Int       @default(0) @map("subentry_count")
+  inflationDestination  String?   @map("inflation_destination") @db.VarChar(56)
+  homeDomain            String?   @map("home_domain") @db.VarChar(255)
+  homeDomainVerified    Boolean   @default(false) @map("home_domain_verified")
+  flags                 Json?
+  thresholds            Json?
+  numSigners            Int       @default(0) @map("num_signers")
+  numTrustlines         Int       @default(0) @map("num_trustlines")
+  numDataEntries        Int       @default(0) @map("num_data_entries")
+  numClaimableBalances  Int       @default(0) @map("num_claimable_balances")
+  isActivated           Boolean   @default(false) @map("is_activated")
+  firstSeen             DateTime? @map("first_seen")
+  lastActivity          DateTime? @map("last_activity")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  trustlines AccountTrustline[]
+  signers    AccountSigner[]
+
+  @@map("stellar_accounts")
+}
+
+model AccountTrustline {
+  id                              BigInt   @id @default(autoincrement())
+  accountId                       String   @map("account_id") @db.Uuid
+  assetCode                       String   @map("asset_code") @db.VarChar(12)
+  assetIssuer                     String   @map("asset_issuer") @db.VarChar(56)
+  balance                         Decimal  @default(0) @db.Decimal(30, 7)
+  limitAmount                     Decimal? @map("limit_amount") @db.Decimal(30, 7)
+  authorized                      Boolean  @default(false)
+  authorizedToMaintainLiabilities Boolean  @default(false) @map("authorized_to_maintain_liabilities")
+  clawbackBalanceSet              Boolean  @default(false) @map("clawback_balance_set")
+  isLiquidityPoolShare            Boolean  @default(false) @map("is_liquidity_pool_share")
+  lastModified                    DateTime @default(now()) @map("last_modified")
+
+  account StellarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, assetCode, assetIssuer])
+  @@map("account_trustlines")
+}
+
+model AccountSigner {
+  id           BigInt   @id @default(autoincrement())
+  accountId    String   @map("account_id") @db.Uuid
+  signerKey    String   @map("signer_key") @db.VarChar(56)
+  signerType   String   @map("signer_type") @db.VarChar(30)
+  weight       Int
+  sponsor      String?  @db.VarChar(56)
+  lastModified DateTime @default(now()) @map("last_modified")
+
+  account StellarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, signerKey])
+  @@map("account_signers")
+}
+
+model StellarAsset {
+  id                 String   @id @default(uuid()) @db.Uuid
+  assetCode          String   @map("asset_code") @db.VarChar(12)
+  assetIssuer        String   @map("asset_issuer") @db.VarChar(56)
+  assetType          String   @map("asset_type") @db.VarChar(20)
+  totalSupply        Decimal  @default(0) @map("total_supply") @db.Decimal(30, 7)
+  numHolders         Int      @default(0) @map("num_holders")
+  numTrustlines      Int      @default(0) @map("num_trustlines")
+  volume24h          Decimal  @default(0) @map("volume_24h") @db.Decimal(30, 7)
+  trades24h          Int      @default(0) @map("trades_24h")
+  isAnchored         Boolean  @default(false) @map("is_anchored")
+  anchorName         String?  @map("anchor_name") @db.VarChar(255)
+  homeDomain         String?  @map("home_domain") @db.VarChar(255)
+  isBridgedToSoroban Boolean  @default(false) @map("is_bridged_to_soroban")
+  sorobanContract    String?  @map("soroban_contract") @db.VarChar(56)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([assetCode, assetIssuer])
+  @@map("stellar_assets")
+}
+
+model UnifiedTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  sourceAccount   String   @map("source_account") @db.VarChar(56)
+  network         String   @db.VarChar(20)
+  txHash          String   @map("tx_hash") @db.VarChar(64)
+  type            String   @db.VarChar(30)
+  subType         String?  @map("sub_type") @db.VarChar(50)
+  amount          Decimal? @db.Decimal(30, 7)
+  assetCode       String?  @map("asset_code") @db.VarChar(12)
+  assetIssuer     String?  @map("asset_issuer") @db.VarChar(56)
+  destination     String?  @db.VarChar(56)
+  fee             Decimal? @db.Decimal(30, 7)
+  memoType        String?  @map("memo_type") @db.VarChar(20)
+  memoContent     String?  @map("memo_content")
+  successful      Boolean
+  createdAt       DateTime @map("created_at")
+  ledgerSequence  Int?     @map("ledger_sequence")
+  operations      Json?
+
+  @@unique([network, txHash])
+  @@index([sourceAccount, createdAt])
+  @@map("unified_transactions")
+}
+
+model AnchorsRegistry {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(255)
+  homeDomain     String   @map("home_domain") @db.VarChar(255)
+  address        String?  @db.VarChar(56)
+  assets         Json
+  regions        String[]
+  kycRequired    Boolean  @default(false) @map("kyc_required")
+  kycTypes       String[] @map("kyc_types")
+  fees           Json?
+  limits         Json?
+  supportedSeps  String[] @map("supported_seps")
+  isVerified     Boolean  @default(false) @map("is_verified")
+  rating         Decimal  @default(0) @db.Decimal(3, 2)
+  reviewCount    Int      @default(0) @map("review_count")
+  status         String   @default("active") @db.VarChar(20)
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  reviews AnchorReview[]
+
+  @@index([homeDomain])
+  @@index([status])
+  @@map("anchors_registry")
+}
+
+model AnchorReview {
+  id        String   @id @default(uuid()) @db.Uuid
+  anchorId  String   @map("anchor_id") @db.Uuid
+  reviewer  String   @db.VarChar(56)
+  rating    Decimal  @db.Decimal(3, 2)
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  anchor AnchorsRegistry @relation(fields: [anchorId], references: [id], onDelete: Cascade)
+
+  @@index([anchorId])
+  @@map("anchor_reviews")
+}
+
+model BridgedAsset {
+  id                   String   @id @default(uuid()) @db.Uuid
+  classicAssetCode     String   @map("classic_asset_code") @db.VarChar(12)
+  classicAssetIssuer   String   @map("classic_asset_issuer") @db.VarChar(56)
+  sorobanContract      String   @unique @map("soroban_contract") @db.VarChar(56)
+  bridgeProtocol       String   @map("bridge_protocol") @db.VarChar(50)
+  bridgeContract       String?  @map("bridge_contract") @db.VarChar(56)
+  totalSupplyClassic   Decimal? @map("total_supply_classic") @db.Decimal(30, 7)
+  totalSupplySoroban   Decimal? @map("total_supply_soroban") @db.Decimal(30, 7)
+  circulationClassic   Decimal? @map("circulation_classic") @db.Decimal(30, 7)
+  circulationSoroban   Decimal? @map("circulation_soroban") @db.Decimal(30, 7)
+  lockedInBridge       Decimal? @map("locked_in_bridge") @db.Decimal(30, 7)
+  totalBridgedVolume   Decimal? @map("total_bridged_volume") @db.Decimal(30, 0)
+  bridgeFee            Decimal? @map("bridge_fee") @db.Decimal(5, 4)
+  status               String   @default("active") @db.VarChar(20)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("bridged_assets")
+}
+
+model StellarNetworkHealth {
+  id                    BigInt   @id @default(autoincrement())
+  nodeCount             Int?     @map("node_count")
+  organizationCount     Int?     @map("organization_count")
+  countriesCount        Int?     @map("countries_count")
+  consensusRoundTimeMs  Int?     @map("consensus_round_time_ms")
+  ledgerCloseTimeMs     Int?     @map("ledger_close_time_ms")
+  latestLedgerSequence  BigInt?  @map("latest_ledger_sequence")
+  protocolVersion       Int?     @map("protocol_version")
+  scpMessagesPerSecond  Decimal? @map("scp_messages_per_second") @db.Decimal(10, 2)
+  networkQuorumSet      Json?    @map("network_quorum_set")
+  topOrganizations      Json?    @map("top_organizations")
+  collectedAt           DateTime @default(now()) @map("collected_at")
+
+  @@map("stellar_network_health")
+}
