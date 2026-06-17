@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { prismaWrite as prisma } from '../db';
 import { logger } from '../logger';

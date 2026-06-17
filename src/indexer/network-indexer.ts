@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Simpler network indexer without complex JSON types
 import axios from 'axios';
 import { prismaWrite as prisma } from '../db';
