@@ -37,7 +37,9 @@ export function deterministicHash(value: unknown): string {
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
-  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
   return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`).join(',')}}`;
 }
 
@@ -71,14 +73,27 @@ export function normalizeAttestation(attestation: AttestationInput): OnChainAtte
     ...attestation,
     uid,
     verified,
-    verificationMessage: verified ? 'attestation has on-chain transaction evidence or valid signature' : 'attestation missing transaction evidence and signature',
+    verificationMessage: verified
+      ? 'attestation has on-chain transaction evidence or valid signature'
+      : 'attestation missing transaction evidence and signature',
   };
 }
 
 export function isAttestationVerifiable(attestation: AttestationInput): boolean {
   if (attestation.revoked) return false;
-  if (!attestation.chainId || !attestation.schemaId || !attestation.attester || !attestation.subject) return false;
-  if (attestation.transactionHash && attestation.blockNumber !== undefined && attestation.blockNumber !== null) return true;
+  if (
+    !attestation.chainId ||
+    !attestation.schemaId ||
+    !attestation.attester ||
+    !attestation.subject
+  )
+    return false;
+  if (
+    attestation.transactionHash &&
+    attestation.blockNumber !== undefined &&
+    attestation.blockNumber !== null
+  )
+    return true;
   return !!attestation.signature;
 }
 
@@ -87,20 +102,24 @@ export function normalizeCredential(credential: VerifiableCredential): Verifiabl
 }
 
 export function isVerifiableCredential(credential: VerifiableCredential): boolean {
-  const context = Array.isArray(credential['@context']) ? credential['@context'] : [credential['@context']];
+  const context = Array.isArray(credential['@context'])
+    ? credential['@context']
+    : [credential['@context']];
   const types = Array.isArray(credential.type) ? credential.type : [credential.type];
   const issuer = typeof credential.issuer === 'string' ? credential.issuer : credential.issuer?.id;
-  return context.some((item) => item.includes('w3.org/ns/credentials'))
-    && types.includes('VerifiableCredential')
-    && Boolean(credential.id)
-    && Boolean(issuer)
-    && !Number.isNaN(Date.parse(credential.issuanceDate))
-    && Boolean(credential.credentialSubject?.id)
-    && Boolean(credential.proof?.type)
-    && Boolean(credential.proof?.created)
-    && Boolean(credential.proof?.verificationMethod)
-    && Boolean(credential.proof?.proofPurpose)
-    && Boolean(credential.proof?.proofValue);
+  return (
+    context.some((item) => item.includes('w3.org/ns/credentials')) &&
+    types.includes('VerifiableCredential') &&
+    Boolean(credential.id) &&
+    Boolean(issuer) &&
+    !Number.isNaN(Date.parse(credential.issuanceDate)) &&
+    Boolean(credential.credentialSubject?.id) &&
+    Boolean(credential.proof?.type) &&
+    Boolean(credential.proof?.created) &&
+    Boolean(credential.proof?.verificationMethod) &&
+    Boolean(credential.proof?.proofPurpose) &&
+    Boolean(credential.proof?.proofValue)
+  );
 }
 
 export function countValidAttestations(chainData: ChainReputationData): number {
@@ -115,10 +134,17 @@ export function getActiveChains(chainData: ChainReputationData[]): ChainId[] {
   return Array.from(new Set(chainData.map((item) => item.chainId))).sort();
 }
 
-export function groupByAddress(chainData: ChainReputationData[], addresses: Address[] = []): Map<Address, ChainReputationData[]> {
+export function groupByAddress(
+  chainData: ChainReputationData[],
+  addresses: Address[] = [],
+): Map<Address, ChainReputationData[]> {
   const wanted = new Set(addresses.map(canonicalAddress));
   const grouped = new Map<Address, ChainReputationData[]>();
-  for (const item of [...chainData].sort((a, b) => a.chainId.localeCompare(b.chainId) || canonicalAddress(a.address).localeCompare(canonicalAddress(b.address)))) {
+  for (const item of [...chainData].sort(
+    (a, b) =>
+      a.chainId.localeCompare(b.chainId) ||
+      canonicalAddress(a.address).localeCompare(canonicalAddress(b.address)),
+  )) {
     const address = canonicalAddress(item.address);
     if (wanted.size > 0 && !wanted.has(address)) continue;
     if (!grouped.has(address)) grouped.set(address, []);
@@ -130,7 +156,10 @@ export function groupByAddress(chainData: ChainReputationData[], addresses: Addr
 export function scoreSingleChain(chainData: ChainReputationData): ChainScore {
   const address = canonicalAddress(chainData.address);
   const breakdown: ReputationBreakdownItem[] = [];
-  const successfulTx = Math.max(0, toNumber(chainData.successfulTransactionCount, toNumber(chainData.transactionCount, 0)));
+  const successfulTx = Math.max(
+    0,
+    toNumber(chainData.successfulTransactionCount, toNumber(chainData.transactionCount, 0)),
+  );
   const failedTx = Math.max(0, toNumber(chainData.failedTransactionCount, 0));
   const totalTx = successfulTx + failedTx;
   const uniqueContracts = Math.max(0, toNumber(chainData.uniqueContractsInteracted, 0));
@@ -139,7 +168,9 @@ export function scoreSingleChain(chainData: ChainReputationData): ChainScore {
   const validAttestations = countValidAttestations(chainData);
   const validCredentials = countValidCredentials(chainData);
   const trustMetrics = calculateTrustMetrics([chainData], address);
-  const endorsements = (chainData.endorsements ?? []).filter((item) => canonicalAddress(item.subject) === address).length;
+  const endorsements = (chainData.endorsements ?? []).filter(
+    (item) => canonicalAddress(item.subject) === address,
+  ).length;
 
   const activity = clamp(successfulTx * 2 + uniqueContracts * 3, 0, 25);
   breakdown.push({
@@ -156,7 +187,10 @@ export function scoreSingleChain(chainData: ChainReputationData): ChainScore {
     category: 'activity',
     points: round(longevity),
     maxPoints: 15,
-    evidence: chainData.firstSeen && chainData.lastSeen ? `active for ${daysBetween(chainData.firstSeen, chainData.lastSeen).toFixed(1)} days` : `${totalTx} indexed transactions`,
+    evidence:
+      chainData.firstSeen && chainData.lastSeen
+        ? `active for ${daysBetween(chainData.firstSeen, chainData.lastSeen).toFixed(1)} days`
+        : `${totalTx} indexed transactions`,
   });
 
   const governance = clamp(governanceVotes * 5 + governanceWins * 8, 0, 15);
@@ -186,7 +220,11 @@ export function scoreSingleChain(chainData: ChainReputationData): ChainScore {
     evidence: `${validCredentials} W3C-compatible credentials`,
   });
 
-  const trust = clamp((trustMetrics.incoming + trustMetrics.outgoing) * 2 + endorsements * 3, 0, 15);
+  const trust = clamp(
+    (trustMetrics.incoming + trustMetrics.outgoing) * 2 + endorsements * 3,
+    0,
+    15,
+  );
   breakdown.push({
     signal: 'trust_graph',
     category: 'trust',
@@ -218,12 +256,19 @@ export function scoreSingleChain(chainData: ChainReputationData): ChainScore {
       category: 'risk',
       points: -sybilPenalty,
       maxPoints: 15,
-      evidence: chainData.sybilCluster ? `shared cluster ${chainData.sybilCluster}` : `sybil risk ${(sybilRisk * 100).toFixed(0)}%`,
+      evidence: chainData.sybilCluster
+        ? `shared cluster ${chainData.sybilCluster}`
+        : `sybil risk ${(sybilRisk * 100).toFixed(0)}%`,
     });
   }
 
   const score = clamp(sumPoints([...breakdown, ...penalties]), 0, MAX_SCORE);
-  return { chainId: chainData.chainId, address, score: round(score), breakdown: [...breakdown, ...penalties] };
+  return {
+    chainId: chainData.chainId,
+    address,
+    score: round(score),
+    breakdown: [...breakdown, ...penalties],
+  };
 }
 
 export function calculateLongevityPoints(chainData: ChainReputationData): number {
@@ -242,7 +287,10 @@ export function daysBetween(start: string, end: string): number {
   return Math.max(0, (endMs - startMs) / 86_400_000);
 }
 
-export function calculateTrustMetrics(chainData: ChainReputationData[], address: Address): { incoming: number; outgoing: number; endorsements: number } {
+export function calculateTrustMetrics(
+  chainData: ChainReputationData[],
+  address: Address,
+): { incoming: number; outgoing: number; endorsements: number } {
   const canonical = canonicalAddress(address);
   let incoming = 0;
   let outgoing = 0;
@@ -254,7 +302,9 @@ export function calculateTrustMetrics(chainData: ChainReputationData[], address:
       if (to === canonical) incoming += 1;
     }
   }
-  const endorsements = (chainData.flatMap((item) => item.endorsements ?? [])).filter((item) => canonicalAddress(item.subject) === canonical).length;
+  const endorsements = chainData
+    .flatMap((item) => item.endorsements ?? [])
+    .filter((item) => canonicalAddress(item.subject) === canonical).length;
   return { incoming, outgoing, endorsements };
 }
 
@@ -266,25 +316,44 @@ export function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export function computeReputationScore(address: Address, chainData: ChainReputationData[]): ScoreResult {
+export function computeReputationScore(
+  address: Address,
+  chainData: ChainReputationData[],
+): ScoreResult {
   const canonical = canonicalAddress(address);
   const grouped = groupByAddress(chainData, [canonical]);
   const items = grouped.get(canonical) ?? [];
   return buildScoreResult(canonical, items, []);
 }
 
-export function computeReputationScoreForIdentity(canonicalAddressInput: Address, chainData: ChainReputationData[], verifiedLinks: VerifiedIdentityLink[]): ScoreResult {
+export function computeReputationScoreForIdentity(
+  canonicalAddressInput: Address,
+  chainData: ChainReputationData[],
+  verifiedLinks: VerifiedIdentityLink[],
+): ScoreResult {
   const canonical = canonicalAddress(canonicalAddressInput);
-  const linked = Array.from(new Set(verifiedLinks.filter((link) => link.verified).map((link) => canonicalAddress(link.address))));
+  const linked = Array.from(
+    new Set(
+      verifiedLinks.filter((link) => link.verified).map((link) => canonicalAddress(link.address)),
+    ),
+  );
   const grouped = groupByAddress(chainData, [canonical, ...linked]);
-  const items = (grouped.get(canonical) ?? []).concat(linked.flatMap((item) => grouped.get(item) ?? []));
+  const items = (grouped.get(canonical) ?? []).concat(
+    linked.flatMap((item) => grouped.get(item) ?? []),
+  );
   return buildScoreResult(canonical, items, linked);
 }
 
-export function buildScoreResult(address: Address, chainData: ChainReputationData[], linkedAddresses: Address[]): ScoreResult {
+export function buildScoreResult(
+  address: Address,
+  chainData: ChainReputationData[],
+  linkedAddresses: Address[],
+): ScoreResult {
   const canonical = canonicalAddress(address);
   const normalizedLinks = Array.from(new Set(linkedAddresses.map(canonicalAddress))).sort();
-  const chainScores = chainData.map(scoreSingleChain).sort((a, b) => a.chainId.localeCompare(b.chainId));
+  const chainScores = chainData
+    .map(scoreSingleChain)
+    .sort((a, b) => a.chainId.localeCompare(b.chainId));
   const activeChains = getActiveChains(chainData);
   const breakdown: ReputationBreakdownItem[] = [];
   const positive = chainScores.flatMap((item) => item.breakdown.filter((part) => part.points >= 0));
@@ -345,7 +414,9 @@ export function buildScoreResult(address: Address, chainData: ChainReputationDat
     });
   }
 
-  const sortedBreakdown = Array.from(groupedSignals.values()).sort((a, b) => a.signal.localeCompare(b.signal));
+  const sortedBreakdown = Array.from(groupedSignals.values()).sort((a, b) =>
+    a.signal.localeCompare(b.signal),
+  );
   const score = clamp(sumPoints(sortedBreakdown), 0, MAX_SCORE);
   const proof = buildReputationProof(canonical, normalizedLinks, chainData, sortedBreakdown, score);
   return {
@@ -363,12 +434,31 @@ export function buildScoreResult(address: Address, chainData: ChainReputationDat
 }
 
 export function mergeEvidence(existing: string, next: string): string {
-  const values = Array.from(new Set([existing, next].flatMap((item) => item.split('; ').map((part) => part.trim()).filter(Boolean))));
+  const values = Array.from(
+    new Set(
+      [existing, next].flatMap((item) =>
+        item
+          .split('; ')
+          .map((part) => part.trim())
+          .filter(Boolean),
+      ),
+    ),
+  );
   return values.join('; ');
 }
 
-export function buildReputationProof(address: Address, linkedAddresses: Address[], chainData: ChainReputationData[], breakdown: ReputationBreakdownItem[], score: number): ReputationProof {
-  const input = [...chainData].sort((a, b) => a.chainId.localeCompare(b.chainId) || canonicalAddress(a.address).localeCompare(canonicalAddress(b.address)));
+export function buildReputationProof(
+  address: Address,
+  linkedAddresses: Address[],
+  chainData: ChainReputationData[],
+  breakdown: ReputationBreakdownItem[],
+  score: number,
+): ReputationProof {
+  const input = [...chainData].sort(
+    (a, b) =>
+      a.chainId.localeCompare(b.chainId) ||
+      canonicalAddress(a.address).localeCompare(canonicalAddress(b.address)),
+  );
   return {
     algorithmVersion: ALGORITHM_VERSION,
     address: canonicalAddress(address),
@@ -381,7 +471,11 @@ export function buildReputationProof(address: Address, linkedAddresses: Address[
   };
 }
 
-export function createLeaderboard(chainData: ChainReputationData[], category = 'overall', limit = 10): LeaderboardEntry[] {
+export function createLeaderboard(
+  chainData: ChainReputationData[],
+  category = 'overall',
+  limit = 10,
+): LeaderboardEntry[] {
   const grouped = groupByAddress(chainData);
   const entries = Array.from(grouped.entries()).map(([address, items]) => {
     const result = buildScoreResult(address, items, []);
@@ -405,11 +499,20 @@ export function createLeaderboard(chainData: ChainReputationData[], category = '
   return filtered.slice(0, limit).map((entry, index) => ({ rank: index + 1, ...entry }));
 }
 
-export function verifyIdentityLinks(request: { canonicalAddress: Address; links: LinkedIdentityInput[] }, verifier?: (chainId: ChainId, address: Address, message: string, signature: string) => boolean): VerifiedIdentityLink[] {
+export function verifyIdentityLinks(
+  request: { canonicalAddress: Address; links: LinkedIdentityInput[] },
+  verifier?: (chainId: ChainId, address: Address, message: string, signature: string) => boolean,
+): VerifiedIdentityLink[] {
   const canonical = canonicalAddress(request.canonicalAddress);
   return request.links
     .map((link) => {
-      const verified = verifySignedMessage(link.chainId, link.address, link.message, link.signature, verifier);
+      const verified = verifySignedMessage(
+        link.chainId,
+        link.address,
+        link.message,
+        link.signature,
+        verifier,
+      );
       return {
         chainId: link.chainId,
         address: canonicalAddress(link.address),
@@ -421,7 +524,13 @@ export function verifyIdentityLinks(request: { canonicalAddress: Address; links:
     .sort((a, b) => a.chainId.localeCompare(b.chainId) || a.address.localeCompare(b.address));
 }
 
-export function verifySignedMessage(chainId: ChainId, address: Address, message: string, signature: string, verifier?: (chainId: ChainId, address: Address, message: string, signature: string) => boolean): boolean {
+export function verifySignedMessage(
+  chainId: ChainId,
+  address: Address,
+  message: string,
+  signature: string,
+  verifier?: (chainId: ChainId, address: Address, message: string, signature: string) => boolean,
+): boolean {
   if (verifier) return verifier(chainId, canonicalAddress(address), message, signature);
   if (/^stellar/i.test(chainId) || /^G[A-Z0-9]{55}$/.test(address)) {
     return verifyStellarSignedMessage(address, message, signature);
@@ -429,7 +538,11 @@ export function verifySignedMessage(chainId: ChainId, address: Address, message:
   return false;
 }
 
-export function verifyStellarSignedMessage(address: Address, message: string, signature: string): boolean {
+export function verifyStellarSignedMessage(
+  address: Address,
+  message: string,
+  signature: string,
+): boolean {
   try {
     const { Keypair } = require('@stellar/stellar-sdk') as typeof import('@stellar/stellar-sdk');
     const signatureBuffer = decodeSignature(signature);
@@ -446,17 +559,35 @@ export function decodeSignature(signature: string): Buffer {
   return Buffer.from(signature.replace(/^0x/, ''), 'hex');
 }
 
-export function assessSybilRisk(address: Address, chainData: ChainReputationData[]): SybilAssessment {
+export function assessSybilRisk(
+  address: Address,
+  chainData: ChainReputationData[],
+): SybilAssessment {
   const canonical = canonicalAddress(address);
-  const items = chainData.filter((item) => canonicalAddress(item.address) === canonical).sort((a, b) => a.chainId.localeCompare(b.chainId));
-  const explicitRisk = items.map((item) => toNumber(item.sybilRisk, -1)).filter((value) => value >= 0);
-  const risk = explicitRisk.length > 0 ? Math.max(...explicitRisk) : calculateSybilRiskFromSignals(items);
+  const items = chainData
+    .filter((item) => canonicalAddress(item.address) === canonical)
+    .sort((a, b) => a.chainId.localeCompare(b.chainId));
+  const explicitRisk = items
+    .map((item) => toNumber(item.sybilRisk, -1))
+    .filter((value) => value >= 0);
+  const risk =
+    explicitRisk.length > 0 ? Math.max(...explicitRisk) : calculateSybilRiskFromSignals(items);
   const reasons: string[] = [];
-  if (items.some((item) => item.sybilCluster)) reasons.push('address belongs to a shared sybil cluster');
-  if (explicitRisk.length > 0 && Math.max(...explicitRisk) >= 0.5) reasons.push('external sybil signal exceeds threshold');
-  if (items.reduce((total, item) => total + toNumber(item.transactionCount, 0), 0) < 3 && items.length >= 2) reasons.push('low activity across multiple chains');
-  if (items.some((item) => (item.attestations ?? []).length > 0 && countValidAttestations(item) === 0)) reasons.push('attestations lack verifiable on-chain evidence');
-  if (reasons.length === 0 && risk >= 0.5) reasons.push('behavioral signals exceed sybil threshold');
+  if (items.some((item) => item.sybilCluster))
+    reasons.push('address belongs to a shared sybil cluster');
+  if (explicitRisk.length > 0 && Math.max(...explicitRisk) >= 0.5)
+    reasons.push('external sybil signal exceeds threshold');
+  if (
+    items.reduce((total, item) => total + toNumber(item.transactionCount, 0), 0) < 3 &&
+    items.length >= 2
+  )
+    reasons.push('low activity across multiple chains');
+  if (
+    items.some((item) => (item.attestations ?? []).length > 0 && countValidAttestations(item) === 0)
+  )
+    reasons.push('attestations lack verifiable on-chain evidence');
+  if (reasons.length === 0 && risk >= 0.5)
+    reasons.push('behavioral signals exceed sybil threshold');
 
   return {
     address: canonical,
@@ -469,10 +600,24 @@ export function assessSybilRisk(address: Address, chainData: ChainReputationData
 }
 
 export function calculateSybilRiskFromSignals(chainData: ChainReputationData[]): number {
-  const txCount = chainData.reduce((total, item) => total + Math.max(toNumber(item.successfulTransactionCount, 0), toNumber(item.transactionCount, 0)), 0);
-  const validAttestations = chainData.reduce((total, item) => total + countValidAttestations(item), 0);
-  const validCredentials = chainData.reduce((total, item) => total + countValidCredentials(item), 0);
-  const uniqueContracts = chainData.reduce((total, item) => total + toNumber(item.uniqueContractsInteracted, 0), 0);
+  const txCount = chainData.reduce(
+    (total, item) =>
+      total +
+      Math.max(toNumber(item.successfulTransactionCount, 0), toNumber(item.transactionCount, 0)),
+    0,
+  );
+  const validAttestations = chainData.reduce(
+    (total, item) => total + countValidAttestations(item),
+    0,
+  );
+  const validCredentials = chainData.reduce(
+    (total, item) => total + countValidCredentials(item),
+    0,
+  );
+  const uniqueContracts = chainData.reduce(
+    (total, item) => total + toNumber(item.uniqueContractsInteracted, 0),
+    0,
+  );
   let risk = 0.15;
   if (chainData.length >= 2 && txCount < 5) risk += 0.25;
   if (chainData.length >= 3 && txCount < 8) risk += 0.2;
@@ -481,10 +626,17 @@ export function calculateSybilRiskFromSignals(chainData: ChainReputationData[]):
   return clamp(risk, 0, 1);
 }
 
-export function createOracleResponse(address: Address, chainData: ChainReputationData[]): OracleReputationResponse {
+export function createOracleResponse(
+  address: Address,
+  chainData: ChainReputationData[],
+): OracleReputationResponse {
   const result = computeReputationScore(address, chainData);
-  const attestations = chainData.flatMap((item) => (item.attestations ?? []).map(normalizeAttestation));
-  const credentials = chainData.flatMap((item) => (item.verifiableCredentials ?? []).map(normalizeCredential)).filter(isVerifiableCredential);
+  const attestations = chainData.flatMap((item) =>
+    (item.attestations ?? []).map(normalizeAttestation),
+  );
+  const credentials = chainData
+    .flatMap((item) => (item.verifiableCredentials ?? []).map(normalizeCredential))
+    .filter(isVerifiableCredential);
   const badges = earnBadges(address, chainData);
   return {
     address: result.address,
@@ -504,21 +656,74 @@ export function createOracleResponse(address: Address, chainData: ChainReputatio
 export function earnBadges(address: Address, chainData: ChainReputationData[]): Badge[] {
   const canonical = canonicalAddress(address);
   const items = chainData.filter((item) => canonicalAddress(item.address) === canonical);
-  const txCount = items.reduce((total, item) => total + toNumber(item.successfulTransactionCount, toNumber(item.transactionCount, 0)), 0);
-  const uniqueContracts = items.reduce((total, item) => total + toNumber(item.uniqueContractsInteracted, 0), 0);
-  const governanceVotes = items.reduce((total, item) => total + toNumber(item.governanceVotes, 0), 0);
+  const txCount = items.reduce(
+    (total, item) =>
+      total + toNumber(item.successfulTransactionCount, toNumber(item.transactionCount, 0)),
+    0,
+  );
+  const uniqueContracts = items.reduce(
+    (total, item) => total + toNumber(item.uniqueContractsInteracted, 0),
+    0,
+  );
+  const governanceVotes = items.reduce(
+    (total, item) => total + toNumber(item.governanceVotes, 0),
+    0,
+  );
   const validAttestations = items.reduce((total, item) => total + countValidAttestations(item), 0);
   const validCredentials = items.reduce((total, item) => total + countValidCredentials(item), 0);
   const activeChains = getActiveChains(items);
   const sybil = assessSybilRisk(canonical, items);
   const earned: Badge[] = [];
 
-  if (txCount >= 10) earned.push(badge('pioneer', 'Pioneer', 'Completed at least 10 successful on-chain transactions.', `${txCount} successful transactions`));
-  if (activeChains.length >= 3) earned.push(badge('multichain', 'Multichain', 'Active on three or more chains.', activeChains.join(', ')));
-  if (uniqueContracts >= 5) earned.push(badge('builder', 'Builder', 'Interacted with at least five unique contracts.', `${uniqueContracts} contracts`));
-  if (governanceVotes >= 3) earned.push(badge('governor', 'Governor', 'Cast at least three governance votes.', `${governanceVotes} votes`));
-  if (validAttestations >= 2 && validCredentials >= 1) earned.push(badge('trusted', 'Trusted', 'Holds verifiable attestations and credentials.', `${validAttestations} attestations and ${validCredentials} credentials`));
-  if (!sybil.isSuspicious) earned.push(badge('sybil_resistant', 'Sybil Resistant', 'Does not meet sybil resistance thresholds.', 'risk below 0.5'));
+  if (txCount >= 10)
+    earned.push(
+      badge(
+        'pioneer',
+        'Pioneer',
+        'Completed at least 10 successful on-chain transactions.',
+        `${txCount} successful transactions`,
+      ),
+    );
+  if (activeChains.length >= 3)
+    earned.push(
+      badge('multichain', 'Multichain', 'Active on three or more chains.', activeChains.join(', ')),
+    );
+  if (uniqueContracts >= 5)
+    earned.push(
+      badge(
+        'builder',
+        'Builder',
+        'Interacted with at least five unique contracts.',
+        `${uniqueContracts} contracts`,
+      ),
+    );
+  if (governanceVotes >= 3)
+    earned.push(
+      badge(
+        'governor',
+        'Governor',
+        'Cast at least three governance votes.',
+        `${governanceVotes} votes`,
+      ),
+    );
+  if (validAttestations >= 2 && validCredentials >= 1)
+    earned.push(
+      badge(
+        'trusted',
+        'Trusted',
+        'Holds verifiable attestations and credentials.',
+        `${validAttestations} attestations and ${validCredentials} credentials`,
+      ),
+    );
+  if (!sybil.isSuspicious)
+    earned.push(
+      badge(
+        'sybil_resistant',
+        'Sybil Resistant',
+        'Does not meet sybil resistance thresholds.',
+        'risk below 0.5',
+      ),
+    );
   return earned.sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -530,22 +735,17 @@ export async function fetchProfileData(address: string): Promise<ChainReputation
   const canonical = canonicalAddress(address);
 
   // 1. Fetch on-chain Stellar/Soroban activity from local tables
-  const [
-    totalTxCount,
-    successTxCount,
-    failedTxCount,
-    govVotesCount,
-    contractsInteracted,
-  ] = await Promise.all([
-    prismaRead.transaction.count({ where: { sourceAccount: canonical } }),
-    prismaRead.transaction.count({ where: { sourceAccount: canonical, status: 'success' } }),
-    prismaRead.transaction.count({ where: { sourceAccount: canonical, status: 'failed' } }),
-    prismaRead.governanceVote.count({ where: { voter: canonical } }),
-    prismaRead.transaction.groupBy({
-      by: ['contractAddress'],
-      where: { sourceAccount: canonical, contractAddress: { not: null } },
-    }),
-  ]);
+  const [totalTxCount, successTxCount, failedTxCount, govVotesCount, contractsInteracted] =
+    await Promise.all([
+      prismaRead.transaction.count({ where: { sourceAccount: canonical } }),
+      prismaRead.transaction.count({ where: { sourceAccount: canonical, status: 'success' } }),
+      prismaRead.transaction.count({ where: { sourceAccount: canonical, status: 'failed' } }),
+      prismaRead.governanceVote.count({ where: { voter: canonical } }),
+      prismaRead.transaction.groupBy({
+        by: ['contractAddress'],
+        where: { sourceAccount: canonical, contractAddress: { not: null } },
+      }),
+    ]);
 
   // Let's count wins by joining GovernanceVote and GovernanceProposal
   const voterVotes = await prismaRead.governanceVote.findMany({
@@ -556,7 +756,10 @@ export async function fetchProfileData(address: string): Promise<ChainReputation
   for (const vote of voterVotes) {
     const status = vote.proposal?.status;
     const support = vote.support;
-    if (support === 'for' && (status === 'executed' || status === 'queued' || status === 'passed')) {
+    if (
+      support === 'for' &&
+      (status === 'executed' || status === 'queued' || status === 'passed')
+    ) {
       govWins++;
     } else if (support === 'against' && status === 'defeated') {
       govWins++;
@@ -621,7 +824,8 @@ export async function fetchProfileData(address: string): Promise<ChainReputation
       const data = chainDataMap.get(chain)!;
       if (signal.signalType === 'tx_volume') {
         data.transactionCount = Number(data.transactionCount) + Number(signal.value);
-        data.successfulTransactionCount = Number(data.successfulTransactionCount) + Number(signal.value);
+        data.successfulTransactionCount =
+          Number(data.successfulTransactionCount) + Number(signal.value);
       }
     }
 
@@ -754,8 +958,11 @@ export async function saveReputationToDb(address: string, scoreResult: ScoreResu
   // Map active chain scores
   const sorobanScore = scoreResult.chainScores.find((c) => c.chainId === 'soroban')?.score || 0;
   const stellarScore = scoreResult.chainScores.find((c) => c.chainId === 'stellar')?.score || 0;
-  const ethScore = scoreResult.chainScores.find((c) => c.chainId === 'ethereum' || c.chainId === 'eth')?.score || 0;
-  const solScore = scoreResult.chainScores.find((c) => c.chainId === 'solana' || c.chainId === 'sol')?.score || 0;
+  const ethScore =
+    scoreResult.chainScores.find((c) => c.chainId === 'ethereum' || c.chainId === 'eth')?.score ||
+    0;
+  const solScore =
+    scoreResult.chainScores.find((c) => c.chainId === 'solana' || c.chainId === 'sol')?.score || 0;
 
   const combinedScore = Math.round(scoreResult.score * 10);
 

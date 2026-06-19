@@ -12,14 +12,14 @@ const backfillSchema = z.object({
   format: z.enum(['jsonl', 'csv', 'parquet', 'arrow', 'json']),
   filters: z.any().optional(),
   compression: z.enum(['none', 'gzip', 'brotli']).optional(),
-  callbackUrl: z.string().url().optional()
+  callbackUrl: z.string().url().optional(),
 });
 
 // POST /api/v1/feed/backfill - Request historical data
 router.post('/', async (req, res) => {
   try {
     const validatedData = backfillSchema.parse(req.body);
-    
+
     // Validate channel exists
     if (!ChannelManager.isValidChannel(validatedData.channelName)) {
       return res.status(400).json({ error: 'Invalid channel name' });
@@ -28,23 +28,23 @@ router.post('/', async (req, res) => {
     // Validate date range
     const startTime = new Date(validatedData.startTime);
     const endTime = new Date(validatedData.endTime);
-    
+
     if (startTime >= endTime) {
       return res.status(400).json({ error: 'Start time must be before end time' });
     }
-    
+
     // Check if range is within limits (max 90 days)
     const maxDays = 90;
     const diffDays = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
-    
+
     if (diffDays > maxDays) {
-      return res.status(400).json({ 
-        error: `Date range exceeds maximum of ${maxDays} days` 
+      return res.status(400).json({
+        error: `Date range exceeds maximum of ${maxDays} days`,
       });
     }
 
     const userId = req.headers['x-user-id'] as string;
-    
+
     const backfillRequest = await prisma.backfillRequest.create({
       data: {
         userId,
@@ -53,8 +53,8 @@ router.post('/', async (req, res) => {
         endTime,
         format: validatedData.format,
         filters: validatedData.filters,
-        status: 'pending'
-      }
+        status: 'pending',
+      },
     });
 
     // Queue backfill job (in real implementation, this would use a job queue)
@@ -63,7 +63,7 @@ router.post('/', async (req, res) => {
     res.status(202).json({
       requestId: backfillRequest.id,
       status: backfillRequest.status,
-      estimatedCompletionTime: getEstimatedCompletionTime(validatedData.channelName, diffDays)
+      estimatedCompletionTime: getEstimatedCompletionTime(validatedData.channelName, diffDays),
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -78,7 +78,7 @@ router.post('/', async (req, res) => {
 router.get('/:requestId', async (req, res) => {
   try {
     const request = await prisma.backfillRequest.findUnique({
-      where: { id: req.params.requestId }
+      where: { id: req.params.requestId },
     });
 
     if (!request) {
@@ -93,7 +93,7 @@ router.get('/:requestId', async (req, res) => {
       format: request.format,
       status: request.status,
       progress: request.progress,
-      createdAt: request.createdAt
+      createdAt: request.createdAt,
     };
 
     if (request.status === 'completed') {
@@ -136,12 +136,12 @@ router.get('/', async (req, res) => {
         fileSizeBytes: true,
         recordCount: true,
         createdAt: true,
-        completedAt: true
-      }
+        completedAt: true,
+      },
     });
 
     const total = await prisma.backfillRequest.count({
-      where: { userId }
+      where: { userId },
     });
 
     res.json({
@@ -150,8 +150,8 @@ router.get('/', async (req, res) => {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Failed to fetch backfill requests:', error);
@@ -167,7 +167,7 @@ router.get('/limits', (req, res) => {
     maxRecords: 10000000, // 10M records
     rateLimitPerDay: 10,
     supportedFormats: ['jsonl', 'csv', 'parquet', 'arrow', 'json'],
-    supportedCompression: ['none', 'gzip', 'brotli']
+    supportedCompression: ['none', 'gzip', 'brotli'],
   });
 });
 
@@ -176,33 +176,37 @@ async function processBackfillRequest(requestId: string) {
     // Update status to processing
     await prisma.backfillRequest.update({
       where: { id: requestId },
-      data: { status: 'processing', progress: 0 }
+      data: { status: 'processing', progress: 0 },
     });
 
     const request = await prisma.backfillRequest.findUnique({
-      where: { id: requestId }
+      where: { id: requestId },
     });
 
     if (!request) return;
 
     // Simulate data export process
     const totalSteps = 100;
-    
+
     for (let step = 1; step <= totalSteps; step++) {
       // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // Update progress
       const progress = (step / totalSteps) * 100;
       await prisma.backfillRequest.update({
         where: { id: requestId },
-        data: { progress }
+        data: { progress },
       });
     }
 
     // Generate mock file URL and metadata
     const fileUrl = `https://api.example.com/downloads/${requestId}.${request.format}`;
-    const recordCount = await getRecordCount(request.channelName, request.startTime, request.endTime);
+    const recordCount = await getRecordCount(
+      request.channelName,
+      request.startTime,
+      request.endTime,
+    );
     const fileSizeBytes = estimateFileSize(recordCount, request.format);
 
     await prisma.backfillRequest.update({
@@ -213,53 +217,60 @@ async function processBackfillRequest(requestId: string) {
         fileUrl,
         fileSizeBytes,
         recordCount,
-        completedAt: new Date()
-      }
+        completedAt: new Date(),
+      },
     });
 
     // Send callback if provided
-    if (request.filters && typeof request.filters === 'object' && 
-        request.filters !== null && 'callbackUrl' in request.filters) {
+    if (
+      request.filters &&
+      typeof request.filters === 'object' &&
+      request.filters !== null &&
+      'callbackUrl' in request.filters
+    ) {
       // TODO: Send completion callback
     }
-
   } catch (error) {
     console.error(`Backfill processing failed for ${requestId}:`, error);
-    
+
     await prisma.backfillRequest.update({
       where: { id: requestId },
       data: {
         status: 'failed',
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
-      }
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      },
     });
   }
 }
 
-async function getRecordCount(channelName: string, startTime: Date, endTime: Date): Promise<number> {
+async function getRecordCount(
+  channelName: string,
+  startTime: Date,
+  endTime: Date,
+): Promise<number> {
   // In real implementation, this would query the actual data tables
   const mockCounts: Record<string, number> = {
-    'transactions': 100000,
-    'events': 500000,
-    'ledgers': 10000,
-    'trades': 50000,
-    'metrics': 5000
+    transactions: 100000,
+    events: 500000,
+    ledgers: 10000,
+    trades: 50000,
+    metrics: 5000,
   };
-  
+
   const baseCount = mockCounts[channelName] || 10000;
   const daysDiff = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
-  return Math.round(baseCount * daysDiff / 30); // Scale by month
+  return Math.round((baseCount * daysDiff) / 30); // Scale by month
 }
 
 function estimateFileSize(recordCount: number, format: string): number {
   const bytesPerRecord: Record<string, number> = {
-    'jsonl': 800,  // JSON is verbose
-    'csv': 200,    // CSV is compact
-    'parquet': 100, // Parquet is highly compressed
-    'arrow': 150,   // Arrow is efficient
-    'json': 900     // JSON array format
+    jsonl: 800, // JSON is verbose
+    csv: 200, // CSV is compact
+    parquet: 100, // Parquet is highly compressed
+    arrow: 150, // Arrow is efficient
+    json: 900, // JSON array format
   };
-  
+
   return recordCount * (bytesPerRecord[format] || 300);
 }
 

@@ -17,8 +17,8 @@ const subscribeSchema = z.object({
     batchSize: z.number().min(1).max(1000).optional(),
     maxInterval: z.number().optional(),
     retryOnFailure: z.boolean().optional(),
-    maxRetries: z.number().optional()
-  })
+    maxRetries: z.number().optional(),
+  }),
 });
 
 const subscriptionManager = new SubscriptionManager();
@@ -33,15 +33,15 @@ router.get('/channels', async (req, res) => {
         description: true,
         category: true,
         schema: true,
-        retentionDays: true
-      }
+        retentionDays: true,
+      },
     });
 
     res.json({
-      channels: channels.map(channel => ({
+      channels: channels.map((channel) => ({
         ...channel,
-        latencyTarget: getLatencyTarget(channel.name)
-      }))
+        latencyTarget: getLatencyTarget(channel.name),
+      })),
     });
   } catch (error) {
     console.error('Failed to fetch channels:', error);
@@ -53,7 +53,7 @@ router.get('/channels', async (req, res) => {
 router.post('/subscribe', async (req, res) => {
   try {
     const validatedData = subscribeSchema.parse(req.body);
-    
+
     // Validate channel exists
     if (!ChannelManager.isValidChannel(validatedData.channelName)) {
       return res.status(400).json({ error: 'Invalid channel name' });
@@ -61,7 +61,7 @@ router.post('/subscribe', async (req, res) => {
 
     const subscription = await subscriptionManager.createSubscription({
       ...validatedData,
-      userId: req.headers['x-user-id'] as string // In real implementation, extract from auth
+      userId: req.headers['x-user-id'] as string, // In real implementation, extract from auth
     });
 
     res.status(201).json({
@@ -69,7 +69,7 @@ router.post('/subscribe', async (req, res) => {
       channelName: subscription.channelName,
       deliveryType: subscription.deliveryType,
       status: subscription.status,
-      createdAt: subscription.createdAt
+      createdAt: subscription.createdAt,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -85,7 +85,7 @@ router.get('/subscriptions', async (req, res) => {
   try {
     const userId = req.headers['x-user-id'] as string;
     const subscriptions = await subscriptionManager.listSubscriptions(userId);
-    
+
     res.json({
       subscriptions: subscriptions.map((sub: any) => ({
         id: sub.id,
@@ -95,8 +95,8 @@ router.get('/subscriptions', async (req, res) => {
         totalDelivered: sub.totalDelivered,
         totalFailed: sub.totalFailed,
         lastDeliveryAt: sub.lastDeliveryAt,
-        createdAt: sub.createdAt
-      }))
+        createdAt: sub.createdAt,
+      })),
     });
   } catch (error) {
     console.error('Failed to fetch subscriptions:', error);
@@ -108,7 +108,7 @@ router.get('/subscriptions', async (req, res) => {
 router.get('/subscriptions/:id', async (req, res) => {
   try {
     const subscription = await subscriptionManager.getSubscription(req.params.id);
-    
+
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
@@ -125,7 +125,7 @@ router.put('/subscriptions/:id', async (req, res) => {
   try {
     const updates = req.body;
     const subscription = await subscriptionManager.updateSubscription(req.params.id, updates);
-    
+
     res.json(subscription);
   } catch (error) {
     console.error('Failed to update subscription:', error);
@@ -148,15 +148,17 @@ router.delete('/subscriptions/:id', async (req, res) => {
 router.get('/subscriptions/:id/status', async (req, res) => {
   try {
     const subscription = await subscriptionManager.getSubscription(req.params.id);
-    
+
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 
     // Calculate delivery rate and average latency
-    const deliveryRate = subscription.totalDelivered + subscription.totalFailed > 0 
-      ? (subscription.totalDelivered / (subscription.totalDelivered + subscription.totalFailed)) * 100
-      : 0;
+    const deliveryRate =
+      subscription.totalDelivered + subscription.totalFailed > 0
+        ? (subscription.totalDelivered / (subscription.totalDelivered + subscription.totalFailed)) *
+          100
+        : 0;
 
     res.json({
       id: subscription.id,
@@ -165,7 +167,7 @@ router.get('/subscriptions/:id/status', async (req, res) => {
       totalFailed: subscription.totalFailed,
       deliveryRate: Math.round(deliveryRate * 100) / 100,
       lastDeliveryAt: subscription.lastDeliveryAt,
-      lastError: subscription.lastError
+      lastError: subscription.lastError,
     });
   } catch (error) {
     console.error('Failed to fetch subscription status:', error);
@@ -199,16 +201,16 @@ router.post('/subscriptions/:id/resume', async (req, res) => {
 router.post('/subscriptions/:id/test', async (req, res) => {
   try {
     const subscription = await subscriptionManager.getSubscription(req.params.id);
-    
+
     if (!subscription) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 
     // Create test message based on channel type
     const testMessage = generateTestMessage(subscription.channelName);
-    
+
     // TODO: Deliver test message
-    
+
     res.json({ message: 'Test payload sent', data: testMessage });
   } catch (error) {
     console.error('Failed to send test payload:', error);
@@ -218,23 +220,23 @@ router.post('/subscriptions/:id/test', async (req, res) => {
 
 function getLatencyTarget(channelName: string): string {
   const targets: Record<string, string> = {
-    'transactions': '<500ms',
-    'events': '<200ms',
-    'ledgers': '<100ms',
-    'trades': '<500ms',
-    'liquidations': '<200ms',
-    'metrics': '<1s',
-    'contracts': '<1s',
-    'accounts': '<500ms',
-    'oracle': '<200ms',
-    'governance': '<1s'
+    transactions: '<500ms',
+    events: '<200ms',
+    ledgers: '<100ms',
+    trades: '<500ms',
+    liquidations: '<200ms',
+    metrics: '<1s',
+    contracts: '<1s',
+    accounts: '<500ms',
+    oracle: '<200ms',
+    governance: '<1s',
   };
   return targets[channelName] || '<1s';
 }
 
 function generateTestMessage(channelName: string) {
   const testMessages: Record<string, any> = {
-    'transactions': {
+    transactions: {
       type: 'transaction',
       schemaVersion: 1,
       hash: 'abc123...',
@@ -243,9 +245,9 @@ function generateTestMessage(channelName: string) {
       sourceAccount: 'GTEST...',
       fee: '100',
       operations: [],
-      status: 'success'
+      status: 'success',
     },
-    'trades': {
+    trades: {
       type: 'trade',
       schemaVersion: 1,
       txHash: 'abc123...',
@@ -255,11 +257,13 @@ function generateTestMessage(channelName: string) {
       amountIn: '1000000000',
       amountOut: '950000000',
       price: '0.95',
-      timestamp: new Date().toISOString()
-    }
+      timestamp: new Date().toISOString(),
+    },
   };
-  
-  return testMessages[channelName] || { message: 'Test message', timestamp: new Date().toISOString() };
+
+  return (
+    testMessages[channelName] || { message: 'Test message', timestamp: new Date().toISOString() }
+  );
 }
 
 export default router;

@@ -6,6 +6,7 @@
  * from compiler.ts and exposes them via REST.
  */
 import { Router, Request, Response } from 'express';
+import { asyncHandler } from '../middleware/asyncHandler';
 import multer from 'multer';
 import * as path from 'path';
 import * as os from 'os';
@@ -26,7 +27,11 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (['.gz', '.tgz', '.zip'].includes(ext) || file.mimetype === 'application/gzip' || file.mimetype === 'application/zip') {
+    if (
+      ['.gz', '.tgz', '.zip'].includes(ext) ||
+      file.mimetype === 'application/gzip' ||
+      file.mimetype === 'application/zip'
+    ) {
       cb(null, true);
     } else {
       cb(new Error('Only .tar.gz and .zip archives are allowed'));
@@ -93,9 +98,11 @@ compilerRouter.get('/', (_req: Request, res: Response) => {
 compilerRouter.post(
   '/compile',
   upload.single('source'),
-  async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     if (!req.file) {
-      return res.status(400).json({ error: 'Source archive is required (multipart field: source)' });
+      return res
+        .status(400)
+        .json({ error: 'Source archive is required (multipart field: source)' });
     }
 
     const toolchain = req.body.toolchain as string;
@@ -122,7 +129,7 @@ compilerRouter.post(
       if (workDir) await cleanupDir(workDir);
       await cleanupDir(archivePath);
     }
-  },
+  }),
 );
 
 // ── POST /verify ───────────────────────────────────────────────────────────────
@@ -158,7 +165,7 @@ compilerRouter.post(
 compilerRouter.post(
   '/verify',
   upload.single('source'),
-  async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     if (!req.file) {
       return res.status(400).json({ error: 'Source archive is required' });
     }
@@ -201,7 +208,7 @@ compilerRouter.post(
       if (workDir) await cleanupDir(workDir);
       await cleanupDir(archivePath);
     }
-  },
+  }),
 );
 
 // ── GET /toolchains ────────────────────────────────────────────────────────────

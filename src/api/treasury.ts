@@ -25,7 +25,8 @@ export const treasuryRouter = Router();
 treasuryRouter.get('/', (_req: Request, res: Response) => {
   res.json({
     service: 'Treasury API',
-    description: 'DAO/protocol treasury management, multi-sig proposals, and fund allocation tracking',
+    description:
+      'DAO/protocol treasury management, multi-sig proposals, and fund allocation tracking',
     endpoints: [
       'GET  /treasury',
       'GET  /treasury/balances',
@@ -147,7 +148,9 @@ treasuryRouter.post('/proposals', (req: Request, res: Response) => {
     amount: z.number().positive(),
     assetCode: z.string().min(1).max(12),
     recipient: z.string().min(1),
-    category: z.enum(['development', 'marketing', 'operations', 'grants', 'security', 'other']).default('other'),
+    category: z
+      .enum(['development', 'marketing', 'operations', 'grants', 'security', 'other'])
+      .default('other'),
     requiredSigners: z.number().int().min(1).default(2),
   });
 

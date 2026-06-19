@@ -29,10 +29,15 @@ export function attachArbitrageWebSocket(httpServer: Server): WebSocketServer {
     const client: ArbClient = { ws, minProfit, minMevScore, pairs };
     clients.add(client);
 
-    ws.send(JSON.stringify({
-      event: 'connected',
-      data: { message: 'Arbitrage opportunity stream connected', filters: { minProfit, minMevScore, pairs } },
-    }));
+    ws.send(
+      JSON.stringify({
+        event: 'connected',
+        data: {
+          message: 'Arbitrage opportunity stream connected',
+          filters: { minProfit, minMevScore, pairs },
+        },
+      }),
+    );
 
     ws.on('close', () => clients.delete(client));
     ws.on('error', () => clients.delete(client));

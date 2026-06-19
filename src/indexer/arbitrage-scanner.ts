@@ -17,8 +17,8 @@ import {
 import { broadcastArbitrageOpportunity } from '../ws/arbitrageBroadcaster';
 import { prismaRead, prismaWrite } from '../db';
 
-const SCAN_INTERVAL_MS = 1000;        // 1 second price scan
-const BOT_SCAN_INTERVAL_MS = 300000;  // 5 minutes bot scan
+const SCAN_INTERVAL_MS = 1000; // 1 second price scan
+const BOT_SCAN_INTERVAL_MS = 300000; // 5 minutes bot scan
 const SANDWICH_SCAN_INTERVAL_MS = 5000; // 5 seconds sandwich scan
 
 let scannerRunning = false;

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prismaRead as prisma } from '../db';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 export const eventRouter = Router();
 
@@ -49,8 +50,11 @@ eventRouter.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /events/:id
-eventRouter.get('/:id', async (req: Request, res: Response) => {
-  const event = await prisma.event.findUnique({ where: { id: req.params.id } });
-  if (!event) return res.status(404).json({ error: 'Event not found' });
-  res.json(event);
-});
+eventRouter.get(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const event = await prisma.event.findUnique({ where: { id: req.params.id } });
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    res.json(event);
+  }),
+);

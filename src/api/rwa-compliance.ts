@@ -240,8 +240,20 @@ rwaComplianceRouter.post('/holders/:address/verify', (req: Request, res: Respons
 rwaComplianceRouter.get('/jurisdictions', (_req: Request, res: Response) => {
   res.json({
     jurisdictions: [
-      { code: 'US', name: 'United States', kycRequired: true, amlRequired: true, restricted: false },
-      { code: 'EU', name: 'European Union', kycRequired: true, amlRequired: true, restricted: false },
+      {
+        code: 'US',
+        name: 'United States',
+        kycRequired: true,
+        amlRequired: true,
+        restricted: false,
+      },
+      {
+        code: 'EU',
+        name: 'European Union',
+        kycRequired: true,
+        amlRequired: true,
+        restricted: false,
+      },
       { code: 'CH', name: 'Switzerland', kycRequired: true, amlRequired: true, restricted: false },
       { code: 'SG', name: 'Singapore', kycRequired: true, amlRequired: true, restricted: false },
       { code: 'KP', name: 'North Korea', kycRequired: false, amlRequired: false, restricted: true },

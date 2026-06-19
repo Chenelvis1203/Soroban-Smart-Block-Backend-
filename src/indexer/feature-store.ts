@@ -8,7 +8,7 @@ export class FeatureStore {
   public async computeAndStoreFeatures(ledgerSequence: number, closeTime: Date) {
     // 1. Transaction Volume Feature
     const txVolume = await prisma.transaction.count({
-      where: { ledgerSequence }
+      where: { ledgerSequence },
     });
 
     // 2. Compute 7d rolling average of Tx Volume (mock implementation)
@@ -16,7 +16,10 @@ export class FeatureStore {
 
     // Save definitions if they don't exist
     const txVolDef = await this.getOrCreateFeatureDef('tx_volume', 'transaction volume per block');
-    const txVol7dDef = await this.getOrCreateFeatureDef('tx_volume_7d_ma', '7-day moving average of tx volume');
+    const txVol7dDef = await this.getOrCreateFeatureDef(
+      'tx_volume_7d_ma',
+      '7-day moving average of tx volume',
+    );
 
     // Store feature values
     await prisma.featureValue.createMany({
@@ -25,22 +28,22 @@ export class FeatureStore {
           featureId: txVolDef.id,
           timestamp: closeTime,
           value: txVolume,
-          blockNumber: BigInt(ledgerSequence)
+          blockNumber: BigInt(ledgerSequence),
         },
         {
           featureId: txVol7dDef.id,
           timestamp: closeTime,
           value: txVol7d,
-          blockNumber: BigInt(ledgerSequence)
-        }
+          blockNumber: BigInt(ledgerSequence),
+        },
       ],
-      skipDuplicates: true
+      skipDuplicates: true,
     });
   }
 
   private async getOrCreateFeatureDef(name: string, description: string) {
     let def = await prisma.featureDefinition.findUnique({
-      where: { name }
+      where: { name },
     });
     if (!def) {
       def = await prisma.featureDefinition.create({
@@ -48,8 +51,8 @@ export class FeatureStore {
           name,
           description,
           category: 'onchain',
-          granularity: 'block'
-        }
+          granularity: 'block',
+        },
       });
     }
     return def;
@@ -71,14 +74,14 @@ export class FeatureStore {
     const values = await prisma.featureValue.findMany({
       where: { featureId: def.id },
       orderBy: { timestamp: 'desc' },
-      take: limit
+      take: limit,
     });
 
     if (values.length === 0) {
       return Array.from({ length: limit }, () => 1000 + Math.random() * 500);
     }
 
-    return values.reverse().map(v => v.value);
+    return values.reverse().map((v) => v.value);
   }
 }
 

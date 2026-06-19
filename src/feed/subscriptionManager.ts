@@ -31,8 +31,8 @@ export class SubscriptionManager {
         deliveryConfig: config.deliveryConfig,
         batchSize: config.batchSize || 1,
         maxRatePerSecond: config.maxRatePerSecond,
-        status: 'active'
-      }
+        status: 'active',
+      },
     });
 
     return subscription;
@@ -40,14 +40,14 @@ export class SubscriptionManager {
 
   async getSubscription(id: string) {
     return await prisma.feedSubscription.findUnique({
-      where: { id }
+      where: { id },
     });
   }
 
   async listSubscriptions(userId?: string) {
     return await prisma.feedSubscription.findMany({
       where: userId ? { userId } : undefined,
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -57,8 +57,8 @@ export class SubscriptionManager {
       data: {
         ...updates,
         filters: updates.filters,
-        deliveryConfig: updates.deliveryConfig
-      }
+        deliveryConfig: updates.deliveryConfig,
+      },
     });
 
     return subscription;
@@ -66,7 +66,7 @@ export class SubscriptionManager {
 
   async deleteSubscription(id: string) {
     await prisma.feedSubscription.delete({
-      where: { id }
+      where: { id },
     });
   }
 
@@ -82,14 +82,14 @@ export class SubscriptionManager {
     return await prisma.feedSubscription.findMany({
       where: {
         channelName,
-        status: 'active'
-      }
+        status: 'active',
+      },
     });
   }
 
   async updateDeliveryStats(subscriptionId: string, delivered: boolean, error?: string) {
     const updates: any = {
-      lastDeliveryAt: new Date()
+      lastDeliveryAt: new Date(),
     };
 
     if (delivered) {
@@ -104,7 +104,7 @@ export class SubscriptionManager {
 
     await prisma.feedSubscription.update({
       where: { id: subscriptionId },
-      data: updates
+      data: updates,
     });
   }
 
@@ -127,8 +127,8 @@ export class SubscriptionManager {
 
     // Token filtering
     if (filters.tokens && (data.tokenIn || data.tokenOut)) {
-      const hasMatchingToken = filters.tokens.some(token => 
-        token === data.tokenIn || token === data.tokenOut
+      const hasMatchingToken = filters.tokens.some(
+        (token) => token === data.tokenIn || token === data.tokenOut,
       );
       if (!hasMatchingToken) {
         return false;

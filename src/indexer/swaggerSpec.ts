@@ -16,7 +16,8 @@ const options: swaggerJsdoc.Options = {
           type: 'apiKey',
           in: 'header',
           name: 'X-API-Key',
-          description: 'Optional API key. Tiers: public (100 req/min), developer (300 req/min), premium (1000 req/min).',
+          description:
+            'Optional API key. Tiers: public (100 req/min), developer (300 req/min), premium (1000 req/min).',
         },
       },
       schemas: {
@@ -26,12 +27,27 @@ const options: swaggerJsdoc.Options = {
             transactionHash: { type: 'string' },
             contractAddress: { type: 'string', nullable: true },
             ledgerSequence: { type: 'integer' },
-            readOnlyKeys: { type: 'integer', description: 'Number of declared read-only footprint keys' },
-            readWriteKeys: { type: 'integer', description: 'Number of declared read-write footprint keys' },
-            footprintBytes: { type: 'integer', description: 'Total declared byte budget (rent-paying storage)' },
+            readOnlyKeys: {
+              type: 'integer',
+              description: 'Number of declared read-only footprint keys',
+            },
+            readWriteKeys: {
+              type: 'integer',
+              description: 'Number of declared read-write footprint keys',
+            },
+            footprintBytes: {
+              type: 'integer',
+              description: 'Total declared byte budget (rent-paying storage)',
+            },
             actualReadBytes: { type: 'integer', description: 'Actual bytes read during execution' },
-            actualWriteBytes: { type: 'integer', description: 'Actual bytes written during execution' },
-            unusedBytes: { type: 'integer', description: 'Unutilised storage bytes (footprintBytes - actualTotal)' },
+            actualWriteBytes: {
+              type: 'integer',
+              description: 'Actual bytes written during execution',
+            },
+            unusedBytes: {
+              type: 'integer',
+              description: 'Unutilised storage bytes (footprintBytes - actualTotal)',
+            },
             efficiencyPct: { type: 'number', description: 'Storage efficiency percentage (0–100)' },
           },
         },

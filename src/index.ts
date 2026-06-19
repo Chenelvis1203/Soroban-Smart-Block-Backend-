@@ -77,7 +77,9 @@ async function main() {
   await prisma.$connect();
   dbConnectionStatus.set(1);
   if (!process.env.DISABLE_INDEXER) {
-    startIndexerService().catch((err) => logger.error('Indexer service failed', { error: String(err) }));
+    startIndexerService().catch((err) =>
+      logger.error('Indexer service failed', { error: String(err) }),
+    );
   }
 
   if (!process.env.DISABLE_INDEXER) {

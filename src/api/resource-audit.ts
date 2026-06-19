@@ -25,8 +25,16 @@ export const resourceAuditRouter = Router();
 resourceAuditRouter.get('/', (_req: Request, res: Response) => {
   res.json({
     service: 'Resource Audit API',
-    description: 'Tracks compute units, storage bytes, and network bandwidth used by Soroban contracts',
-    resourceTypes: ['compute_units', 'read_entries', 'write_entries', 'read_bytes', 'write_bytes', 'events_bytes'],
+    description:
+      'Tracks compute units, storage bytes, and network bandwidth used by Soroban contracts',
+    resourceTypes: [
+      'compute_units',
+      'read_entries',
+      'write_entries',
+      'read_bytes',
+      'write_bytes',
+      'events_bytes',
+    ],
     endpoints: [
       'GET  /resource-audit',
       'GET  /resource-audit/contracts/:contractId',
@@ -168,7 +176,9 @@ resourceAuditRouter.get('/top-consumers', (req: Request, res: Response) => {
   const validMetrics = ['compute_units', 'read_bytes', 'write_bytes', 'events_bytes', 'fees'];
 
   if (!validMetrics.includes(metric)) {
-    return res.status(400).json({ error: `Invalid metric. Must be one of: ${validMetrics.join(', ')}` });
+    return res
+      .status(400)
+      .json({ error: `Invalid metric. Must be one of: ${validMetrics.join(', ')}` });
   }
 
   res.json({ metric, limit, contracts: [], message: 'No resource data available.' });

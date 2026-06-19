@@ -90,7 +90,9 @@ oracleFeedsRouter.get('/assets/:assetPair/price', (req: Request, res: Response) 
   const supported = ['XLM/USD', 'BTC/USD', 'ETH/USD', 'USDC/USD'];
 
   if (!supported.includes(assetPair)) {
-    return res.status(404).json({ error: `Asset pair ${assetPair} not supported. Supported: ${supported.join(', ')}` });
+    return res
+      .status(404)
+      .json({ error: `Asset pair ${assetPair} not supported. Supported: ${supported.join(', ')}` });
   }
 
   const mockPrices: Record<string, number> = {
@@ -180,7 +182,9 @@ oracleFeedsRouter.get('/assets/:assetPair/ohlcv', (req: Request, res: Response) 
   const validResolutions = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
   if (!validResolutions.includes(resolution)) {
-    return res.status(400).json({ error: `Invalid resolution. Must be one of: ${validResolutions.join(', ')}` });
+    return res
+      .status(400)
+      .json({ error: `Invalid resolution. Must be one of: ${validResolutions.join(', ')}` });
   }
 
   res.json({ pair: assetPair, resolution, candles: [], total: 0, limit });
@@ -285,7 +289,12 @@ oracleFeedsRouter.delete('/subscriptions/:id', (_req: Request, res: Response) =>
 oracleFeedsRouter.get('/providers', (_req: Request, res: Response) => {
   res.json({
     providers: [
-      { id: 'band-protocol', name: 'Band Protocol', assets: ['XLM/USD', 'BTC/USD', 'ETH/USD'], active: false },
+      {
+        id: 'band-protocol',
+        name: 'Band Protocol',
+        assets: ['XLM/USD', 'BTC/USD', 'ETH/USD'],
+        active: false,
+      },
       { id: 'dia-data', name: 'DIA Data', assets: ['XLM/USD', 'USDC/USD'], active: false },
       { id: 'pyth-network', name: 'Pyth Network', assets: ['BTC/USD', 'ETH/USD'], active: false },
     ],

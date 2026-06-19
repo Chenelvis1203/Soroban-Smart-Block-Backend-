@@ -33,7 +33,10 @@ export class DeliveryService extends EventEmitter {
 
       // Apply filters
       if (subscription.filters) {
-        const matches = this.subscriptionManager.matchesFilters(message.data, subscription.filters as any);
+        const matches = this.subscriptionManager.matchesFilters(
+          message.data,
+          subscription.filters as any,
+        );
         if (!matches) {
           return;
         }
@@ -49,7 +52,11 @@ export class DeliveryService extends EventEmitter {
       await this.deliverSingle(subscription, [message]);
     } catch (error) {
       console.error('Delivery failed:', error);
-      await this.subscriptionManager.updateDeliveryStats(subscriptionId, false, error instanceof Error ? error.message : 'Unknown error');
+      await this.subscriptionManager.updateDeliveryStats(
+        subscriptionId,
+        false,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
     }
   }
 
@@ -77,7 +84,7 @@ export class DeliveryService extends EventEmitter {
     const timer = setTimeout(async () => {
       await this.deliverBatch(subscription);
     }, 5000);
-    
+
     this.batchTimers.set(subscription.id, timer);
   }
 
@@ -88,7 +95,7 @@ export class DeliveryService extends EventEmitter {
     }
 
     const messages = queue.splice(0, subscription.batchSize);
-    
+
     // Clear timer
     const timer = this.batchTimers.get(subscription.id);
     if (timer) {
@@ -122,18 +129,18 @@ export class DeliveryService extends EventEmitter {
     try {
       const payload = {
         subscriptionId,
-        messages: messages.map(msg => ({
+        messages: messages.map((msg) => ({
           sequence: msg.sequence.toString(),
           channel: msg.channelName,
           data: msg.data,
-          timestamp: msg.timestamp
-        }))
+          timestamp: msg.timestamp,
+        })),
       };
 
       const headers: any = {
         'Content-Type': 'application/json',
         'User-Agent': 'Soroban-Feed/1.0',
-        ...config.headers
+        ...config.headers,
       };
 
       // Add HMAC signature if secret is provided
@@ -144,7 +151,7 @@ export class DeliveryService extends EventEmitter {
 
       const response = await axios.post(config.url, payload, {
         headers,
-        timeout: 10000
+        timeout: 10000,
       });
 
       if (response.status >= 200 && response.status < 300) {
@@ -153,9 +160,16 @@ export class DeliveryService extends EventEmitter {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error(`Webhook delivery failed for ${subscriptionId}:`, error instanceof Error ? error.message : 'Unknown error');
-      await this.subscriptionManager.updateDeliveryStats(subscriptionId, false, error instanceof Error ? error.message : 'Unknown error');
-      
+      console.error(
+        `Webhook delivery failed for ${subscriptionId}:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+      await this.subscriptionManager.updateDeliveryStats(
+        subscriptionId,
+        false,
+        error instanceof Error ? error.message : 'Unknown error',
+      );
+
       // Retry logic can be added here
       if (config.retryOnFailure && config.maxRetries > 0) {
         // Implement exponential backoff retry
@@ -168,7 +182,7 @@ export class DeliveryService extends EventEmitter {
     this.emit('websocket-delivery', {
       connectionId: config.connectionId,
       subscriptionId,
-      messages
+      messages,
     });
   }
 
@@ -177,7 +191,7 @@ export class DeliveryService extends EventEmitter {
     this.emit('sse-delivery', {
       connectionId: config.connectionId,
       subscriptionId,
-      messages
+      messages,
     });
   }
 
@@ -186,7 +200,7 @@ export class DeliveryService extends EventEmitter {
     this.emit('queue-delivery', {
       queue: config.queue,
       subscriptionId,
-      messages
+      messages,
     });
   }
 

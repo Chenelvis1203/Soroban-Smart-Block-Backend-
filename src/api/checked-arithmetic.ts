@@ -31,15 +31,23 @@ function checkedBinaryOp(
   op: string,
   bitWidth: number,
 ): { result: number | null; overflow: boolean; error?: string } {
-  const maxVal = bitWidth === 32 ? 2 ** 31 - 1 : bitWidth === 64 ? Number.MAX_SAFE_INTEGER : 2 ** 127 - 1;
-  const minVal = bitWidth === 32 ? -(2 ** 31) : bitWidth === 64 ? Number.MIN_SAFE_INTEGER : -(2 ** 127);
+  const maxVal =
+    bitWidth === 32 ? 2 ** 31 - 1 : bitWidth === 64 ? Number.MAX_SAFE_INTEGER : 2 ** 127 - 1;
+  const minVal =
+    bitWidth === 32 ? -(2 ** 31) : bitWidth === 64 ? Number.MIN_SAFE_INTEGER : -(2 ** 127);
 
   try {
     let result: number;
     switch (op) {
-      case 'add': result = a + b; break;
-      case 'sub': result = a - b; break;
-      case 'mul': result = a * b; break;
+      case 'add':
+        result = a + b;
+        break;
+      case 'sub':
+        result = a - b;
+        break;
+      case 'mul':
+        result = a * b;
+        break;
       case 'div':
         if (b === 0) return { result: null, overflow: false, error: 'Division by zero' };
         result = Math.trunc(a / b);
@@ -57,7 +65,11 @@ function checkedBinaryOp(
     }
 
     if (result > maxVal || result < minVal || !Number.isFinite(result)) {
-      return { result: null, overflow: true, error: `Overflow: result ${result} exceeds ${bitWidth}-bit bounds` };
+      return {
+        result: null,
+        overflow: true,
+        error: `Overflow: result ${result} exceeds ${bitWidth}-bit bounds`,
+      };
     }
 
     return { result, overflow: false };
@@ -233,8 +245,10 @@ checkedArithmeticRouter.post('/validate', (req: Request, res: Response) => {
   // Static analysis: detect patterns that commonly cause overflow
   const warnings: string[] = [];
   if (/\*\*/.test(expression)) warnings.push('Exponentiation may overflow for large inputs');
-  if (/\*/.test(expression)) warnings.push('Multiplication may overflow — use checked_mul in contract code');
-  if (/<</.test(expression)) warnings.push('Bit-shift may overflow — validate shift amount < bitWidth');
+  if (/\*/.test(expression))
+    warnings.push('Multiplication may overflow — use checked_mul in contract code');
+  if (/<</.test(expression))
+    warnings.push('Bit-shift may overflow — validate shift amount < bitWidth');
 
   const hasVariables = Object.keys(variables).length > 0;
 
@@ -244,9 +258,10 @@ checkedArithmeticRouter.post('/validate', (req: Request, res: Response) => {
     variables,
     safe: warnings.length === 0,
     warnings,
-    recommendation: warnings.length > 0
-      ? `Use Soroban's checked_${expression.includes('*') ? 'mul' : 'add'} intrinsics`
-      : 'Expression appears safe for checked arithmetic',
+    recommendation:
+      warnings.length > 0
+        ? `Use Soroban's checked_${expression.includes('*') ? 'mul' : 'add'} intrinsics`
+        : 'Expression appears safe for checked arithmetic',
     hasVariableValues: hasVariables,
     validatedAt: new Date().toISOString(),
   });
@@ -269,10 +284,20 @@ checkedArithmeticRouter.get('/limits', (_req: Request, res: Response) => {
     limits: {
       i32: { min: -(2 ** 31), max: 2 ** 31 - 1, bits: 32 },
       i64: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER, bits: 64 },
-      i128: { min: -(2n ** 127n).toString(), max: (2n ** 127n - 1n).toString(), bits: 128, note: 'BigInt precision required for full i128 range' },
+      i128: {
+        min: -(2n ** 127n).toString(),
+        max: (2n ** 127n - 1n).toString(),
+        bits: 128,
+        note: 'BigInt precision required for full i128 range',
+      },
       u32: { min: 0, max: 2 ** 32 - 1, bits: 32 },
       u64: { min: 0, max: Number.MAX_SAFE_INTEGER, bits: 64 },
-      u128: { min: 0, max: (2n ** 128n - 1n).toString(), bits: 128, note: 'BigInt precision required for full u128 range' },
+      u128: {
+        min: 0,
+        max: (2n ** 128n - 1n).toString(),
+        bits: 128,
+        note: 'BigInt precision required for full u128 range',
+      },
     },
     sorobanNotes: [
       'Soroban uses i128/u128 for token amounts',

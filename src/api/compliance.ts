@@ -25,7 +25,8 @@ export const complianceRouter = Router();
 complianceRouter.get('/', (_req: Request, res: Response) => {
   res.json({
     service: 'Compliance API',
-    description: 'Sanctions screening, transaction monitoring, and regulatory reporting for Stellar',
+    description:
+      'Sanctions screening, transaction monitoring, and regulatory reporting for Stellar',
     endpoints: [
       'GET  /compliance',
       'POST /compliance/screen',
@@ -257,7 +258,13 @@ complianceRouter.get('/alerts', (req: Request, res: Response) => {
 complianceRouter.post('/report', (req: Request, res: Response) => {
   const schema = z.object({
     subjectAddress: z.string().min(1),
-    activityType: z.enum(['money_laundering', 'sanctions_evasion', 'fraud', 'market_manipulation', 'other']),
+    activityType: z.enum([
+      'money_laundering',
+      'sanctions_evasion',
+      'fraud',
+      'market_manipulation',
+      'other',
+    ]),
     description: z.string().min(20),
     relatedTxHashes: z.array(z.string()).default([]),
     reportedBy: z.string().optional(),

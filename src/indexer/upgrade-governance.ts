@@ -88,7 +88,8 @@ export function analyzeGovernance(signals: GovernanceSignals): GovernanceAnalysi
  * Surfaced verbatim by the API so consumers can audit the methodology.
  */
 export const DECENTRALIZATION_METHODOLOGY = {
-  scale: '0 (fully centralised single key) to 100 (broadly decentralised, vote-gated, time-delayed)',
+  scale:
+    '0 (fully centralised single key) to 100 (broadly decentralised, vote-gated, time-delayed)',
   components: [
     {
       name: 'Authority distribution',

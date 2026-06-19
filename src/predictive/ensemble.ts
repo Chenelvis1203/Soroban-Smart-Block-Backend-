@@ -4,11 +4,7 @@ export class EnsembleForecaster {
   private models: IForecastingModel[];
 
   constructor() {
-    this.models = [
-      new ArimaMock(),
-      new XgboostMock(),
-      new LstmMock()
-    ];
+    this.models = [new ArimaMock(), new XgboostMock(), new LstmMock()];
   }
 
   public trainAll(historicalData: number[], features?: Record<string, number[]>) {
@@ -19,7 +15,7 @@ export class EnsembleForecaster {
 
   public predict(horizon: number, recentData: number[], confidenceLevel = 0.95): ForecastResult[] {
     // Generate predictions from all models
-    const allPredictions = this.models.map(m => m.predict(horizon, recentData));
+    const allPredictions = this.models.map((m) => m.predict(horizon, recentData));
 
     // Calculate ensemble weights based on mocked Bayesian optimization / recent accuracy
     // For simplicity, we just average them
@@ -53,8 +49,8 @@ export class EnsembleForecaster {
         lowerBound: lower,
         upperBound: upper,
         featuresUsed: {
-          ensemble_size: this.models.length
-        }
+          ensemble_size: this.models.length,
+        },
       });
     }
 
@@ -62,10 +58,10 @@ export class EnsembleForecaster {
   }
 
   public getModels() {
-    return this.models.map(m => ({
+    return this.models.map((m) => ({
       name: m.name,
       type: m.type,
-      version: m.version
+      version: m.version,
     }));
   }
 }

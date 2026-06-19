@@ -1,4 +1,12 @@
-import { Address, ChainId, ChainReputationData, EndorsementInput, TrustEdgeInput, TrustGraph, TrustPath } from './types';
+import {
+  Address,
+  ChainId,
+  ChainReputationData,
+  EndorsementInput,
+  TrustEdgeInput,
+  TrustGraph,
+  TrustPath,
+} from './types';
 import { canonicalAddress, toNumber } from './score';
 
 export function buildTrustGraph(chainData: ChainReputationData[]): TrustGraph {
@@ -23,7 +31,12 @@ export function buildTrustGraph(chainData: ChainReputationData[]): TrustGraph {
   return { nodes: Array.from(nodes).sort(), edges };
 }
 
-export function findTrustPath(graph: TrustGraph, from: Address, to: Address, maxDepth = 6): TrustPath | null {
+export function findTrustPath(
+  graph: TrustGraph,
+  from: Address,
+  to: Address,
+  maxDepth = 6,
+): TrustPath | null {
   const start = canonicalAddress(from);
   const end = canonicalAddress(to);
   if (start === end) return { from: start, to: end, path: [start], distance: 0, chainIds: [] };
@@ -34,7 +47,8 @@ export function findTrustPath(graph: TrustGraph, from: Address, to: Address, max
     adjacency.get(edge.from)?.push({ to: edge.to, weight: edge.weight, chainId: edge.chainId });
   }
 
-  const queue: Array<{ address: Address; path: Address[]; distance: number; chainIds: ChainId[] }> = [{ address: start, path: [start], distance: 0, chainIds: [] }];
+  const queue: Array<{ address: Address; path: Address[]; distance: number; chainIds: ChainId[] }> =
+    [{ address: start, path: [start], distance: 0, chainIds: [] }];
   const visited = new Set<string>();
 
   while (queue.length > 0) {
@@ -46,10 +60,11 @@ export function findTrustPath(graph: TrustGraph, from: Address, to: Address, max
 
     for (const next of adjacency.get(current.address) ?? []) {
       const nextAddress = next.to;
-      const distance = current.distance + (1 / Math.max(next.weight, 0.0001));
+      const distance = current.distance + 1 / Math.max(next.weight, 0.0001);
       const path = [...current.path, nextAddress];
       const chainIds = Array.from(new Set([...current.chainIds, next.chainId])).sort();
-      if (nextAddress === end) return { from: start, to: end, path, distance: round(distance), chainIds };
+      if (nextAddress === end)
+        return { from: start, to: end, path, distance: round(distance), chainIds };
       queue.push({ address: nextAddress, path, distance, chainIds });
     }
   }
@@ -59,15 +74,21 @@ export function findTrustPath(graph: TrustGraph, from: Address, to: Address, max
 
 export function weightEndorsement(endorsement: EndorsementInput, endorserScore: number): number {
   const base = normalizeEdgeWeight(endorsement.weight);
-  const reputationFactor = 0.35 + 0.65 * Math.max(0, Math.min(endorserScore, 100)) / 100;
+  const reputationFactor = 0.35 + (0.65 * Math.max(0, Math.min(endorserScore, 100))) / 100;
   return round(base * reputationFactor);
 }
 
-export function weightedEndorsements(endorsements: EndorsementInput[], endorserScores: Map<Address, number>): Array<Omit<EndorsementInput, 'weight'> & { weight: number }> {
+export function weightedEndorsements(
+  endorsements: EndorsementInput[],
+  endorserScores: Map<Address, number>,
+): Array<Omit<EndorsementInput, 'weight'> & { weight: number }> {
   return endorsements
     .map((endorsement) => ({
       ...endorsement,
-      weight: weightEndorsement(endorsement, endorserScores.get(canonicalAddress(endorsement.endorser)) ?? 0),
+      weight: weightEndorsement(
+        endorsement,
+        endorserScores.get(canonicalAddress(endorsement.endorser)) ?? 0,
+      ),
     }))
     .sort((a, b) => b.weight - a.weight || a.subject.localeCompare(b.subject));
 }

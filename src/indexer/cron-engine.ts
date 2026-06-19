@@ -141,7 +141,11 @@ async function runCronJob(jobId: string): Promise<boolean> {
       await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
     }
 
-    const result = await executeContractFunction(job.contractAddress, job.functionName, job.functionArgs);
+    const result = await executeContractFunction(
+      job.contractAddress,
+      job.functionName,
+      job.functionArgs,
+    );
 
     if (result.success) {
       const duration = Date.now() - start;

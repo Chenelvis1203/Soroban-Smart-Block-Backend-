@@ -46,10 +46,7 @@ export function invalidateFreezeCache(): void {
 export function extractFootprintKeys(envelopeXdrBase64: string): string[] {
   try {
     const envelope = xdr.TransactionEnvelope.fromXDR(envelopeXdrBase64, 'base64');
-    const tx =
-      envelope.switch().name === 'envelopeTypeTx'
-        ? envelope.v1().tx()
-        : null;
+    const tx = envelope.switch().name === 'envelopeTypeTx' ? envelope.v1().tx() : null;
     if (!tx) return [];
 
     const ops = tx.operations();
@@ -146,7 +143,9 @@ export async function registerFrozenKey(
     create: { ledgerKey, contractAddress, frozenAtLedger, frozenAtTime, reason: reason ?? null },
   });
   invalidateFreezeCache();
-  console.log(`[freeze-scanner] Registered frozen key for contract ${contractAddress ?? 'unknown'} at ledger ${frozenAtLedger}`);
+  console.log(
+    `[freeze-scanner] Registered frozen key for contract ${contractAddress ?? 'unknown'} at ledger ${frozenAtLedger}`,
+  );
 }
 
 /**

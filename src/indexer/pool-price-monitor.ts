@@ -137,24 +137,26 @@ async function computePriceDeviations(
       for (let j = i + 1; j < prices.length; j++) {
         const pA = prices[i];
         const pB = prices[j];
-        const deviation = Math.abs(pA.price - pB.price) / Math.min(pA.price, pB.price) * 100;
+        const deviation = (Math.abs(pA.price - pB.price) / Math.min(pA.price, pB.price)) * 100;
 
         // Only record if above smallest threshold
         if (deviation < DEVIATION_THRESHOLDS[0]) continue;
 
-        await prismaWrite.priceDeviation.create({
-          data: {
-            tokenA,
-            tokenB,
-            poolIdA: pA.poolId,
-            poolIdB: pB.poolId,
-            priceA: pA.price,
-            priceB: pB.price,
-            deviationPercentage: deviation,
-            timestamp: now,
-            blockNumber,
-          },
-        }).catch(() => {}); // ignore unique constraint races
+        await prismaWrite.priceDeviation
+          .create({
+            data: {
+              tokenA,
+              tokenB,
+              poolIdA: pA.poolId,
+              poolIdB: pB.poolId,
+              priceA: pA.price,
+              priceB: pB.price,
+              deviationPercentage: deviation,
+              timestamp: now,
+              blockNumber,
+            },
+          })
+          .catch(() => {}); // ignore unique constraint races
       }
     }
   }

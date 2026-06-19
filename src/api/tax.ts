@@ -25,7 +25,8 @@ export const taxRouter = Router();
 taxRouter.get('/', (_req: Request, res: Response) => {
   res.json({
     service: 'Tax API',
-    description: 'Tax reporting, cost basis calculation, and capital gains computation for Stellar DeFi activity',
+    description:
+      'Tax reporting, cost basis calculation, and capital gains computation for Stellar DeFi activity',
     methods: ['FIFO', 'LIFO', 'HIFO', 'average_cost'],
     endpoints: [
       'GET  /tax',

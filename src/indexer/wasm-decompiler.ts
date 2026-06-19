@@ -133,7 +133,7 @@ const OPCODE_NAMES: Record<number, string> = {
   0xaf: 'i64.trunc_f32_u',
   0xb0: 'i64.trunc_f64_s',
   0xb1: 'i64.trunc_f64_u',
-  0xfc: 'misc',  // prefix for bulk-memory / saturating-trunc instructions
+  0xfc: 'misc', // prefix for bulk-memory / saturating-trunc instructions
 };
 
 import { createHash } from 'crypto';
@@ -311,8 +311,7 @@ export const VULNERABLE_TEMPLATES: VulnerableTemplate[] = [
   },
   {
     id: 'backdoor-init',
-    description:
-      'Backdoor initialisation: indirect call with no preceding auth/guard check',
+    description: 'Backdoor initialisation: indirect call with no preceding auth/guard check',
     opcodeSequence: ['call_indirect'],
     maxGap: 0,
   },
@@ -332,8 +331,7 @@ export const VULNERABLE_TEMPLATES: VulnerableTemplate[] = [
   },
   {
     id: 'unchecked-division-u',
-    description:
-      'Unchecked unsigned integer division: divisor is not guarded before i64.div_u',
+    description: 'Unchecked unsigned integer division: divisor is not guarded before i64.div_u',
     opcodeSequence: ['i64.div_u'],
     maxGap: 0,
   },
@@ -483,7 +481,11 @@ export function matchVulnerableTemplates(
       if ((index.frequency[pattern[0]] ?? 0) > 0) {
         // Find first occurrence offset
         const firstIdx = seq.indexOf(pattern[0]);
-        matches.push({ templateId: template.id, description: template.description, matchOffset: firstIdx });
+        matches.push({
+          templateId: template.id,
+          description: template.description,
+          matchOffset: firstIdx,
+        });
       }
       continue;
     }
@@ -497,7 +499,11 @@ export function matchVulnerableTemplates(
         if (patternIdx === 0) windowStart = i;
         patternIdx++;
         if (patternIdx === pattern.length) {
-          matches.push({ templateId: template.id, description: template.description, matchOffset: windowStart });
+          matches.push({
+            templateId: template.id,
+            description: template.description,
+            matchOffset: windowStart,
+          });
           break; // report first match only per template
         }
       } else if (patternIdx > 0) {
@@ -867,9 +873,15 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
         }
 
         const functionIndex = importedCount + functionBodyIndex;
-        const exportName = moduleInfo.exports.find((entry) => entry.kind === 'func' && entry.index === functionIndex)?.name;
-        const explicitName = moduleInfo.functionNameMap.get(functionIndex) ?? exportName ?? `func_${functionIndex}`;
-        const signature = moduleInfo.types[moduleInfo.functionTypeIndices[functionBodyIndex]] ?? { params: [], results: [] };
+        const exportName = moduleInfo.exports.find(
+          (entry) => entry.kind === 'func' && entry.index === functionIndex,
+        )?.name;
+        const explicitName =
+          moduleInfo.functionNameMap.get(functionIndex) ?? exportName ?? `func_${functionIndex}`;
+        const signature = moduleInfo.types[moduleInfo.functionTypeIndices[functionBodyIndex]] ?? {
+          params: [],
+          results: [],
+        };
         const params = signature.params.map((_, idx) => `arg${idx}`);
         const returns = signature.results.map((_, idx) => `ret${idx}`);
 
@@ -900,12 +912,21 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
               break;
             case 'call': {
               const targetIndex = insn.immediates[0] ?? 0;
-              const targetName = moduleInfo.functionNameMap.get(targetIndex) ?? `func_${targetIndex}`;
+              const targetName =
+                moduleInfo.functionNameMap.get(targetIndex) ?? `func_${targetIndex}`;
               const kind = targetIndex < importedCount ? 'imported' : 'internal';
               calls.push({ targetIndex, targetName, kind, instructionOffset: insn.offset });
               if (kind === 'imported') {
-                const imported = moduleInfo.imports.find((imp) => imp.kind === 'func' && imp.typeIndex === moduleInfo.functionTypeIndices[targetIndex - importedCount]);
-                hostCalls.push({ module: imported?.module ?? 'unknown', name: imported?.name ?? targetName, instructionOffset: insn.offset });
+                const imported = moduleInfo.imports.find(
+                  (imp) =>
+                    imp.kind === 'func' &&
+                    imp.typeIndex === moduleInfo.functionTypeIndices[targetIndex - importedCount],
+                );
+                hostCalls.push({
+                  module: imported?.module ?? 'unknown',
+                  name: imported?.name ?? targetName,
+                  instructionOffset: insn.offset,
+                });
               }
               line = `${targetName}(${args})`;
               break;
@@ -924,15 +945,22 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
               line = `goto label_${insn.immediates[0] ?? 0}`;
               break;
             case 'loop':
-              line = `loop`; branchCount += 1; break;
+              line = `loop`;
+              branchCount += 1;
+              break;
             case 'if':
-              line = `if (stack.pop()) {`; branchCount += 1; break;
+              line = `if (stack.pop()) {`;
+              branchCount += 1;
+              break;
             case 'else':
-              line = `} else {`; break;
+              line = `} else {`;
+              break;
             case 'end':
-              line = `}`; break;
+              line = `}`;
+              break;
             case 'return':
-              line = `return`; break;
+              line = `return`;
+              break;
             case 'i32.const':
             case 'i64.const':
             case 'f32.const':
@@ -958,7 +986,8 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
         }
 
         const cyclomaticComplexity = Math.max(1, branchCount + 1);
-        const complexity = cyclomaticComplexity <= 2 ? 'low' : cyclomaticComplexity <= 5 ? 'medium' : 'high';
+        const complexity =
+          cyclomaticComplexity <= 2 ? 'low' : cyclomaticComplexity <= 5 ? 'medium' : 'high';
 
         const cfg = buildFunctionCFG(instructions);
 
@@ -967,7 +996,9 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
           globalIndex: functionIndex,
           name: explicitName,
           exportName,
-          selector: exportName ? createHash('sha256').update(exportName).digest('hex').slice(0, 10) : undefined,
+          selector: exportName
+            ? createHash('sha256').update(exportName).digest('hex').slice(0, 10)
+            : undefined,
           signature,
           params,
           returns,
@@ -982,7 +1013,11 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
           calls,
           storageOperations,
           hostCalls,
-          sourceMap: instructions.map((insn, idx) => ({ instructionIndex: idx, wasmOffset: insn.offset, pseudoLine: idx })),
+          sourceMap: instructions.map((insn, idx) => ({
+            instructionIndex: idx,
+            wasmOffset: insn.offset,
+            pseudoLine: idx,
+          })),
         });
 
         functionBodyIndex += 1;
@@ -996,12 +1031,19 @@ function analyzeFunctionBodies(wasm: Buffer, moduleInfo: ParsedWasmModule): Func
   return functions;
 }
 
-function buildCallGraph(functions: FunctionAnalysis[]): { nodes: string[]; edges: CallGraphEdge[] } {
+function buildCallGraph(functions: FunctionAnalysis[]): {
+  nodes: string[];
+  edges: CallGraphEdge[];
+} {
   const nodes = functions.map((fn) => fn.name);
   const edges: CallGraphEdge[] = [];
   for (const fn of functions) {
     for (const call of fn.calls) {
-      edges.push({ from: fn.name, to: call.targetName, type: call.kind === 'imported' ? 'import' : 'call' });
+      edges.push({
+        from: fn.name,
+        to: call.targetName,
+        type: call.kind === 'imported' ? 'import' : 'call',
+      });
     }
   }
   return { nodes, edges };
@@ -1010,7 +1052,11 @@ function buildCallGraph(functions: FunctionAnalysis[]): { nodes: string[]; edges
 function buildFunctionCFG(instructions: WasmInstruction[]): FunctionCFG {
   const blocks: FunctionBasicBlock[] = [];
   let currentId = 0;
-  let currentBlock: FunctionBasicBlock = { id: `block_${currentId}`, instructions: [], successors: [] };
+  let currentBlock: FunctionBasicBlock = {
+    id: `block_${currentId}`,
+    instructions: [],
+    successors: [],
+  };
   const loops: string[] = [];
 
   for (const insn of instructions) {
@@ -1031,7 +1077,11 @@ function buildFunctionCFG(instructions: WasmInstruction[]): FunctionCFG {
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     const last = block.instructions[block.instructions.length - 1] ?? '';
-    if (!last.startsWith('br') && !last.startsWith('return') && block.id !== blocks[blocks.length - 1]?.id) {
+    if (
+      !last.startsWith('br') &&
+      !last.startsWith('return') &&
+      block.id !== blocks[blocks.length - 1]?.id
+    ) {
       block.successors.push(blocks[i + 1].id);
     }
   }
@@ -1161,39 +1211,62 @@ function readSleb128(buf: Buffer, offset: number): [number, number] {
 
 function sectionNameFromId(sectionId: number): string {
   switch (sectionId) {
-    case 0: return 'custom';
-    case 1: return 'type';
-    case 2: return 'import';
-    case 3: return 'function';
-    case 4: return 'table';
-    case 5: return 'memory';
-    case 6: return 'global';
-    case 7: return 'export';
-    case 8: return 'start';
-    case 9: return 'element';
-    case 10: return 'code';
-    case 11: return 'data';
-    default: return 'unknown';
+    case 0:
+      return 'custom';
+    case 1:
+      return 'type';
+    case 2:
+      return 'import';
+    case 3:
+      return 'function';
+    case 4:
+      return 'table';
+    case 5:
+      return 'memory';
+    case 6:
+      return 'global';
+    case 7:
+      return 'export';
+    case 8:
+      return 'start';
+    case 9:
+      return 'element';
+    case 10:
+      return 'code';
+    case 11:
+      return 'data';
+    default:
+      return 'unknown';
   }
 }
 
 function valTypeName(code: number): string {
   switch (code) {
-    case 0x7f: return 'i32';
-    case 0x7e: return 'i64';
-    case 0x7d: return 'f32';
-    case 0x7c: return 'f64';
-    default: return `unknown(0x${code.toString(16)})`;
+    case 0x7f:
+      return 'i32';
+    case 0x7e:
+      return 'i64';
+    case 0x7d:
+      return 'f32';
+    case 0x7c:
+      return 'f64';
+    default:
+      return `unknown(0x${code.toString(16)})`;
   }
 }
 
 function exportKindName(kind: number): WasmExportEntry['kind'] {
   switch (kind) {
-    case 0x00: return 'func';
-    case 0x01: return 'table';
-    case 0x02: return 'memory';
-    case 0x03: return 'global';
-    default: return 'unknown';
+    case 0x00:
+      return 'func';
+    case 0x01:
+      return 'table';
+    case 0x02:
+      return 'memory';
+    case 0x03:
+      return 'global';
+    default:
+      return 'unknown';
   }
 }
 
@@ -1224,12 +1297,15 @@ function readUleb128(buf: Buffer, offset: number): [number, number] {
 function skipImmediates(opcode: number, buf: Buffer, offset: number, end: number): number {
   switch (opcode) {
     // block / loop / if — blocktype (sleb128 or single byte)
-    case 0x02: case 0x03: case 0x04: {
+    case 0x02:
+    case 0x03:
+    case 0x04: {
       const [, len] = readUleb128(buf, offset);
       return offset + len;
     }
     // br / br_if — label index (uleb128)
-    case 0x0c: case 0x0d: {
+    case 0x0c:
+    case 0x0d: {
       const [, len] = readUleb128(buf, offset);
       return offset + len;
     }
@@ -1266,33 +1342,55 @@ function skipImmediates(opcode: number, buf: Buffer, offset: number, end: number
       return offset + l1 + l2;
     }
     // local.get / local.set / local.tee — local index
-    case 0x20: case 0x21: case 0x22: {
+    case 0x20:
+    case 0x21:
+    case 0x22: {
       const [, len] = readUleb128(buf, offset);
       return offset + len;
     }
     // global.get / global.set — global index
-    case 0x23: case 0x24: {
+    case 0x23:
+    case 0x24: {
       const [, len] = readUleb128(buf, offset);
       return offset + len;
     }
     // table.get / table.set — table index
-    case 0x25: case 0x26: {
+    case 0x25:
+    case 0x26: {
       const [, len] = readUleb128(buf, offset);
       return offset + len;
     }
     // memory load/store instructions — alignment + offset (two uleb128s)
-    case 0x28: case 0x29: case 0x2a: case 0x2b:
-    case 0x2c: case 0x2d: case 0x2e: case 0x2f:
-    case 0x30: case 0x31: case 0x32: case 0x33:
-    case 0x34: case 0x35: case 0x36: case 0x37:
-    case 0x38: case 0x39: case 0x3a: case 0x3b:
-    case 0x3c: case 0x3d: case 0x3e: {
+    case 0x28:
+    case 0x29:
+    case 0x2a:
+    case 0x2b:
+    case 0x2c:
+    case 0x2d:
+    case 0x2e:
+    case 0x2f:
+    case 0x30:
+    case 0x31:
+    case 0x32:
+    case 0x33:
+    case 0x34:
+    case 0x35:
+    case 0x36:
+    case 0x37:
+    case 0x38:
+    case 0x39:
+    case 0x3a:
+    case 0x3b:
+    case 0x3c:
+    case 0x3d:
+    case 0x3e: {
       const [, l1] = readUleb128(buf, offset);
       const [, l2] = readUleb128(buf, offset + l1);
       return offset + l1 + l2;
     }
     // memory.size / memory.grow — reserved byte
-    case 0x3f: case 0x40:
+    case 0x3f:
+    case 0x40:
       return offset + 1;
     // i32.const — sleb128
     case 0x41: {

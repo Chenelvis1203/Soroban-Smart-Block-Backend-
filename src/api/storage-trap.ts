@@ -25,7 +25,8 @@ export const storageTrapRouter = Router();
 storageTrapRouter.get('/', (_req: Request, res: Response) => {
   res.json({
     service: 'Storage Trap API',
-    description: 'Detects unbounded storage growth, griefing attacks, and DoS patterns in Soroban contracts',
+    description:
+      'Detects unbounded storage growth, griefing attacks, and DoS patterns in Soroban contracts',
     detectionRules: [
       'unbounded_map_growth',
       'user_controlled_keys',

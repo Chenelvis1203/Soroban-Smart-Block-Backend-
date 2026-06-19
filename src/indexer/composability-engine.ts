@@ -40,12 +40,12 @@ export interface PatternDetectionResult {
 }
 
 export interface SafetyScoreBreakdown {
-  atomicity: number;       // max 25
-  authorization: number;   // max 25
+  atomicity: number; // max 25
+  authorization: number; // max 25
   stateConsistency: number; // max 20
-  reentrancy: number;      // max 20
+  reentrancy: number; // max 20
   oracleFreshness: number; // max 10
-  total: number;           // max 100
+  total: number; // max 100
 }
 
 export interface VerificationResult {
@@ -88,20 +88,24 @@ const KNOWN_PATTERNS: Array<{
     risk: 'critical',
     detect(calls) {
       const hasBorrow = calls.some(
-        (c) => c.method.toLowerCase().includes('borrow') || c.method.toLowerCase().includes('flash'),
+        (c) =>
+          c.method.toLowerCase().includes('borrow') || c.method.toLowerCase().includes('flash'),
       );
       const hasRepay = calls.some(
-        (c) => c.method.toLowerCase().includes('repay') || c.method.toLowerCase().includes('return'),
+        (c) =>
+          c.method.toLowerCase().includes('repay') || c.method.toLowerCase().includes('return'),
       );
       const hasUse = calls.some(
-        (c) => c.method.toLowerCase().includes('swap') || c.method.toLowerCase().includes('liquidate'),
+        (c) =>
+          c.method.toLowerCase().includes('swap') || c.method.toLowerCase().includes('liquidate'),
       );
       // Flash loan = borrow -> use -> repay in same tx
       if (hasBorrow && hasRepay && hasUse) return 0.9;
       if (hasBorrow && hasRepay) return 0.6;
       return 0;
     },
-    mitigationGuide: 'Add reentrancy guards and validate balances before/after flash loan callbacks.',
+    mitigationGuide:
+      'Add reentrancy guards and validate balances before/after flash loan callbacks.',
   },
   {
     name: 'Cross-Contract Reentrancy',
@@ -149,7 +153,8 @@ const KNOWN_PATTERNS: Array<{
     detect(calls) {
       const hasDeposit = calls.some(
         (c) =>
-          c.method.toLowerCase().includes('deposit') || c.method.toLowerCase().includes('collateral'),
+          c.method.toLowerCase().includes('deposit') ||
+          c.method.toLowerCase().includes('collateral'),
       );
       const hasBorrow = calls.some((c) => c.method.toLowerCase().includes('borrow'));
       const hasSwap = calls.some((c) => c.method.toLowerCase().includes('swap'));
@@ -171,8 +176,7 @@ const KNOWN_PATTERNS: Array<{
       if (hasWithdraw && hasDeposit) return 0.5;
       return 0;
     },
-    mitigationGuide:
-      'Ensure atomicity of collateral swap. Add minimum output validation.',
+    mitigationGuide: 'Ensure atomicity of collateral swap. Add minimum output validation.',
   },
   {
     name: 'Multi-DEX Route Composition',
@@ -257,10 +261,7 @@ export function performStaticAnalysis(
   const nodes: CallNode[] = [{ address: contractAddress, method: '', depth: 0 }];
 
   // Extract calls from function signatures and ABI
-  const fns = [
-    ...(functionSignatures ?? []),
-    ...(abi?.functions ?? []),
-  ];
+  const fns = [...(functionSignatures ?? []), ...(abi?.functions ?? [])];
 
   for (const fn of fns) {
     const name = fn.name.toLowerCase();
@@ -364,7 +365,8 @@ export function verifyCompositionSafety(
   callGraph: CallGraph,
 ): VerificationResult {
   // Atomicity: all calls in same tx context (no async gaps detectable from call list)
-  const atomicity = calls.length > 0 && !calls.some((c) => c.method.toLowerCase().includes('async'));
+  const atomicity =
+    calls.length > 0 && !calls.some((c) => c.method.toLowerCase().includes('async'));
 
   // Authorization: check that privileged methods have consistent caller
   const privilegedMethods = ['admin', 'owner', 'pause', 'upgrade', 'mint', 'burn'];
@@ -436,7 +438,9 @@ export function verifyCompositionSafety(
 
 // ── Safety Scoring ────────────────────────────────────────────────────────────
 
-export function computeRiskLevel(score: number): 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'critical' {
+export function computeRiskLevel(
+  score: number,
+): 'safe' | 'low_risk' | 'medium_risk' | 'high_risk' | 'critical' {
   if (score >= 90) return 'safe';
   if (score >= 70) return 'low_risk';
   if (score >= 50) return 'medium_risk';
@@ -606,8 +610,7 @@ export function checkForExploit(calls: ContractCall[]): {
   // Check for known high-confidence exploit signatures
   const patterns = detectPatterns(calls);
   const criticalPatterns = patterns.filter(
-    (p) =>
-      (p.details as any).riskRating === 'critical' && p.confidence >= 0.8,
+    (p) => (p.details as any).riskRating === 'critical' && p.confidence >= 0.8,
   );
 
   if (criticalPatterns.length > 0) {

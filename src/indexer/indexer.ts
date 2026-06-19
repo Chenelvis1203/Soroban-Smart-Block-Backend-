@@ -1,7 +1,14 @@
 import WebSocket from 'ws';
 import { prismaWrite as prisma } from '../db';
 import { config } from '../config';
-import { fetchEvents, getLatestLedger, getRpcWebsocketUrl, getTransaction, getTransactionFromHorizon, type LedgerEvent } from './rpc';
+import {
+  fetchEvents,
+  getLatestLedger,
+  getRpcWebsocketUrl,
+  getTransaction,
+  getTransactionFromHorizon,
+  type LedgerEvent,
+} from './rpc';
 import { decodeTransaction, decodeEvent } from './decoder';
 import { feedOrchestrator } from '../feed/orchestrator';
 
@@ -40,10 +47,13 @@ async function processLedgerRange(start: number, end: number) {
       create: { address: event.contractId },
     });
 
-    const existingTx = await prisma.transaction.findUnique({ where: { hash: event.transactionHash } });
+    const existingTx = await prisma.transaction.findUnique({
+      where: { hash: event.transactionHash },
+    });
     if (!existingTx) {
-      const txResult = await getTransaction(event.transactionHash)
-        .catch(() => getTransactionFromHorizon(event.transactionHash).catch(() => null));
+      const txResult = await getTransaction(event.transactionHash).catch(() =>
+        getTransactionFromHorizon(event.transactionHash).catch(() => null),
+      );
       const rawXdr = (txResult as any)?.envelopeXdr?.toXDR('base64') ?? '';
       const decoded = rawXdr
         ? await decodeTransaction(rawXdr)
@@ -64,7 +74,7 @@ async function processLedgerRange(start: number, end: number) {
           sourceAccount: (txResult as any)?.sourceAccount ?? 'unknown',
           contractAddress: decoded.contractAddress,
           functionName: decoded.functionName,
-          functionArgs: decoded.functionArgs as object ?? undefined,
+          functionArgs: (decoded.functionArgs as object) ?? undefined,
           rawXdr,
           status: (txResult as any)?.status === 'SUCCESS' ? 'success' : 'failed',
           humanReadable: decoded.humanReadable,
@@ -128,7 +138,7 @@ async function catchUp(from: number, to: number): Promise<void> {
   const chunks = chunkRange(from, to, WORKERS);
   console.log(
     `[catch-up] ${chunks.length} worker(s) covering ledgers ${from}–${to} ` +
-    `(chunk size ~${chunks[0][1] - chunks[0][0] + 1})`
+      `(chunk size ~${chunks[0][1] - chunks[0][0] + 1})`,
   );
   await Promise.all(chunks.map(([s, e]) => processLedgerRange(s, e)));
   await setLastIndexedLedger(to);
@@ -211,26 +221,32 @@ function extractHotSigner(decoded: Record<string, unknown>, topics: string[]) {
 }
 
 function extractStartLedger(decoded: Record<string, unknown>, defaultLedger: number) {
-  const rawStart = decoded?.data && typeof decoded.data === 'object'
-    ? getNumericOrStringField(decoded.data as Record<string, unknown>, ['startLedger', 'start_block', 'fromLedger'])
-    : undefined;
+  const rawStart =
+    decoded?.data && typeof decoded.data === 'object'
+      ? getNumericOrStringField(decoded.data as Record<string, unknown>, [
+          'startLedger',
+          'start_block',
+          'fromLedger',
+        ])
+      : undefined;
   const parsed = rawStart !== undefined ? Number(rawStart) : NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultLedger;
 }
 
 function extractExpiryLedger(decoded: Record<string, unknown>, startLedger: number) {
   const data = decoded?.data;
-  const rawExpiry = typeof data === 'object' && data !== null
-    ? getNumericOrStringField(data as Record<string, unknown>, [
-        'expiryLedger',
-        'expiresAtLedger',
-        'expires_at_ledger',
-        'expirationLedger',
-        'validUntilLedger',
-        'expiresAtBlock',
-        'expiryBlock',
-      ])
-    : undefined;
+  const rawExpiry =
+    typeof data === 'object' && data !== null
+      ? getNumericOrStringField(data as Record<string, unknown>, [
+          'expiryLedger',
+          'expiresAtLedger',
+          'expires_at_ledger',
+          'expirationLedger',
+          'validUntilLedger',
+          'expiresAtBlock',
+          'expiryBlock',
+        ])
+      : undefined;
 
   if (rawExpiry !== undefined) {
     const expiry = Number(rawExpiry);
@@ -239,14 +255,15 @@ function extractExpiryLedger(decoded: Record<string, unknown>, startLedger: numb
     }
   }
 
-  const duration = typeof data === 'object' && data !== null
-    ? getNumericOrStringField(data as Record<string, unknown>, [
-        'durationBlocks',
-        'allocatedBlocks',
-        'windowBlocks',
-        'expiresInBlocks',
-      ])
-    : undefined;
+  const duration =
+    typeof data === 'object' && data !== null
+      ? getNumericOrStringField(data as Record<string, unknown>, [
+          'durationBlocks',
+          'allocatedBlocks',
+          'windowBlocks',
+          'expiresInBlocks',
+        ])
+      : undefined;
   const parsedDuration = duration !== undefined ? Number(duration) : NaN;
   if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
     return startLedger + parsedDuration;
@@ -364,12 +381,14 @@ class SorobanEventWorker {
 
   private subscribeLedgerClose() {
     if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) return;
-    this.websocket.send(JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'subscribe',
-      params: { topic: 'ledger' },
-      id: 1,
-    }));
+    this.websocket.send(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'subscribe',
+        params: { topic: 'ledger' },
+        id: 1,
+      }),
+    );
   }
 
   private handleWsMessage(data: WebSocket.Data) {
@@ -380,7 +399,7 @@ class SorobanEventWorker {
       const ledgerNumber = this.extractLedgerNumber(message);
       if (typeof ledgerNumber === 'number') {
         this.onLedgerClose(ledgerNumber).catch((err) =>
-          console.error('Ledger close handler failed:', err)
+          console.error('Ledger close handler failed:', err),
         );
       }
     } catch (error) {

@@ -1,7 +1,7 @@
 {
   "root": true,
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
+  "plugins": ["@typescript-eslint", "error-handling", "unused-imports"],
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended"
@@ -16,10 +16,16 @@
   },
   "rules": {
     "@typescript-eslint/no-explicit-any": ["warn", { "ignoreRestArgs": true }],
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-unused-vars": "off",
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": [
+      "warn",
+      { "vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_" }
+    ],
     "no-console": "off",
     "prefer-const": "error",
-    "no-var": "error"
+    "no-var": "error",
+    "error-handling/require-async-handler": "error"
   },
   "ignorePatterns": ["dist/", "node_modules/"]
 }

@@ -11,7 +11,8 @@ import { z } from 'zod';
 export const bn254Router = Router();
 
 // BN254 curve parameters (for reference only)
-const BN254_FIELD_MODULUS = '21888242871839275222246405745257275088696311157297823662689037894645226208583';
+const BN254_FIELD_MODULUS =
+  '21888242871839275222246405745257275088696311157297823662689037894645226208583';
 const BN254_ORDER = '21888242871839275222246405745257275088548364400416034343698204186575808495617';
 
 // ── GET / ─────────────────────────────────────────────────────────────────────
@@ -77,8 +78,14 @@ bn254Router.get('/params', (_req: Request, res: Response) => {
       y: '2',
     },
     G2Generator: {
-      x: ['10857046999023057135944570762232829481370756359578518086990519993285655852781', '11559732032986387107991004021392285783925812861821192530917403151452391805634'],
-      y: ['8495653923123431417604973247489272438418190587263600148770280649306958101930', '4082367875863433681332203403145435568316851327593401208105741076214120093531'],
+      x: [
+        '10857046999023057135944570762232829481370756359578518086990519993285655852781',
+        '11559732032986387107991004021392285783925812861821192530917403151452391805634',
+      ],
+      y: [
+        '8495653923123431417604973247489272438418190587263600148770280649306958101930',
+        '4082367875863433681332203403145435568316851327593401208105741076214120093531',
+      ],
     },
     pairingTarget: 'GT field of degree 12 extension',
     sorobanPrecompile: 'ecAdd, ecMul, ecPairing available in Soroban host via Protocol 20+',
@@ -208,10 +215,15 @@ bn254Router.post('/scalar-mul', (req: Request, res: Response) => {
  */
 bn254Router.post('/pairing-check', (req: Request, res: Response) => {
   const schema = z.object({
-    pairs: z.array(z.object({
-      g1: z.object({ x: z.string(), y: z.string() }),
-      g2: z.object({ x: z.array(z.string()), y: z.array(z.string()) }),
-    })).min(1).max(8),
+    pairs: z
+      .array(
+        z.object({
+          g1: z.object({ x: z.string(), y: z.string() }),
+          g2: z.object({ x: z.array(z.string()), y: z.array(z.string()) }),
+        }),
+      )
+      .min(1)
+      .max(8),
   });
 
   const parsed = schema.safeParse(req.body);

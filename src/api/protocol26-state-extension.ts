@@ -40,7 +40,8 @@ protocol26Router.get('/', (_req: Request, res: Response) => {
   res.json({
     protocol: 26,
     name: 'Stellar Protocol 26 State Extension',
-    description: 'Manages state archival, TTL, and Soroban entry lifecycle introduced in Protocol 26',
+    description:
+      'Manages state archival, TTL, and Soroban entry lifecycle introduced in Protocol 26',
     features: [
       'Contract state archival (automatic & manual)',
       'TTL (Time-To-Live) management for entries',
@@ -273,9 +274,10 @@ protocol26Router.post('/footprint/optimize', (req: Request, res: Response) => {
     optimized: { readOnly: optimizedReadOnly.length, readWrite: readWrite.length },
     removedDuplicates: duplicates.length,
     duplicateKeys: duplicates,
-    recommendation: duplicates.length > 0
-      ? 'Removed duplicate keys present in both readOnly and readWrite sets'
-      : 'Footprint is already optimized',
+    recommendation:
+      duplicates.length > 0
+        ? 'Removed duplicate keys present in both readOnly and readWrite sets'
+        : 'Footprint is already optimized',
     estimatedFeeReduction: duplicates.length > 0 ? `~${duplicates.length * 0.0001} XLM` : '0 XLM',
   });
 });
@@ -305,7 +307,7 @@ protocol26Router.get('/expiring', (req: Request, res: Response) => {
 
   res.json({
     threshold,
-    thresholdDescription: `~${Math.round(threshold * 5 / 3600)} hours`,
+    thresholdDescription: `~${Math.round((threshold * 5) / 3600)} hours`,
     expiringContracts: [],
     total: 0,
     message: 'No contracts found near expiry threshold.',

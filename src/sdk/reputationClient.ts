@@ -1,4 +1,7 @@
-type Fetcher = (input: string, init?: Record<string, unknown>) => Promise<{ ok: boolean; statusText: string; json: () => Promise<unknown> }>;
+type Fetcher = (
+  input: string,
+  init?: Record<string, unknown>,
+) => Promise<{ ok: boolean; statusText: string; json: () => Promise<unknown> }>;
 
 export interface ReputationClientOptions {
   baseUrl: string;
@@ -11,7 +14,9 @@ export class ReputationClient {
 
   constructor(options: ReputationClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
-    this.fetcher = options.fetcher ?? ((input: string, init?: Record<string, unknown>) => fetch(input as any, init as any));
+    this.fetcher =
+      options.fetcher ??
+      ((input: string, init?: Record<string, unknown>) => fetch(input as any, init as any));
   }
 
   score(address: string, chainData?: unknown): Promise<unknown> {
@@ -22,7 +27,9 @@ export class ReputationClient {
   }
 
   leaderboard(category = 'overall', limit = 10): Promise<unknown> {
-    return this.get(`/api/v1/reputation/leaderboards/${encodeURIComponent(category)}?limit=${limit}`);
+    return this.get(
+      `/api/v1/reputation/leaderboards/${encodeURIComponent(category)}?limit=${limit}`,
+    );
   }
 
   badges(address: string): Promise<unknown> {
@@ -34,7 +41,9 @@ export class ReputationClient {
   }
 
   trustPath(from: string, to: string): Promise<unknown> {
-    return this.get(`/api/v1/reputation/trust/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    return this.get(
+      `/api/v1/reputation/trust/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    );
   }
 
   private get(path: string): Promise<unknown> {
@@ -47,7 +56,10 @@ export class ReputationClient {
 
   private async request(path: string, init: Record<string, unknown>): Promise<unknown> {
     const response = await this.fetcher(`${this.baseUrl}${path}`, {
-      headers: path.startsWith('/api/v1/reputation/score') && init.method === 'POST' ? { 'content-type': 'application/json' } : undefined,
+      headers:
+        path.startsWith('/api/v1/reputation/score') && init.method === 'POST'
+          ? { 'content-type': 'application/json' }
+          : undefined,
       ...init,
     });
     const data = await response.json();

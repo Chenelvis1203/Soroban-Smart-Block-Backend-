@@ -152,7 +152,9 @@ advancedEventsRouter.get('/aggregations', (req: Request, res: Response) => {
   const validPeriods = ['1h', '24h', '7d', '30d'];
 
   if (!validPeriods.includes(period)) {
-    return res.status(400).json({ error: `Invalid period. Must be one of: ${validPeriods.join(', ')}` });
+    return res
+      .status(400)
+      .json({ error: `Invalid period. Must be one of: ${validPeriods.join(', ')}` });
   }
 
   res.json({

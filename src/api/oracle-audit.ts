@@ -221,7 +221,8 @@ oracleAuditRouter.post('/validate', (req: Request, res: Response) => {
     deviationPct: null,
     maxDeviationPct,
     valid: null,
-    message: 'Reference price data unavailable for comparison. Oracle validation requires real-time price feeds.',
+    message:
+      'Reference price data unavailable for comparison. Oracle validation requires real-time price feeds.',
     validatedAt: new Date().toISOString(),
   });
 });

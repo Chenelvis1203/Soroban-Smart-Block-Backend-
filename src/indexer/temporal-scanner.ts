@@ -35,7 +35,8 @@ export function detectTimerTypeFromAbi(
   for (const p of params) {
     const n = (p.name ?? '').toLowerCase();
     const t = (p.type ?? '').toLowerCase();
-    if (t === 'timestamp' || n.includes('timestamp') || n.includes('unlock_time')) return 'ABSOLUTE';
+    if (t === 'timestamp' || n.includes('timestamp') || n.includes('unlock_time'))
+      return 'ABSOLUTE';
     if (n.includes('cliff')) return 'VESTING';
     if (n.includes('delay') || n.includes('timelock')) return 'TIMELOCK';
     if (n.includes('deadline') || n.includes('expiry')) return 'DEADLINE';
@@ -58,7 +59,12 @@ function extractTimestamp(args: Record<string, unknown> | undefined): Date | nul
   if (!args) return null;
   for (const key of Object.keys(args)) {
     const k = key.toLowerCase();
-    if (k.includes('timestamp') || k.includes('unlock_time') || k.includes('execute_time') || k.includes('deadline')) {
+    if (
+      k.includes('timestamp') ||
+      k.includes('unlock_time') ||
+      k.includes('execute_time') ||
+      k.includes('deadline')
+    ) {
       const val = args[key];
       if (typeof val === 'number' || typeof val === 'string') {
         const ts = Number(val);
@@ -100,7 +106,11 @@ export async function processTxForTimers(event: TxEvent): Promise<void> {
   // Deduplicate by contract + function + source tx
   const existing = event.txHash
     ? await prisma.scheduledOperation.findFirst({
-        where: { contractAddress: event.contractAddress, functionName: event.functionName, sourceTx: event.txHash },
+        where: {
+          contractAddress: event.contractAddress,
+          functionName: event.functionName,
+          sourceTx: event.txHash,
+        },
       })
     : null;
 
@@ -180,7 +190,9 @@ export async function processTimelockEvent(args: TimelockArgs): Promise<void> {
   if (!args.proposer) return;
 
   const existing = args.sourceTx
-    ? await prisma.governanceTimelock.findFirst({ where: { contractAddress: args.contractAddress, executedTx: args.sourceTx } })
+    ? await prisma.governanceTimelock.findFirst({
+        where: { contractAddress: args.contractAddress, executedTx: args.sourceTx },
+      })
     : null;
   if (existing) return;
 
@@ -228,11 +240,18 @@ export async function reconcileScheduledOperations(): Promise<void> {
 
   // Advance recurring operations
   const recurring = await prisma.scheduledOperation.findMany({
-    where: { status: 'ACTIVE', timerType: 'RECURRING', nextTriggerAt: { lt: now }, intervalSeconds: { not: null } },
+    where: {
+      status: 'ACTIVE',
+      timerType: 'RECURRING',
+      nextTriggerAt: { lt: now },
+      intervalSeconds: { not: null },
+    },
   });
 
   for (const op of recurring) {
-    const next = new Date((op.nextTriggerAt ?? now).getTime() + (op.intervalSeconds ?? 86400) * 1000);
+    const next = new Date(
+      (op.nextTriggerAt ?? now).getTime() + (op.intervalSeconds ?? 86400) * 1000,
+    );
     const shouldStop = op.recurrenceCount !== null && op.eventsExecuted >= op.recurrenceCount;
     await prisma.scheduledOperation.update({
       where: { id: op.id },

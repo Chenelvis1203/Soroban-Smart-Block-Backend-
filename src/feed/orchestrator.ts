@@ -13,7 +13,7 @@ export class FeedOrchestrator extends EventEmitter {
   async initialize(httpServer?: any) {
     // Initialize default channels
     await ChannelManager.initializeDefaultChannels();
-    
+
     // Initialize sequence counter
     await feedPublisher.initializeSequence();
 
@@ -36,11 +36,13 @@ export class FeedOrchestrator extends EventEmitter {
   private async distributeMessage(message: any) {
     try {
       // Get active subscriptions for this channel
-      const subscriptions = await this.subscriptionManager.getActiveSubscriptions(message.channelName);
-      
+      const subscriptions = await this.subscriptionManager.getActiveSubscriptions(
+        message.channelName,
+      );
+
       // Deliver to each subscription
       for (const subscription of subscriptions) {
-        deliveryService.deliverMessage(subscription.id, message).catch(error => {
+        deliveryService.deliverMessage(subscription.id, message).catch((error) => {
           console.error(`Delivery failed for subscription ${subscription.id}:`, error);
         });
       }
@@ -70,10 +72,10 @@ export class FeedOrchestrator extends EventEmitter {
         operations: transaction.operations || [],
         status: transaction.status,
         fee: transaction.feeCharged,
-        footprint: transaction.sorobanResources
+        footprint: transaction.sorobanResources,
       },
       ledgerSequence: transaction.ledgerSequence,
-      timestamp: new Date(transaction.ledgerCloseTime)
+      timestamp: new Date(transaction.ledgerCloseTime),
     });
   }
 
@@ -90,10 +92,10 @@ export class FeedOrchestrator extends EventEmitter {
         topicSymbol: event.topicSymbol,
         decoded: event.decoded,
         ledgerSequence: event.ledgerSequence,
-        timestamp: event.ledgerCloseTime
+        timestamp: event.ledgerCloseTime,
       },
       ledgerSequence: event.ledgerSequence,
-      timestamp: new Date(event.ledgerCloseTime)
+      timestamp: new Date(event.ledgerCloseTime),
     });
   }
 
@@ -107,10 +109,10 @@ export class FeedOrchestrator extends EventEmitter {
         hash: ledger.hash,
         closeTime: ledger.closeTime,
         txCount: ledger.txCount,
-        timestamp: ledger.closeTime
+        timestamp: ledger.closeTime,
       },
       ledgerSequence: ledger.sequence,
-      timestamp: new Date(ledger.closeTime)
+      timestamp: new Date(ledger.closeTime),
     });
   }
 
@@ -126,12 +128,12 @@ export class FeedOrchestrator extends EventEmitter {
         tokenIn: {
           address: trade.tokenIn,
           symbol: await this.getTokenSymbol(trade.tokenIn),
-          decimals: 7
+          decimals: 7,
         },
         tokenOut: {
           address: trade.tokenOut,
           symbol: await this.getTokenSymbol(trade.tokenOut),
-          decimals: 7
+          decimals: 7,
         },
         amountIn: trade.amountIn.toString(),
         amountOut: trade.amountOut.toString(),
@@ -141,10 +143,10 @@ export class FeedOrchestrator extends EventEmitter {
         fee: trade.fee?.toString(),
         feeUsd: trade.feeUsd,
         ledgerSequence: trade.ledgerSequence,
-        timestamp: trade.timestamp
+        timestamp: trade.timestamp,
       },
       ledgerSequence: trade.ledgerSequence,
-      timestamp: new Date(trade.timestamp)
+      timestamp: new Date(trade.timestamp),
     });
   }
 
@@ -158,18 +160,18 @@ export class FeedOrchestrator extends EventEmitter {
         value,
         granularity,
         metadata,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
       ledgerSequence: 0, // Metrics don't have ledger sequence
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
   private async getTokenSymbol(address: string): Promise<string> {
     // In real implementation, this would lookup token metadata
     const tokenMap: Record<string, string> = {
-      'native': 'XLM',
-      'CAQME...': 'USDC'
+      native: 'XLM',
+      'CAQME...': 'USDC',
     };
     return tokenMap[address] || 'UNKNOWN';
   }
@@ -187,14 +189,14 @@ export class FeedOrchestrator extends EventEmitter {
 
   private async collectSystemMetrics() {
     const now = new Date();
-    
+
     // Connection metrics
     const connectionCount = this.wsServer?.getConnectionCount() || 0;
     await this.publishMetric('websocket_connections', connectionCount, '1m');
 
     // Active subscriptions
     const activeSubscriptions = await this.subscriptionManager.listSubscriptions();
-    const activeCount = activeSubscriptions.filter(sub => sub.status === 'active').length;
+    const activeCount = activeSubscriptions.filter((sub) => sub.status === 'active').length;
     await this.publishMetric('active_subscriptions', activeCount, '1m');
 
     // Channel activity
@@ -211,23 +213,23 @@ export class FeedOrchestrator extends EventEmitter {
     return {
       connections: this.wsServer?.getConnectionCount() || 0,
       activeChannels: this.wsServer?.getActiveChannels() || [],
-      uptime: process.uptime()
+      uptime: process.uptime(),
     };
   }
 
   async shutdown() {
     console.log('Shutting down feed orchestrator...');
-    
+
     clearInterval(this.metricsInterval);
-    
+
     if (this.wsServer) {
       this.wsServer.shutdown();
     }
-    
+
     await deliveryService.shutdown();
-    
+
     this.removeAllListeners();
-    
+
     console.log('Feed orchestrator shutdown complete');
   }
 }

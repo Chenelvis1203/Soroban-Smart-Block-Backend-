@@ -27,9 +27,9 @@ export class ChannelManager {
             sourceAccount: { type: 'string' },
             operations: { type: 'array' },
             status: { type: 'string' },
-            fee: { type: 'string' }
-          }
-        }
+            fee: { type: 'string' },
+          },
+        },
       },
       {
         name: 'events',
@@ -42,9 +42,9 @@ export class ChannelManager {
             contractAddress: { type: 'string' },
             eventType: { type: 'string' },
             decoded: { type: 'object' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'ledgers',
@@ -56,9 +56,9 @@ export class ChannelManager {
             sequence: { type: 'number' },
             hash: { type: 'string' },
             closeTime: { type: 'string' },
-            txCount: { type: 'number' }
-          }
-        }
+            txCount: { type: 'number' },
+          },
+        },
       },
       {
         name: 'trades',
@@ -74,9 +74,9 @@ export class ChannelManager {
             amountIn: { type: 'string' },
             amountOut: { type: 'string' },
             price: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'liquidations',
@@ -89,9 +89,9 @@ export class ChannelManager {
             liquidatedAccount: { type: 'string' },
             liquidator: { type: 'string' },
             collateralAmount: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'metrics',
@@ -103,9 +103,9 @@ export class ChannelManager {
             name: { type: 'string' },
             value: { type: 'number' },
             granularity: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'contracts',
@@ -118,9 +118,9 @@ export class ChannelManager {
             eventType: { type: 'string' },
             wasmHash: { type: 'string' },
             deployer: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'accounts',
@@ -132,9 +132,9 @@ export class ChannelManager {
             address: { type: 'string' },
             activityType: { type: 'string' },
             balanceChange: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'oracle',
@@ -146,9 +146,9 @@ export class ChannelManager {
             oracleAddress: { type: 'string' },
             priceUpdate: { type: 'number' },
             deviation: { type: 'number' },
-            timestamp: { type: 'string' }
-          }
-        }
+            timestamp: { type: 'string' },
+          },
+        },
       },
       {
         name: 'governance',
@@ -161,10 +161,10 @@ export class ChannelManager {
             proposalId: { type: 'string' },
             eventType: { type: 'string' },
             voter: { type: 'string' },
-            timestamp: { type: 'string' }
-          }
-        }
-      }
+            timestamp: { type: 'string' },
+          },
+        },
+      },
     ];
 
     for (const channel of defaultChannels) {
@@ -182,7 +182,7 @@ export class ChannelManager {
           category: config.category,
           schema: config.schema,
           retentionDays: config.retentionDays ?? 30,
-          enabled: config.enabled ?? true
+          enabled: config.enabled ?? true,
         },
         create: {
           name: config.name,
@@ -190,8 +190,8 @@ export class ChannelManager {
           category: config.category,
           schema: config.schema,
           retentionDays: config.retentionDays ?? 30,
-          enabled: config.enabled ?? true
-        }
+          enabled: config.enabled ?? true,
+        },
       });
     } catch (error) {
       console.error(`Failed to register channel ${config.name}:`, error);

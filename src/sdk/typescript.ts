@@ -1,6 +1,6 @@
 /**
  * Soroban Feed SDK - TypeScript/JavaScript Client
- * 
+ *
  * Real-time data streaming client for Soroban Smart Block Explorer
  */
 
@@ -51,7 +51,7 @@ export class SorobanFeed {
     this.config = {
       baseUrl: 'https://api.soroban.network/api/v1',
       timeout: 10000,
-      ...config
+      ...config,
     };
     this.baseUrl = this.config.baseUrl!;
   }
@@ -105,7 +105,7 @@ export class SorobanFeed {
 
     const wsUrl = this.baseUrl.replace('http', 'ws') + `/feed/ws?${params}`;
     const ws = new WebSocket(wsUrl);
-    
+
     return new SorobanWebSocket(ws);
   }
 
@@ -121,14 +121,14 @@ export class SorobanFeed {
 
     const sseUrl = `${this.baseUrl}/feed/sse?${params}`;
     const eventSource = new EventSource(sseUrl);
-    
+
     return new SorobanSSE(eventSource);
   }
 
   private async request(method: string, path: string, body?: any) {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     };
 
     if (this.config.apiKey) {
@@ -137,7 +137,7 @@ export class SorobanFeed {
 
     const options: RequestInit = {
       method,
-      headers
+      headers,
     };
 
     if (body && method !== 'GET') {
@@ -145,7 +145,7 @@ export class SorobanFeed {
     }
 
     const response = await fetch(url, options);
-    
+
     if (!response.ok) {
       const error: any = await response.json().catch(() => ({ message: response.statusText }));
       throw new Error(`API Error: ${response.status} - ${error.message}`);
@@ -159,7 +159,7 @@ export class SorobanSubscription {
   constructor(
     public readonly id: string,
     public readonly options: SubscriptionOptions,
-    private feed: SorobanFeed
+    private feed: SorobanFeed,
   ) {}
 
   async getStatus() {
@@ -223,21 +223,21 @@ export class SorobanWebSocket {
     this.send({
       type: 'subscribe',
       channels,
-      filters
+      filters,
     });
   }
 
   unsubscribe(channels: string[]) {
     this.send({
       type: 'unsubscribe',
-      channels
+      channels,
     });
   }
 
   replay(lastSequence?: string) {
     this.send({
       type: 'replay',
-      lastSequence
+      lastSequence,
     });
   }
 

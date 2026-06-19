@@ -60,7 +60,13 @@ factoryTrackerRouter.get('/factories', (req: Request, res: Response) => {
   const limit = Math.min(100, parseInt((req.query.limit as string) ?? '20', 10));
   const minChildren = parseInt((req.query.minChildren as string) ?? '1', 10);
 
-  res.json({ factories: [], total: 0, limit, minChildren, message: 'No factory contracts detected.' });
+  res.json({
+    factories: [],
+    total: 0,
+    limit,
+    minChildren,
+    message: 'No factory contracts detected.',
+  });
 });
 
 // ── GET /factories/:contractId ─────────────────────────────────────────────────

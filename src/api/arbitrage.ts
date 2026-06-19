@@ -38,16 +38,16 @@ function paginate<T>(data: T[], page: number, limit: number) {
 // ─── GET /opportunities ───────────────────────────────────────────────────────
 
 const oppListSchema = z.object({
-  pairs:         z.string().optional(),
-  dexes:         z.string().optional(),
-  minProfit:     z.coerce.number().default(0),
-  maxProfit:     z.coerce.number().default(100),
-  types:         z.string().optional(),
+  pairs: z.string().optional(),
+  dexes: z.string().optional(),
+  minProfit: z.coerce.number().default(0),
+  maxProfit: z.coerce.number().default(100),
+  types: z.string().optional(),
   minConfidence: z.coerce.number().default(0),
-  minMEVScore:   z.coerce.number().default(0),
-  status:        z.string().default('active'),
-  page:          z.coerce.number().min(1).default(1),
-  limit:         z.coerce.number().min(1).max(100).default(20),
+  minMEVScore: z.coerce.number().default(0),
+  status: z.string().default('active'),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
 });
 
 arbitrageRouter.get('/opportunities', async (req: Request, res: Response) => {
@@ -81,20 +81,24 @@ arbitrageRouter.get('/opportunities', async (req: Request, res: Response) => {
         id: o.id,
         pair: o.pair,
         type: o.type,
-        buyDex: o.buyPool ? {
-          name: o.buyPool.dexName,
-          contract: o.buyPool.contractAddress,
-          price: o.buyPrice.toString(),
-          liquidity: o.buyPool.totalLiquidity?.toString() ?? '0',
-          priceImpact: '0.02%',
-        } : null,
-        sellDex: o.sellPool ? {
-          name: o.sellPool.dexName,
-          contract: o.sellPool.contractAddress,
-          price: o.sellPrice.toString(),
-          liquidity: o.sellPool.totalLiquidity?.toString() ?? '0',
-          priceImpact: '0.05%',
-        } : null,
+        buyDex: o.buyPool
+          ? {
+              name: o.buyPool.dexName,
+              contract: o.buyPool.contractAddress,
+              price: o.buyPrice.toString(),
+              liquidity: o.buyPool.totalLiquidity?.toString() ?? '0',
+              priceImpact: '0.02%',
+            }
+          : null,
+        sellDex: o.sellPool
+          ? {
+              name: o.sellPool.dexName,
+              contract: o.sellPool.contractAddress,
+              price: o.sellPrice.toString(),
+              liquidity: o.sellPool.totalLiquidity?.toString() ?? '0',
+              priceImpact: '0.05%',
+            }
+          : null,
         profitPercentage: Number(o.profitPercentage),
         profitEstimate: o.profitEstimate?.toString() ?? '0',
         capitalRequired: o.capitalRequired?.toString() ?? '10000',
@@ -126,7 +130,12 @@ arbitrageRouter.get('/opportunities/:id', async (req: Request, res: Response) =>
   try {
     const opp = await prismaRead.arbitrageOpportunity.findUnique({
       where: { id: req.params.id },
-      include: { buyPool: true, sellPool: true, mevScore: true, executions: { take: 5, orderBy: { executedAt: 'desc' } } },
+      include: {
+        buyPool: true,
+        sellPool: true,
+        mevScore: true,
+        executions: { take: 5, orderBy: { executedAt: 'desc' } },
+      },
     });
     if (!opp) return res.status(404).json({ error: 'Opportunity not found' });
 
@@ -140,8 +149,20 @@ arbitrageRouter.get('/opportunities/:id', async (req: Request, res: Response) =>
       id: opp.id,
       pair: opp.pair,
       type: opp.type,
-      buyDex: opp.buyPool ? { name: opp.buyPool.dexName, contract: opp.buyPool.contractAddress, poolId: opp.buyPool.id } : null,
-      sellDex: opp.sellPool ? { name: opp.sellPool.dexName, contract: opp.sellPool.contractAddress, poolId: opp.sellPool.id } : null,
+      buyDex: opp.buyPool
+        ? {
+            name: opp.buyPool.dexName,
+            contract: opp.buyPool.contractAddress,
+            poolId: opp.buyPool.id,
+          }
+        : null,
+      sellDex: opp.sellPool
+        ? {
+            name: opp.sellPool.dexName,
+            contract: opp.sellPool.contractAddress,
+            poolId: opp.sellPool.id,
+          }
+        : null,
       buyPrice: opp.buyPrice.toString(),
       sellPrice: opp.sellPrice.toString(),
       profitPercentage: Number(opp.profitPercentage),
@@ -149,16 +170,18 @@ arbitrageRouter.get('/opportunities/:id', async (req: Request, res: Response) =>
       capitalRequired: opp.capitalRequired?.toString(),
       confidence: Number(opp.confidence ?? 0),
       route: opp.route,
-      mevScore: opp.mevScore ? {
-        overall: Number(opp.mevScore.overallScore ?? 0),
-        profitability: Number(opp.mevScore.profitabilityScore ?? 0),
-        capitalEfficiency: Number(opp.mevScore.capitalEfficiency ?? 0),
-        speedRequirement: opp.mevScore.speedRequirement,
-        competition: opp.mevScore.competitionLevel,
-        slippageRisk: Number(opp.mevScore.slippageRisk ?? 0),
-        frontrunningRisk: Number(opp.mevScore.frontrunningRisk ?? 0),
-        recommendation: opp.mevScore.recommendation,
-      } : null,
+      mevScore: opp.mevScore
+        ? {
+            overall: Number(opp.mevScore.overallScore ?? 0),
+            profitability: Number(opp.mevScore.profitabilityScore ?? 0),
+            capitalEfficiency: Number(opp.mevScore.capitalEfficiency ?? 0),
+            speedRequirement: opp.mevScore.speedRequirement,
+            competition: opp.mevScore.competitionLevel,
+            slippageRisk: Number(opp.mevScore.slippageRisk ?? 0),
+            frontrunningRisk: Number(opp.mevScore.frontrunningRisk ?? 0),
+            recommendation: opp.mevScore.recommendation,
+          }
+        : null,
       simulation: {
         estimatedGasCost: '0.50',
         estimatedSlippage: '0.03%',
@@ -300,8 +323,14 @@ arbitrageRouter.get('/mev-scores', async (req: Request, res: Response) => {
     });
 
     const [avgScore, maxScore] = await Promise.all([
-      prismaRead.mevOpportunityScore.aggregate({ _avg: { overallScore: true }, where: { opportunity: { status: 'active' } } }),
-      prismaRead.mevOpportunityScore.aggregate({ _max: { overallScore: true }, where: { opportunity: { status: 'active' } } }),
+      prismaRead.mevOpportunityScore.aggregate({
+        _avg: { overallScore: true },
+        where: { opportunity: { status: 'active' } },
+      }),
+      prismaRead.mevOpportunityScore.aggregate({
+        _max: { overallScore: true },
+        where: { opportunity: { status: 'active' } },
+      }),
     ]);
 
     const byRecommendation = await prismaRead.mevOpportunityScore.groupBy({
@@ -368,13 +397,17 @@ arbitrageRouter.post('/simulate', async (req: Request, res: Response) => {
 // ─── POST /simulate/custom ────────────────────────────────────────────────────
 
 const customRouteSchema = z.object({
-  route: z.array(z.object({
-    dex: z.string(),
-    poolId: z.string(),
-    action: z.string(),
-    token: z.string(),
-    amount: z.string().optional(),
-  })).min(2),
+  route: z
+    .array(
+      z.object({
+        dex: z.string(),
+        poolId: z.string(),
+        action: z.string(),
+        token: z.string(),
+        amount: z.string().optional(),
+      }),
+    )
+    .min(2),
 });
 
 arbitrageRouter.post('/simulate/custom', async (req: Request, res: Response) => {
@@ -445,7 +478,9 @@ arbitrageRouter.get('/bots', async (req: Request, res: Response) => {
 
 arbitrageRouter.get('/bots/:address', async (req: Request, res: Response) => {
   try {
-    const bot = await prismaRead.arbitrageBot.findUnique({ where: { address: req.params.address } });
+    const bot = await prismaRead.arbitrageBot.findUnique({
+      where: { address: req.params.address },
+    });
     if (!bot) return res.status(404).json({ error: 'Bot not found' });
     res.json(bot);
   } catch (e) {
@@ -762,10 +797,12 @@ const alertSchema = z.object({
     minMEVScore: z.coerce.number().default(0),
     minConfidence: z.coerce.number().default(0),
   }),
-  channels: z.array(z.object({
-    type: z.enum(['webhook', 'telegram', 'email']),
-    config: z.record(z.unknown()),
-  })),
+  channels: z.array(
+    z.object({
+      type: z.enum(['webhook', 'telegram', 'email']),
+      config: z.record(z.unknown()),
+    }),
+  ),
   cooldownSeconds: z.coerce.number().default(30),
 });
 
@@ -996,7 +1033,9 @@ const dexRegisterSchema = z.object({
   name: z.string().min(1),
   contractAddress: z.string().length(56),
   poolFactory: z.string().optional(),
-  poolType: z.enum(['constant_product', 'stable_swap', 'weighted_pool', 'concentrated_liquidity']).default('constant_product'),
+  poolType: z
+    .enum(['constant_product', 'stable_swap', 'weighted_pool', 'concentrated_liquidity'])
+    .default('constant_product'),
   feeTier: z.coerce.number().min(0).max(1).default(0.003),
   tokenA: z.string().length(56).optional(),
   tokenB: z.string().length(56).optional(),
@@ -1040,19 +1079,21 @@ arbitrageRouter.get('/dexs', async (_req: Request, res: Response) => {
       _sum: { volume24h: true },
     });
 
-    const dexDetails = await Promise.all(dexes.map(async (d) => {
-      const latestSync = await prismaRead.poolPrice.findFirst({
-        where: { pool: { dexName: d.dexName } },
-        orderBy: { timestamp: 'desc' },
-      });
-      return {
-        name: d.dexName,
-        poolsTracked: d._count.id,
-        volume24h: d._sum.volume24h?.toString() ?? '0',
-        lastSync: latestSync?.timestamp?.toISOString() ?? null,
-        status: latestSync ? 'active' : 'inactive',
-      };
-    }));
+    const dexDetails = await Promise.all(
+      dexes.map(async (d) => {
+        const latestSync = await prismaRead.poolPrice.findFirst({
+          where: { pool: { dexName: d.dexName } },
+          orderBy: { timestamp: 'desc' },
+        });
+        return {
+          name: d.dexName,
+          poolsTracked: d._count.id,
+          volume24h: d._sum.volume24h?.toString() ?? '0',
+          lastSync: latestSync?.timestamp?.toISOString() ?? null,
+          status: latestSync ? 'active' : 'inactive',
+        };
+      }),
+    );
 
     res.json({ dexes: dexDetails, count: dexDetails.length });
   } catch (e) {
@@ -1072,9 +1113,7 @@ arbitrageRouter.get('/dexs/:dexName/health', async (req: Request, res: Response)
       prismaRead.dexPool.count({ where: { dexName } }),
     ]);
 
-    const latencyMs = latestPrice
-      ? Date.now() - latestPrice.timestamp.getTime()
-      : null;
+    const latencyMs = latestPrice ? Date.now() - latestPrice.timestamp.getTime() : null;
 
     res.json({
       name: dexName,
@@ -1146,7 +1185,7 @@ arbitrageRouter.post('/flash-loan/simulate', async (req: Request, res: Response)
       grossProfit: grossProfit.toFixed(4),
       gasCost: gasCost.toFixed(2),
       netProfit: netProfit.toFixed(4),
-      roi: `${(netProfit / gasCost * 100).toFixed(2)}%`, // ROI on gas only since no capital
+      roi: `${((netProfit / gasCost) * 100).toFixed(2)}%`, // ROI on gas only since no capital
       viable: netProfit > 0,
     });
   } catch (e) {
@@ -1158,28 +1197,34 @@ arbitrageRouter.post('/flash-loan/simulate', async (req: Request, res: Response)
 // ─── Automated Execution Bot (Stretch #13) ────────────────────────────────────
 
 const botDeploySchema = z.object({
-  maxCapital:      z.coerce.number().positive(),
-  targetPairs:     z.array(z.string()).min(1),
-  minProfitPct:    z.coerce.number().default(0.3),
-  maxSlippage:     z.coerce.number().default(0.005),
-  gasMultiplier:   z.coerce.number().default(1.5),
+  maxCapital: z.coerce.number().positive(),
+  targetPairs: z.array(z.string()).min(1),
+  minProfitPct: z.coerce.number().default(0.3),
+  maxSlippage: z.coerce.number().default(0.005),
+  gasMultiplier: z.coerce.number().default(1.5),
 });
 
 // In-memory bot registry (production: persist to DB)
-const deployedBots = new Map<string, {
-  address: string;
-  status: 'running' | 'paused' | 'stopped';
-  config: Record<string, unknown>;
-  deployedAt: string;
-  pnl: number;
-  totalTrades: number;
-}>();
+const deployedBots = new Map<
+  string,
+  {
+    address: string;
+    status: 'running' | 'paused' | 'stopped';
+    config: Record<string, unknown>;
+    deployedAt: string;
+    pnl: number;
+    totalTrades: number;
+  }
+>();
 
 arbitrageRouter.post('/bot/deploy', async (req: Request, res: Response) => {
   try {
     const config = botDeploySchema.parse(req.body);
     // Generate a deterministic contract-like address for the bot instance
-    const address = `C${Buffer.from(JSON.stringify(config) + Date.now()).toString('base64').replace(/[^A-Z0-9]/g, '').slice(0, 55)}`;
+    const address = `C${Buffer.from(JSON.stringify(config) + Date.now())
+      .toString('base64')
+      .replace(/[^A-Z0-9]/g, '')
+      .slice(0, 55)}`;
 
     deployedBots.set(address, {
       address,
@@ -1248,14 +1293,14 @@ arbitrageRouter.post('/bot/:address/pause', (req: Request, res: Response) => {
 
 // Mock cross-chain price feeds (production: integrate with oracle/bridge APIs)
 const CROSS_CHAIN_PRICES: Record<string, Record<string, number>> = {
-  'XLM': { 'stellar': 0.1234, 'ethereum': 0.1251, 'polygon': 0.1229 },
-  'USDC': { 'stellar': 1.0000, 'ethereum': 1.0002, 'polygon': 0.9998 },
-  'ETH': { 'stellar': 3250.00, 'ethereum': 3252.50, 'polygon': 3248.75 },
+  XLM: { stellar: 0.1234, ethereum: 0.1251, polygon: 0.1229 },
+  USDC: { stellar: 1.0, ethereum: 1.0002, polygon: 0.9998 },
+  ETH: { stellar: 3250.0, ethereum: 3252.5, polygon: 3248.75 },
 };
 
 const BRIDGE_INFO: Record<string, { latencyMs: number; feePct: number; status: string }> = {
   'stellar-ethereum': { latencyMs: 15000, feePct: 0.1, status: 'operational' },
-  'stellar-polygon':  { latencyMs: 8000,  feePct: 0.05, status: 'operational' },
+  'stellar-polygon': { latencyMs: 8000, feePct: 0.05, status: 'operational' },
 };
 
 arbitrageRouter.get('/cross-chain/opportunities', (_req: Request, res: Response) => {
@@ -1269,10 +1314,14 @@ arbitrageRouter.get('/cross-chain/opportunities', (_req: Request, res: Response)
         const chainB = chains[j];
         const priceA = chainPrices[chainA];
         const priceB = chainPrices[chainB];
-        const deviation = Math.abs(priceA - priceB) / Math.min(priceA, priceB) * 100;
+        const deviation = (Math.abs(priceA - priceB) / Math.min(priceA, priceB)) * 100;
 
         const bridgeKey = [chainA, chainB].sort().join('-');
-        const bridge = BRIDGE_INFO[bridgeKey] ?? { latencyMs: 30000, feePct: 0.2, status: 'unknown' };
+        const bridge = BRIDGE_INFO[bridgeKey] ?? {
+          latencyMs: 30000,
+          feePct: 0.2,
+          status: 'unknown',
+        };
         const netProfit = deviation - bridge.feePct;
 
         if (netProfit > 0.01) {
@@ -1310,7 +1359,7 @@ arbitrageRouter.get('/cross-chain/bridges', (_req: Request, res: Response) => {
     latencyMs: info.latencyMs,
     feePct: info.feePct,
     status: info.status,
-    estimatedCostFor10kUSD: `${(10000 * info.feePct / 100).toFixed(2)} USD`,
+    estimatedCostFor10kUSD: `${((10000 * info.feePct) / 100).toFixed(2)} USD`,
   }));
 
   res.json({ bridges, count: bridges.length });

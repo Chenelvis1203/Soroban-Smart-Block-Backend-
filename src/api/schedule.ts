@@ -16,59 +16,83 @@ const paginationSchema = z.object({
 // ── GET /schedule/contracts/:address ─────────────────────────────────────────
 // All scheduled operations for a contract
 
-scheduleRouter.get('/contracts/:address', validateAddressParam('address'), async (req: Request, res: Response) => {
-  try {
-    const { page, limit } = paginationSchema.parse(req.query);
-    const address = req.params.address;
-    const skip = (page - 1) * limit;
+scheduleRouter.get(
+  '/contracts/:address',
+  validateAddressParam('address'),
+  async (req: Request, res: Response) => {
+    try {
+      const { page, limit } = paginationSchema.parse(req.query);
+      const address = req.params.address;
+      const skip = (page - 1) * limit;
 
-    const q = z.object({ status: z.string().optional(), type: z.string().optional() }).parse(req.query);
-    const where: Record<string, unknown> = { contractAddress: address };
-    if (q.status) where.status = q.status;
-    if (q.type) where.timerType = q.type;
+      const q = z
+        .object({ status: z.string().optional(), type: z.string().optional() })
+        .parse(req.query);
+      const where: Record<string, unknown> = { contractAddress: address };
+      if (q.status) where.status = q.status;
+      if (q.type) where.timerType = q.type;
 
-    const [data, total] = await Promise.all([
-      prisma.scheduledOperation.findMany({ where, orderBy: { triggerTime: 'asc' }, skip, take: limit }),
-      prisma.scheduledOperation.count({ where }),
-    ]);
+      const [data, total] = await Promise.all([
+        prisma.scheduledOperation.findMany({
+          where,
+          orderBy: { triggerTime: 'asc' },
+          skip,
+          take: limit,
+        }),
+        prisma.scheduledOperation.count({ where }),
+      ]);
 
-    res.json({ data, total, page, limit });
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
+      res.json({ data, total, page, limit });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  },
+);
 
 // ── GET /schedule/contracts/:address/timeline ─────────────────────────────────
 // Visual timeline of upcoming events for a contract
 
-scheduleRouter.get('/contracts/:address/timeline', validateAddressParam('address'), async (req: Request, res: Response) => {
-  try {
-    const address = req.params.address;
-    const now = new Date();
-    const limit = z.coerce.number().int().min(1).max(200).default(50).parse(req.query.limit);
+scheduleRouter.get(
+  '/contracts/:address/timeline',
+  validateAddressParam('address'),
+  async (req: Request, res: Response) => {
+    try {
+      const address = req.params.address;
+      const now = new Date();
+      const limit = z.coerce.number().int().min(1).max(200).default(50).parse(req.query.limit);
 
-    const ops = await prisma.scheduledOperation.findMany({
-      where: { contractAddress: address, triggerTime: { gte: now } },
-      orderBy: { triggerTime: 'asc' },
-      take: limit,
-      select: { id: true, functionName: true, timerType: true, status: true, triggerTime: true, description: true },
-    });
+      const ops = await prisma.scheduledOperation.findMany({
+        where: { contractAddress: address, triggerTime: { gte: now } },
+        orderBy: { triggerTime: 'asc' },
+        take: limit,
+        select: {
+          id: true,
+          functionName: true,
+          timerType: true,
+          status: true,
+          triggerTime: true,
+          description: true,
+        },
+      });
 
-    res.json({ contractAddress: address, events: ops });
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
+      res.json({ contractAddress: address, events: ops });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  },
+);
 
 // ── GET /schedule/upcoming ────────────────────────────────────────────────────
 // Upcoming operations across all contracts
 
 scheduleRouter.get('/upcoming', async (req: Request, res: Response) => {
   try {
-    const q = z.object({
-      hours: z.coerce.number().int().min(1).max(8760).default(24),
-      limit: z.coerce.number().int().min(1).max(200).default(50),
-    }).parse(req.query);
+    const q = z
+      .object({
+        hours: z.coerce.number().int().min(1).max(8760).default(24),
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+      })
+      .parse(req.query);
 
     const now = new Date();
     const until = new Date(now.getTime() + q.hours * 3600 * 1000);
@@ -88,87 +112,101 @@ scheduleRouter.get('/upcoming', async (req: Request, res: Response) => {
 // ── GET /schedule/contracts/:address/vesting ──────────────────────────────────
 // Vesting schedule details for a contract
 
-scheduleRouter.get('/contracts/:address/vesting', validateAddressParam('address'), async (req: Request, res: Response) => {
-  try {
-    const address = req.params.address;
-    const { page, limit } = paginationSchema.parse(req.query);
-    const skip = (page - 1) * limit;
+scheduleRouter.get(
+  '/contracts/:address/vesting',
+  validateAddressParam('address'),
+  async (req: Request, res: Response) => {
+    try {
+      const address = req.params.address;
+      const { page, limit } = paginationSchema.parse(req.query);
+      const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
-      prisma.vestingSchedule.findMany({
-        where: { contractAddress: address },
-        orderBy: { nextUnlockDate: 'asc' },
-        skip,
-        take: limit,
-      }),
-      prisma.vestingSchedule.count({ where: { contractAddress: address } }),
-    ]);
+      const [data, total] = await Promise.all([
+        prisma.vestingSchedule.findMany({
+          where: { contractAddress: address },
+          orderBy: { nextUnlockDate: 'asc' },
+          skip,
+          take: limit,
+        }),
+        prisma.vestingSchedule.count({ where: { contractAddress: address } }),
+      ]);
 
-    res.json({ data, total, page, limit });
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
+      res.json({ data, total, page, limit });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  },
+);
 
 // ── GET /schedule/contracts/:address/governance ───────────────────────────────
 // Governance timelocks for a contract
 
-scheduleRouter.get('/contracts/:address/governance', validateAddressParam('address'), async (req: Request, res: Response) => {
-  try {
-    const address = req.params.address;
-    const { page, limit } = paginationSchema.parse(req.query);
-    const skip = (page - 1) * limit;
+scheduleRouter.get(
+  '/contracts/:address/governance',
+  validateAddressParam('address'),
+  async (req: Request, res: Response) => {
+    try {
+      const address = req.params.address;
+      const { page, limit } = paginationSchema.parse(req.query);
+      const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
-      prisma.governanceTimelock.findMany({
-        where: { contractAddress: address },
-        orderBy: { executionTime: 'asc' },
-        skip,
-        take: limit,
-      }),
-      prisma.governanceTimelock.count({ where: { contractAddress: address } }),
-    ]);
+      const [data, total] = await Promise.all([
+        prisma.governanceTimelock.findMany({
+          where: { contractAddress: address },
+          orderBy: { executionTime: 'asc' },
+          skip,
+          take: limit,
+        }),
+        prisma.governanceTimelock.count({ where: { contractAddress: address } }),
+      ]);
 
-    res.json({ data, total, page, limit });
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
+      res.json({ data, total, page, limit });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  },
+);
 
 // ── GET /schedule/contracts/:address/cron ────────────────────────────────────
 // Cron jobs for a contract
 
-scheduleRouter.get('/contracts/:address/cron', validateAddressParam('address'), async (req: Request, res: Response) => {
-  try {
-    const address = req.params.address;
-    const { page, limit } = paginationSchema.parse(req.query);
-    const skip = (page - 1) * limit;
+scheduleRouter.get(
+  '/contracts/:address/cron',
+  validateAddressParam('address'),
+  async (req: Request, res: Response) => {
+    try {
+      const address = req.params.address;
+      const { page, limit } = paginationSchema.parse(req.query);
+      const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
-      prisma.cronJob.findMany({
-        where: { contractAddress: address },
-        orderBy: { nextRunAt: 'asc' },
-        skip,
-        take: limit,
-      }),
-      prisma.cronJob.count({ where: { contractAddress: address } }),
-    ]);
+      const [data, total] = await Promise.all([
+        prisma.cronJob.findMany({
+          where: { contractAddress: address },
+          orderBy: { nextRunAt: 'asc' },
+          skip,
+          take: limit,
+        }),
+        prisma.cronJob.count({ where: { contractAddress: address } }),
+      ]);
 
-    res.json({ data, total, page, limit });
-  } catch (e) {
-    res.status(400).json({ error: String(e) });
-  }
-});
+      res.json({ data, total, page, limit });
+    } catch (e) {
+      res.status(400).json({ error: String(e) });
+    }
+  },
+);
 
 // ── GET /schedule/calendar ────────────────────────────────────────────────────
 // Calendar view of all events in a time range
 
 scheduleRouter.get('/calendar', async (req: Request, res: Response) => {
   try {
-    const q = z.object({
-      from: z.string().default(() => new Date().toISOString()),
-      to: z.string().default(() => new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()),
-    }).parse(req.query);
+    const q = z
+      .object({
+        from: z.string().default(() => new Date().toISOString()),
+        to: z.string().default(() => new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()),
+      })
+      .parse(req.query);
 
     const from = new Date(q.from);
     const to = new Date(q.to);
@@ -180,12 +218,26 @@ scheduleRouter.get('/calendar', async (req: Request, res: Response) => {
       prisma.scheduledOperation.findMany({
         where: { triggerTime: { gte: from, lte: to } },
         orderBy: { triggerTime: 'asc' },
-        select: { id: true, contractAddress: true, functionName: true, timerType: true, triggerTime: true, status: true },
+        select: {
+          id: true,
+          contractAddress: true,
+          functionName: true,
+          timerType: true,
+          triggerTime: true,
+          status: true,
+        },
       }),
       prisma.vestingSchedule.findMany({
         where: { nextUnlockDate: { gte: from, lte: to } },
         orderBy: { nextUnlockDate: 'asc' },
-        select: { id: true, contractAddress: true, beneficiary: true, tokenSymbol: true, nextUnlockDate: true, nextUnlockAmount: true },
+        select: {
+          id: true,
+          contractAddress: true,
+          beneficiary: true,
+          tokenSymbol: true,
+          nextUnlockDate: true,
+          nextUnlockAmount: true,
+        },
       }),
       prisma.governanceTimelock.findMany({
         where: { executionTime: { gte: from, lte: to } },
@@ -194,7 +246,13 @@ scheduleRouter.get('/calendar', async (req: Request, res: Response) => {
       }),
     ]);
 
-    res.json({ from, to, scheduledOperations: ops, vestingUnlocks: vestings, governanceExecutions: timelocks });
+    res.json({
+      from,
+      to,
+      scheduledOperations: ops,
+      vestingUnlocks: vestings,
+      governanceExecutions: timelocks,
+    });
   } catch (e) {
     res.status(400).json({ error: String(e) });
   }
@@ -215,7 +273,10 @@ scheduleRouter.get('/calendar.ics', async (_req: Request, res: Response) => {
     });
 
     const formatDt = (d: Date) =>
-      d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      d
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\.\d{3}/, '');
 
     const events = ops
       .map((op) => {
@@ -298,23 +359,42 @@ scheduleRouter.get('/stats', async (_req: Request, res: Response) => {
     const in24h = new Date(now.getTime() + 24 * 3600 * 1000);
     const in7d = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
 
-    const [totalScheduledOps, pendingExecutions, upcoming24h, upcoming7d, byTypeRaw, expiredTimelocks, largeUnlocks] =
-      await Promise.all([
-        prisma.scheduledOperation.count(),
-        prisma.scheduledOperation.count({ where: { status: { in: ['PENDING', 'ACTIVE'] } } }),
-        prisma.scheduledOperation.count({ where: { status: { in: ['PENDING', 'ACTIVE'] }, triggerTime: { lte: in24h } } }),
-        prisma.scheduledOperation.count({ where: { status: { in: ['PENDING', 'ACTIVE'] }, triggerTime: { lte: in7d } } }),
-        prisma.scheduledOperation.groupBy({ by: ['timerType'], _count: { timerType: true } }),
-        prisma.governanceTimelock.count({ where: { status: 'expired' } }),
-        prisma.vestingSchedule.findMany({
-          where: { status: 'active', nextUnlockDate: { lte: in7d } },
-          orderBy: { nextUnlockAmount: 'desc' },
-          take: 10,
-          select: { contractAddress: true, tokenSymbol: true, nextUnlockAmount: true, nextUnlockDate: true, beneficiary: true },
-        }),
-      ]);
+    const [
+      totalScheduledOps,
+      pendingExecutions,
+      upcoming24h,
+      upcoming7d,
+      byTypeRaw,
+      expiredTimelocks,
+      largeUnlocks,
+    ] = await Promise.all([
+      prisma.scheduledOperation.count(),
+      prisma.scheduledOperation.count({ where: { status: { in: ['PENDING', 'ACTIVE'] } } }),
+      prisma.scheduledOperation.count({
+        where: { status: { in: ['PENDING', 'ACTIVE'] }, triggerTime: { lte: in24h } },
+      }),
+      prisma.scheduledOperation.count({
+        where: { status: { in: ['PENDING', 'ACTIVE'] }, triggerTime: { lte: in7d } },
+      }),
+      prisma.scheduledOperation.groupBy({ by: ['timerType'], _count: { timerType: true } }),
+      prisma.governanceTimelock.count({ where: { status: 'expired' } }),
+      prisma.vestingSchedule.findMany({
+        where: { status: 'active', nextUnlockDate: { lte: in7d } },
+        orderBy: { nextUnlockAmount: 'desc' },
+        take: 10,
+        select: {
+          contractAddress: true,
+          tokenSymbol: true,
+          nextUnlockAmount: true,
+          nextUnlockDate: true,
+          beneficiary: true,
+        },
+      }),
+    ]);
 
-    const byType = Object.fromEntries(byTypeRaw.map((r) => [r.timerType.toLowerCase(), r._count.timerType]));
+    const byType = Object.fromEntries(
+      byTypeRaw.map((r) => [r.timerType.toLowerCase(), r._count.timerType]),
+    );
 
     res.json({
       totalScheduledOps,
@@ -383,13 +463,15 @@ scheduleRouter.post('/alerts/:id/acknowledge', async (req: Request, res: Respons
 
 scheduleRouter.get('/search', async (req: Request, res: Response) => {
   try {
-    const q = z.object({
-      q: z.string().optional(),
-      type: z.string().optional(),
-      status: z.string().optional(),
-      page: z.coerce.number().int().min(1).default(1),
-      limit: z.coerce.number().int().min(1).max(100).default(20),
-    }).parse(req.query);
+    const q = z
+      .object({
+        q: z.string().optional(),
+        type: z.string().optional(),
+        status: z.string().optional(),
+        page: z.coerce.number().int().min(1).default(1),
+        limit: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .parse(req.query);
 
     const skip = (q.page - 1) * q.limit;
     const where: Record<string, unknown> = {};
@@ -404,7 +486,12 @@ scheduleRouter.get('/search', async (req: Request, res: Response) => {
     }
 
     const [data, total] = await Promise.all([
-      prisma.scheduledOperation.findMany({ where, orderBy: { triggerTime: 'asc' }, skip, take: q.limit }),
+      prisma.scheduledOperation.findMany({
+        where,
+        orderBy: { triggerTime: 'asc' },
+        skip,
+        take: q.limit,
+      }),
       prisma.scheduledOperation.count({ where }),
     ]);
 
@@ -418,10 +505,12 @@ scheduleRouter.get('/search', async (req: Request, res: Response) => {
 
 scheduleRouter.get('/vesting/large-unlocks', async (req: Request, res: Response) => {
   try {
-    const q = z.object({
-      days: z.coerce.number().int().min(1).max(365).default(7),
-      minAmount: z.coerce.number().default(10000),
-    }).parse(req.query);
+    const q = z
+      .object({
+        days: z.coerce.number().int().min(1).max(365).default(7),
+        minAmount: z.coerce.number().default(10000),
+      })
+      .parse(req.query);
 
     const until = new Date(Date.now() + q.days * 24 * 3600 * 1000);
 
@@ -474,7 +563,13 @@ scheduleRouter.get('/vesting/leaderboard', async (_req: Request, res: Response) 
       where: { status: 'active', nextUnlockDate: { lte: until } },
       orderBy: { nextUnlockAmount: 'desc' },
       take: 20,
-      select: { beneficiary: true, tokenSymbol: true, nextUnlockAmount: true, nextUnlockDate: true, contractAddress: true },
+      select: {
+        beneficiary: true,
+        tokenSymbol: true,
+        nextUnlockAmount: true,
+        nextUnlockDate: true,
+        contractAddress: true,
+      },
     });
     res.json({ data: top });
   } catch (e) {
@@ -503,7 +598,10 @@ scheduleRouter.get('/governance/pending', async (req: Request, res: Response) =>
     res.json({
       data: data.map((t) => ({
         ...t,
-        secondsUntilExecution: Math.max(0, Math.floor((t.executionTime.getTime() - now.getTime()) / 1000)),
+        secondsUntilExecution: Math.max(
+          0,
+          Math.floor((t.executionTime.getTime() - now.getTime()) / 1000),
+        ),
         gracePeriodRemaining: t.expiryTime
           ? Math.max(0, Math.floor((t.expiryTime.getTime() - now.getTime()) / 1000))
           : null,
@@ -632,7 +730,10 @@ scheduleRouter.put('/cron/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: {
         ...(body.contract && { contractAddress: body.contract }),
-        ...(body.cronExpression && { cronExpression: body.cronExpression, nextRunAt: nextCronDate(body.cronExpression) }),
+        ...(body.cronExpression && {
+          cronExpression: body.cronExpression,
+          nextRunAt: nextCronDate(body.cronExpression),
+        }),
         ...(body.function && { functionName: body.function }),
         ...(body.args && { functionArgs: body.args as object }),
         ...(body.description !== undefined && { description: body.description }),
@@ -684,7 +785,11 @@ scheduleRouter.post('/cron/:id/trigger', async (req: Request, res: Response) => 
 
     await prismaWrite.cronJob.update({
       where: { id: job.id },
-      data: { lastRunAt: new Date(), totalRuns: { increment: 1 }, successfulRuns: { increment: 1 } },
+      data: {
+        lastRunAt: new Date(),
+        totalRuns: { increment: 1 },
+        successfulRuns: { increment: 1 },
+      },
     });
 
     res.json({ triggered: true, execution: exec });
@@ -748,13 +853,21 @@ scheduleRouter.get('/health', async (_req: Request, res: Response) => {
       prisma.scheduledOperation.count({ where: { status: 'ACTIVE' } }),
       prisma.scheduledOperation.count({ where: { status: 'PENDING', nextTriggerAt: { lt: now } } }),
       prisma.governanceTimelock.count({ where: { status: 'expired' } }),
-      prisma.cronExecution.findMany({ where: { executedAt: { gte: week } }, select: { success: true, duration: true } }),
-      prisma.cronJob.findMany({ where: { failedRuns: { gt: 0 } }, select: { id: true, contractAddress: true, failedRuns: true, functionName: true }, take: 10 }),
+      prisma.cronExecution.findMany({
+        where: { executedAt: { gte: week } },
+        select: { success: true, duration: true },
+      }),
+      prisma.cronJob.findMany({
+        where: { failedRuns: { gt: 0 } },
+        select: { id: true, contractAddress: true, failedRuns: true, functionName: true },
+        take: 10,
+      }),
     ]);
 
     const totalExec = recentExec.length;
     const successExec = recentExec.filter((e) => e.success).length;
-    const avgDuration = totalExec > 0 ? recentExec.reduce((s, e) => s + (e.duration ?? 0), 0) / totalExec : 0;
+    const avgDuration =
+      totalExec > 0 ? recentExec.reduce((s, e) => s + (e.duration ?? 0), 0) / totalExec : 0;
 
     res.json({
       activeTimers: activeOps,

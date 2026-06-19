@@ -163,7 +163,8 @@ export function diffFunctions(previous: ContractFn[] | null, next: ContractFn[])
 export function classifyChange(opcodes: OpcodeDiff, functions: FunctionDiff): ChangeSeverity {
   if (functions.criticalChanges.length > 0) return 'critical';
 
-  const fnChanges = functions.added.length + functions.removed.length + functions.signatureChanged.length;
+  const fnChanges =
+    functions.added.length + functions.removed.length + functions.signatureChanged.length;
 
   // Removing public functions or large rewrites are major even without
   // touching the critical set — they can break callers or hide new logic.

@@ -12,11 +12,19 @@ import { logger } from '../logger';
 const _setInterval: (fn: () => void, ms: number) => unknown = setInterval;
 const _setTimeout: (fn: () => void, ms: number) => unknown = setTimeout;
 import {
-  buildCallGraph, detectPatterns, verifyCompositionSafety,
-  computeRiskLevel, checkForExploit, generateMitigationPatch,
-  computeEcosystemIndex, type ContractCall,
+  buildCallGraph,
+  detectPatterns,
+  verifyCompositionSafety,
+  computeRiskLevel,
+  checkForExploit,
+  generateMitigationPatch,
+  computeEcosystemIndex,
+  type ContractCall,
 } from './composability-engine';
-import { broadcastExploitAlert, broadcastCompositionAnalyzed } from '../ws/composabilityBroadcaster';
+import {
+  broadcastExploitAlert,
+  broadcastCompositionAnalyzed,
+} from '../ws/composabilityBroadcaster';
 
 // Interval between scans (ms)
 const SCAN_INTERVAL_MS = 30_000;
@@ -88,10 +96,17 @@ async function scanPendingTransactions(): Promise<void> {
     if (uniqueContracts.size < 2) continue;
 
     // Skip if already analyzed
-    const existing = await prismaRead.composedTransaction.findUnique({ where: { txHash: tx.hash } });
+    const existing = await prismaRead.composedTransaction.findUnique({
+      where: { txHash: tx.hash },
+    });
     if (existing?.analysisStatus === 'completed') continue;
 
-    const calls = inferContractCalls({ hash: tx.hash, contractAddress: tx.contractAddress, functionName: tx.functionName, events: tx.events });
+    const calls = inferContractCalls({
+      hash: tx.hash,
+      contractAddress: tx.contractAddress,
+      functionName: tx.functionName,
+      events: tx.events,
+    });
     if (calls.length === 0) continue;
 
     try {
@@ -99,7 +114,13 @@ async function scanPendingTransactions(): Promise<void> {
       await prismaWrite.composedTransaction.upsert({
         where: { txHash: tx.hash },
         update: { analysisStatus: 'analyzing' },
-        create: { txHash: tx.hash, ledgerSeq: tx.ledgerSequence, timestamp: tx.ledgerCloseTime, contractCalls: calls as object[], analysisStatus: 'analyzing' },
+        create: {
+          txHash: tx.hash,
+          ledgerSeq: tx.ledgerSequence,
+          timestamp: tx.ledgerCloseTime,
+          contractCalls: calls as object[],
+          analysisStatus: 'analyzing',
+        },
       });
 
       const callGraph = buildCallGraph(calls);
@@ -110,19 +131,42 @@ async function scanPendingTransactions(): Promise<void> {
 
       await prismaWrite.composedTransaction.update({
         where: { txHash: tx.hash },
-        data: { contractCalls: calls as object[], callGraph: callGraph as object, safetyScore, riskLevel, analysisStatus: 'completed' },
+        data: {
+          contractCalls: calls as object[],
+          callGraph: callGraph as object,
+          safetyScore,
+          riskLevel,
+          analysisStatus: 'completed',
+        },
       });
 
       // Persist pattern instances
       for (const p of patterns) {
-        const composed = await prismaRead.composedTransaction.findUnique({ where: { txHash: tx.hash } });
+        const composed = await prismaRead.composedTransaction.findUnique({
+          where: { txHash: tx.hash },
+        });
         if (!composed) continue;
         const dbPattern = await prismaWrite.compositionPattern.upsert({
           where: { name: p.patternName },
           update: {},
-          create: { name: p.patternName, description: String(p.details.mitigationGuide ?? ''), category: p.category, riskRating: (p.details as any).riskRating ?? 'medium_risk', mitigationGuide: String(p.details.mitigationGuide ?? '') },
+          create: {
+            name: p.patternName,
+            description: String(p.details.mitigationGuide ?? ''),
+            category: p.category,
+            riskRating: (p.details as any).riskRating ?? 'medium_risk',
+            mitigationGuide: String(p.details.mitigationGuide ?? ''),
+          },
         });
-        await prismaWrite.compositionPatternInstance.create({ data: { txId: composed.id, patternId: dbPattern.id, confidence: p.confidence, details: p.details as object } }).catch(() => {});
+        await prismaWrite.compositionPatternInstance
+          .create({
+            data: {
+              txId: composed.id,
+              patternId: dbPattern.id,
+              confidence: p.confidence,
+              details: p.details as object,
+            },
+          })
+          .catch(() => {});
       }
 
       // Update composability profile for each contract
@@ -132,23 +176,65 @@ async function scanPendingTransactions(): Promise<void> {
         const callees = calls.filter((c) => c.from === addr).map((c) => c.to);
         await prismaWrite.contractComposability.upsert({
           where: { contractAddress: addr },
-          update: { compositionCount: { increment: 1 }, uniqueCallers: callers.length, uniqueCallees: callees.length, safetyScoreAvg: safetyScore, lastAnalyzed: new Date() },
-          create: { contractId: addr, contractAddress: addr, compositionCount: 1, uniqueCallers: callers.length, uniqueCallees: callees.length, safetyScoreAvg: safetyScore, riskIncidents: riskLevel === 'critical' || riskLevel === 'high_risk' ? 1 : 0 },
+          update: {
+            compositionCount: { increment: 1 },
+            uniqueCallers: callers.length,
+            uniqueCallees: callees.length,
+            safetyScoreAvg: safetyScore,
+            lastAnalyzed: new Date(),
+          },
+          create: {
+            contractId: addr,
+            contractAddress: addr,
+            compositionCount: 1,
+            uniqueCallers: callers.length,
+            uniqueCallees: callees.length,
+            safetyScoreAvg: safetyScore,
+            riskIncidents: riskLevel === 'critical' || riskLevel === 'high_risk' ? 1 : 0,
+          },
         });
       }
 
-      broadcastCompositionAnalyzed({ txHash: tx.hash, safetyScore, riskLevel, patternCount: patterns.length, timestamp: tx.ledgerCloseTime });
+      broadcastCompositionAnalyzed({
+        txHash: tx.hash,
+        safetyScore,
+        riskLevel,
+        patternCount: patterns.length,
+        timestamp: tx.ledgerCloseTime,
+      });
 
       // Exploit check
       const exploit = checkForExploit(calls);
       if (exploit.exploitDetected) {
         const patch = generateMitigationPatch(calls, patterns);
-        await prismaWrite.compositionAlert.create({ data: { txHash: tx.hash, severity: 'critical', title: `Exploit: ${exploit.exploitType}`, description: exploit.description ?? '', exploitDetected: true, mitigationPatch: patch as object } });
-        broadcastExploitAlert({ txHash: tx.hash, exploitType: exploit.exploitType!, severity: 'critical', confidence: exploit.confidence, description: exploit.description!, patterns: patterns.map((p) => p.patternName), timestamp: tx.ledgerCloseTime });
-        logger.warn('Composability exploit detected', { txHash: tx.hash, type: exploit.exploitType });
+        await prismaWrite.compositionAlert.create({
+          data: {
+            txHash: tx.hash,
+            severity: 'critical',
+            title: `Exploit: ${exploit.exploitType}`,
+            description: exploit.description ?? '',
+            exploitDetected: true,
+            mitigationPatch: patch as object,
+          },
+        });
+        broadcastExploitAlert({
+          txHash: tx.hash,
+          exploitType: exploit.exploitType!,
+          severity: 'critical',
+          confidence: exploit.confidence,
+          description: exploit.description!,
+          patterns: patterns.map((p) => p.patternName),
+          timestamp: tx.ledgerCloseTime,
+        });
+        logger.warn('Composability exploit detected', {
+          txHash: tx.hash,
+          type: exploit.exploitType,
+        });
       }
     } catch (err) {
-      await prismaWrite.composedTransaction.update({ where: { txHash: tx.hash }, data: { analysisStatus: 'failed' } }).catch(() => {});
+      await prismaWrite.composedTransaction
+        .update({ where: { txHash: tx.hash }, data: { analysisStatus: 'failed' } })
+        .catch(() => {});
       logger.error('Composability analysis failed', { txHash: tx.hash, error: String(err) });
     }
   }
@@ -165,9 +251,26 @@ async function computeECISnapshot(): Promise<void> {
     ]);
 
     const uniqueCategories = new Set(patterns.map((p) => p.category)).size;
-    const score = computeEcosystemIndex({ totalContracts, totalComposedTx, uniquePatternCategories: uniqueCategories, avgSafetyScore: avgScore._avg.safetyScore ?? 0, exploitCount, totalTx: totalComposedTx });
+    const score = computeEcosystemIndex({
+      totalContracts,
+      totalComposedTx,
+      uniquePatternCategories: uniqueCategories,
+      avgSafetyScore: avgScore._avg.safetyScore ?? 0,
+      exploitCount,
+      totalTx: totalComposedTx,
+    });
 
-    await prismaWrite.ecosystemComposabilityIndex.create({ data: { score, compositionDiversity: uniqueCategories, avgSafetyScore: avgScore._avg.safetyScore ?? 0, exploitIncidentRate: totalComposedTx > 0 ? exploitCount / totalComposedTx : 0, protocolInterconnectivity: totalContracts > 0 ? totalComposedTx / totalContracts : 0, totalContracts, totalComposedTx } });
+    await prismaWrite.ecosystemComposabilityIndex.create({
+      data: {
+        score,
+        compositionDiversity: uniqueCategories,
+        avgSafetyScore: avgScore._avg.safetyScore ?? 0,
+        exploitIncidentRate: totalComposedTx > 0 ? exploitCount / totalComposedTx : 0,
+        protocolInterconnectivity: totalContracts > 0 ? totalComposedTx / totalContracts : 0,
+        totalContracts,
+        totalComposedTx,
+      },
+    });
     logger.info('ECI snapshot computed', { score });
   } catch (err) {
     logger.error('ECI snapshot failed', { error: String(err) });
@@ -184,6 +287,10 @@ export function startComposabilityIndexer(): void {
   };
   scan();
   setInterval(scan, SCAN_INTERVAL_MS);
-  setInterval(() => { computeECISnapshot().catch(() => {}); }, ECI_INTERVAL_MS);
-  setTimeout(() => { computeECISnapshot().catch(() => {}); }, 60_000);
+  setInterval(() => {
+    computeECISnapshot().catch(() => {});
+  }, ECI_INTERVAL_MS);
+  setTimeout(() => {
+    computeECISnapshot().catch(() => {});
+  }, 60_000);
 }

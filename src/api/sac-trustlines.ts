@@ -60,7 +60,8 @@ sacTrustlinesRouter.get('/', (_req: Request, res: Response) => {
  */
 sacTrustlinesRouter.get('/assets/:assetCode', (req: Request, res: Response) => {
   const { assetCode } = req.params;
-  const authorized = req.query.authorized !== undefined ? req.query.authorized === 'true' : undefined;
+  const authorized =
+    req.query.authorized !== undefined ? req.query.authorized === 'true' : undefined;
   const limit = Math.min(200, parseInt((req.query.limit as string) ?? '50', 10));
 
   res.json({
