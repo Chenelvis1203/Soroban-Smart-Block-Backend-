@@ -668,6 +668,173 @@ model VerificationJob {
   @@index([status])
 }
 
+model SandboxSession {
+  id                 String   @id @default(cuid())
+  userId             String?  @map("user_id")
+  status             String   // active | paused | expired | destroyed
+  ledgerSequence     Int      @default(1) @map("ledger_sequence")
+  ledgerTimestamp    DateTime @map("ledger_timestamp") @default(now())
+  networkPassphrase  String   @map("network_passphrase")
+  maxContractSize    Int      @default(102400) @map("max_contract_size")
+  maxCpuInsn         Int      @default(10000000) @map("max_cpu_insn")
+  maxMemBytes        Int      @default(1048576) @map("max_mem_bytes")
+  seed               String?
+  config             Json?
+  state              Json?
+  createdAt          DateTime @map("created_at") @default(now())
+  expiresAt          DateTime @map("expires_at")
+  lastAccessed       DateTime @map("last_accessed") @updatedAt
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("sandbox_sessions")
+}
+
+model SandboxAccount {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  publicKey       String   @map("public_key")
+  label           String?
+  balance         Decimal
+  sequenceNumber  Int      @map("sequence_number") @default(0)
+  isPreFunded     Boolean  @default(false) @map("is_pre_funded")
+
+  @@index([sessionId])
+  @@unique([sessionId, publicKey])
+  @@map("sandbox_accounts")
+}
+
+model SandboxContract {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  contractId      String   @map("contract_id")
+  name            String?
+  wasmHash        String   @map("wasm_hash")
+  deployerAccount String   @map("deployer_account")
+  sourceContract  String?  @map("source_contract")
+  templateId      String?  @map("template_id")
+  deployedAt      DateTime @map("deployed_at")
+  lastCalledAt    DateTime? @map("last_called_at")
+  totalCalls      Int      @default(0) @map("total_calls")
+  abi             Json?
+  state           Json?
+
+  @@index([sessionId])
+  @@unique([sessionId, contractId])
+  @@map("sandbox_contracts")
+}
+
+model SandboxCall {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  contractId      String   @map("contract_id")
+  functionName    String   @map("function_name")
+  args            Json
+  sourceAccount   String   @map("source_account")
+  success         Boolean
+  result          Json?
+  error           String?
+  events          Json?
+  cpuInsnUsed     Int      @map("cpu_insn_used")
+  memBytesUsed    Int      @map("mem_bytes_used")
+  readBytes       Int      @map("read_bytes")
+  writeBytes      Int      @map("write_bytes")
+  callIndex       Int      @map("call_index")
+  batchId         String?  @map("batch_id")
+  createdAt       DateTime @map("created_at")
+
+  @@index([sessionId, createdAt(sort: Desc)])
+  @@index([contractId])
+  @@index([batchId])
+  @@map("sandbox_calls")
+}
+
+model SandboxSnapshot {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  name            String
+  state           Json
+  createdAt       DateTime @map("created_at")
+
+  @@index([sessionId])
+  @@map("sandbox_snapshots")
+}
+
+model ContractTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  category        String
+  wasmBase64      String   @map("wasm_base64")
+  abi             Json
+  defaultArgs     Json?    @map("default_args")
+  deploymentGuide String?  @map("deployment_guide")
+  version         String
+  author          String?
+  createdAt       DateTime @map("created_at")
+
+  @@map("contract_templates")
+}
+
+model FuzzRun {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  contractId      String   @map("contract_id")
+  status          String
+  strategies      Json
+  totalIterations Int      @map("total_iterations")
+  uniqueFindings  Int      @map("unique_findings")
+  startedAt       DateTime @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([sessionId])
+  @@map("fuzz_runs")
+}
+
+model FuzzFinding {
+  id              String   @id @default(cuid())
+  fuzzRunId       String   @map("fuzz_run_id")
+  severity        String
+  title           String
+  description     String
+  callSequence    Json     @map("call_sequence")
+  stateDump       Json?    @map("state_dump")
+  reproducible    Boolean  @default(true)
+  createdAt       DateTime @map("created_at")
+
+  @@index([fuzzRunId])
+  @@map("fuzz_findings")
+}
+
+model SandboxCiRun {
+  id              String   @id @default(cuid())
+  sessionId       String?  @map("session_id")
+  status          String   // running | passed | failed | cancelled
+  steps           Json
+  logs            Json
+  result          Json?
+  createdAt       DateTime @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([sessionId])
+  @@index([status])
+  @@map("sandbox_ci_runs")
+}
+
+model SandboxShare {
+  id              String   @id @default(cuid())
+  sessionId       String   @map("session_id")
+  shareId         String   @unique @map("share_id")
+  viewOnly        Boolean  @default(true) @map("view_only")
+  snapshotState   Json     @map("snapshot_state")
+  expiresAt       DateTime? @map("expires_at")
+  createdAt       DateTime @map("created_at")
+
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@map("sandbox_shares")
+}
+
 // Persistent contract state key tracking for eviction monitoring (#57, #58)
 model ContractState {
   id                String   @id @default(cuid())

@@ -206,7 +206,6 @@ async function storeEvent(event: LedgerEvent): Promise<number> {
     transactionHash: event.transactionHash,
   };
 
-  broadcastEvent(broadcastPayload);
   broadcastSSEEvent(broadcastPayload);
 
   dispatchWebhooks({ ...broadcastPayload, topicSymbol }).catch((err) =>
