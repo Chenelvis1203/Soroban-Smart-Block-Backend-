@@ -3017,137 +3017,163 @@ model ReentrancyStats {
   @@map("reentrancy_stats")
 }
 
-// ─── Fee Intelligence Platform ───────────────────────────────────────────────
+// ── Natural Language Query Interface (#328) ───────────────────────────────────
 
-enum RevenuePeriod {
-  HOUR
-  DAY
-  WEEK
-  MONTH
+enum QueryFeedback {
+  helpful
+  not_helpful
+  incorrect
+  partial
 }
 
-enum FeeType {
-  SWAP
-  WITHDRAWAL
-  PERFORMANCE
-  PROTOCOL
-  LIQUIDATION
-  INTEREST_SPREAD
-  FLASH_LOAN
-  REFERRAL
-  INSURANCE_CONTRIBUTION
+model NlQuery {
+  id               String         @id @default(cuid())
+  userId           String?
+  query            String
+  language         String?
+  interpretedQuery Json?
+  sql              String?
+  apiEndpoint      String?
+  resolved         Boolean        @default(false)
+  responseTime     Int?
+  tokensUsed       Int?
+  feedback         QueryFeedback?
+  createdAt        DateTime       @default(now())
+
+  context      NlQueryContext?
+  savedQueries SavedQuery[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("nl_queries")
 }
 
-enum FeeDestination {
-  LP_REWARDS
-  TREASURY
-  BUYBACK_BURN
-  STAKER_REWARDS
-  INSURANCE_FUND
-  ECOSYSTEM_FUND
-  TEAM_VESTING
-}
-
-model ProtocolRevenue {
-  id              String        @id @default(cuid())
-  contractAddress String
-  protocolName    String?
-  period          RevenuePeriod
-  timestamp       DateTime
-  totalFees       Decimal       @map("total_fees")
-  swapFees        Decimal?      @map("swap_fees")
-  withdrawFees    Decimal?      @map("withdraw_fees")
-  performanceFees Decimal?      @map("performance_fees")
-  protocolFees    Decimal?      @map("protocol_fees")
-  liquidationFees Decimal?      @map("liquidation_fees")
-  interestSpread  Decimal?      @map("interest_spread")
-  flashLoanFees   Decimal?      @map("flash_loan_fees")
-  referralFees    Decimal?      @map("referral_fees")
-  lpRewards       Decimal?      @map("lp_rewards")
-  treasuryAmount  Decimal?      @map("treasury_amount")
-  burnedAmount    Decimal?      @map("burned_amount")
-  stakerRewards   Decimal?      @map("staker_rewards")
-  insuranceFund   Decimal?      @map("insurance_fund")
-  ecosystemFund   Decimal?      @map("ecosystem_fund")
-  teamVesting     Decimal?      @map("team_vesting")
-  feeToken        String        @map("fee_token")
-  usdValue        Float?        @map("usd_value")
-  txCount         Int           @default(0) @map("tx_count")
-  uniqueUsers     Int?          @map("unique_users")
-
-  @@index([contractAddress, timestamp(sort: Desc)])
-  @@index([contractAddress, period])
-  @@index([timestamp])
-  @@map("protocol_revenues")
-}
-
-model FeeEvent {
-  id              String         @id @default(cuid())
-  txHash          String         @map("tx_hash")
-  contractAddress String         @map("contract_address")
-  feeType         FeeType        @map("fee_type")
-  destination     FeeDestination @map("destination")
-  amount          String
-  usdValue        Float?         @map("usd_value")
-  token           String
-  sender          String?
-  receiver        String?
-  blockNumber     Int            @map("block_number")
-  timestamp       DateTime
-
-  @@index([txHash])
-  @@index([contractAddress, timestamp])
-  @@index([feeType])
-  @@map("fee_events")
-}
-
-model YieldSnapshot {
+model NlQueryContext {
   id               String   @id @default(cuid())
-  contractAddress  String   @map("contract_address")
-  protocolName     String?
-  timestamp        DateTime
-  lpApr1d          Float?   @map("lp_apr_1d")
-  lpApr7d          Float?   @map("lp_apr_7d")
-  lpApr30d         Float?   @map("lp_apr_30d")
-  stakingApr1d     Float?   @map("staking_apr_1d")
-  stakingApr7d     Float?   @map("staking_apr_7d")
-  stakingApr30d    Float?   @map("staking_apr_30d")
-  totalValueLocked Decimal? @map("total_value_locked")
-  stakedValue      Decimal? @map("staked_value")
-  revenueShare     Float?   @map("revenue_share")
+  queryId          String   @unique @map("query_id")
+  query            NlQuery  @relation(fields: [queryId], references: [id])
+  sessionId        String?  @map("session_id")
+  previousQueries  Json?    @map("previous_queries")
+  resolvedEntities Json?    @map("resolved_entities")
+  activeFilters    Json?    @map("active_filters")
+  contextWindow    Int      @default(5) @map("context_window")
+  createdAt        DateTime @default(now()) @map("created_at")
 
-  @@index([contractAddress, timestamp(sort: Desc)])
-  @@map("yield_snapshots")
+  @@index([sessionId])
+  @@map("nl_query_contexts")
 }
 
-model ProtocolProfile {
-  id                  String   @id @default(cuid())
-  contractAddress     String   @unique @map("contract_address")
-  protocolName        String   @map("protocol_name")
-  category            String
-  logoUrl             String?  @map("logo_url")
-  website             String?
-  twitter             String?
-  discord             String?
-  tvl                 Decimal?
-  totalRevenueAllTime Decimal? @map("total_revenue_all_time")
-  avgFeePercent       Float?   @map("avg_fee_percent")
-  feeStructure        Json?    @map("fee_structure")
-  lastUpdatedAt       DateTime @map("last_updated_at") @updatedAt
+model NlSession {
+  id        String   @id @default(cuid())
+  userId    String?
+  context   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@map("protocol_profiles")
+  @@index([userId])
+  @@map("nl_sessions")
 }
 
-model RevenueAlert {
-  id              String   @id @default(cuid())
-  contractAddress String   @map("contract_address")
-  alertType       String   @map("alert_type")
-  severity        String
-  message         String
-  metadata        Json?
-  detectedAt      DateTime @map("detected_at")
-  acknowledged    Boolean  @default(false)
+model SavedQuery {
+  id         String    @id @default(cuid())
+  userId     String?
+  name       String
+  nlTemplate String    @map("nl_template")
+  parameters Json?
+  schedule   String?
+  lastRun    DateTime? @map("last_run")
+  nextRun    DateTime? @map("next_run")
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  queryId    String?   @map("query_id")
+  query      NlQuery?  @relation(fields: [queryId], references: [id])
 
-  @@index([contractAddress, detectedAt(sort: Desc)])
-  @@map("revenue_alerts")
+  @@index([userId])
+  @@map("saved_queries")
+}
+
+model NlEmbedding {
+  id          String   @id @default(cuid())
+  query       String   @unique
+  embedding   Bytes
+  intent      String
+  filters     Json?
+  usageCount  Int      @default(0) @map("usage_count")
+  successRate Float    @default(0) @map("success_rate")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("nl_embeddings")
+}
+
+model NlQueryTemplate {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  description String?
+  nlTemplate  String   @map("nl_template")
+  parameters  Json?
+  category    String?
+  usageCount  Int      @default(0) @map("usage_count")
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isPublic])
+  @@index([category])
+  @@map("nl_query_templates")
+}
+
+model NlReport {
+  id          String    @id @default(cuid())
+  userId      String?
+  name        String
+  nlTemplate  String    @map("nl_template")
+  parameters  Json?
+  schedule    String?
+  reportType  String    @default("one-time") @map("report_type")
+  webhookUrl  String?   @map("webhook_url")
+  email       String?
+  active      Boolean   @default(true)
+  lastRun     DateTime? @map("last_run")
+  nextRun     DateTime? @map("next_run")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  history NlReportHistory[]
+
+  @@index([userId])
+  @@map("nl_reports")
+}
+
+model NlReportHistory {
+  id        String   @id @default(cuid())
+  reportId  String   @map("report_id")
+  report    NlReport @relation(fields: [reportId], references: [id])
+  status    String
+  result    Json?
+  error     String?
+  ranAt     DateTime @default(now()) @map("ran_at")
+
+  @@index([reportId, ranAt(sort: Desc)])
+  @@map("nl_report_history")
+}
+
+model NlAlert {
+  id          String   @id @default(cuid())
+  userId      String?
+  nlQuery     String   @map("nl_query")
+  intent      String
+  conditions  Json?
+  webhookUrl  String?  @map("webhook_url")
+  email       String?
+  active      Boolean  @default(true)
+  lastFired   DateTime? @map("last_fired")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([active])
+  @@map("nl_alerts")
 }
