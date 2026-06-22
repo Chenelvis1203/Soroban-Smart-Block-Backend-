@@ -46,23 +46,36 @@ describeIf('PostgreSQL integration – migration & query compatibility', () => {
       'Contract',
       'Transaction',
       'Event',
+      'EventDefinition',
+      'SessionAuthorization',
       'IndexerState',
       'SacMapping',
-      'AmmPool',
-      'YieldDistribution',
-      'FrozenLedgerKey',
-      'SettlementBatchSummary',
-      'TreasuryWallet',
-      'TipSubscription',
-      'TipWebhook',
+      'SacTrustlineMapping',
+      'VerificationJob',
+      'ContractState',
+      'RestorationLog',
+      'FailedItem',
+      'ApiKey',
+      'SmartWallet',
+      'SponsoredTransaction',
+      'AuthDecomposition',
+      'SanctionsList',
+      'ScreeningResult',
+      'TravelRuleRecord',
+      'ComplianceReport',
+      'ContractResourceMetric',
+      'TranslationKey',
+      'Translation',
+      'WasmUpgradeHistory',
     ];
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT table_name FROM information_schema.tables
        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
     );
     const existing: string[] = rows.map((r: any) => r.table_name as string);
+    const existingLower = existing.map((n) => n.toLowerCase());
     for (const t of expectedTables) {
-      expect(existing).toContain(t);
+      expect(existingLower).toContain(t.toLowerCase());
     }
   });
 

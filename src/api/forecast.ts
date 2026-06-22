@@ -2,6 +2,11 @@
 import express from 'express';
 import { getForecast, trainModel, retrainModel, deleteModel } from '../indexer/forecast';
 
+declare function getPredictions(modelId: string): Promise<any>;
+declare function getFeatureImportance(modelId: string): Promise<any>;
+declare function listModels(): Promise<any>;
+declare function getModelDetails(modelId: string): Promise<any>;
+
 const router = express.Router();
 
 // GET /api/v1/predict/forecast

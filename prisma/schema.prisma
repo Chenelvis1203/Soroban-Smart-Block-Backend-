@@ -356,6 +356,99 @@ model AuthDecomposition {
   @@index([ledgerSequence, id])
 }
 
+// ---------------------------------------------------------------------------
+// Compliance & Sanctions Screening
+// ---------------------------------------------------------------------------
+
+model SanctionsList {
+  id              String   @id @default(cuid())
+  source          String    // "ofac_sdn" | "ofac_cap" | "eu" | "un" | "uk_ofsi" | "custom"
+  sourceUrl       String?
+  listVersion     String    // version/date of the list
+  listName        String?
+  entityType      String    // "individual" | "entity" | "vessel" | "aircraft" | "unknown"
+  address         String?
+  addressPattern  String?
+  name            String?
+  aliases         String[]
+  program         String?
+  country         String?
+  idDocument      String?
+  citizenship     String[]
+  birthDate       String?
+  placeOfBirth    String?
+  title           String?
+  isActive        Boolean   @default(true)
+  addedToListAt   DateTime
+  importedAt      DateTime  @default(now())
+  lastModifiedAt  DateTime?
+
+  @@index([address])
+  @@index([source, listVersion])
+  @@index([isActive])
+  @@index([source, isActive])
+  @@index([name])
+}
+
+model ScreeningResult {
+  id              String    @id @default(cuid())
+  address         String
+  txHash          String?
+  screenedAt      DateTime   @default(now())
+  riskScore       Int        @default(0)
+  status          String     @default("clear")
+  matchType       String?    // "exact" | "fuzzy_name" | "fuzzy_address" | "partial" | "no_match"
+  matchedEntries  Json?
+  screeningMethod String     @default("real_time")
+  reviewerId      String?
+  reviewAction    String?    // "confirmed_positive" | "false_positive" | "escalated"
+  reviewedAt      DateTime?
+  notes           String?
+  durationMs      Int?
+
+  @@index([address])
+  @@index([txHash])
+  @@index([screenedAt(sort: Desc)])
+  @@index([status])
+  @@index([riskScore])
+  @@index([address, status])
+}
+
+model TravelRuleRecord {
+  id                String    @id @default(cuid())
+  txHash            String    @unique
+  originatorVasp    String?
+  beneficiaryVasp   String?
+  originatorInfo    Json?
+  beneficiaryInfo   Json?
+  transferValue     String
+  thresholdExceeded Boolean   @default(false)
+  travelRuleStatus  String    @default("pending_verification")
+  submittedAt       DateTime  @default(now())
+  verifiedAt        DateTime?
+
+  @@index([txHash])
+  @@index([travelRuleStatus])
+  @@index([submittedAt])
+}
+
+model ComplianceReport {
+  id              String    @id @default(cuid())
+  reportType      String     // "daily_screening" | "weekly_summary" | "monthly_audit" | "address_history" | "sar" | "regulatory"
+  generatedAt     DateTime   @default(now())
+  periodStart     DateTime
+  periodEnd       DateTime
+  format          String     @default("pdf")
+  fileUrl         String?
+  fileData        Bytes?
+  parameters      Json?
+  reportData      Json?
+  createdBy       String?
+
+  @@index([reportType, periodStart(sort: Desc)])
+  @@index([generatedAt(sort: Desc)])
+}
+
 model ContractResourceMetric {
   id               String   @id @default(cuid())
   contractAddress  String

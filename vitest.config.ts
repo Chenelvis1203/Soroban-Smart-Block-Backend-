@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: false,
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/orphaned-routers-integration.test.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

@@ -184,7 +184,7 @@ export function detectNegativeCycles(graph: PriceGraph, maxHops = 5): ArbitrageC
       }
     }
 
-    // Check for negative cycles (arbitrage opportunities)
+    // Check for negative cycles via Nth-pass relaxation (standard Bellman-Ford)
     for (const [edgeKey, weight] of graph.edges) {
       const [from, to, poolId] = edgeKey.split(':');
       const df = dist.get(from) ?? Infinity;
@@ -201,8 +201,8 @@ export function detectNegativeCycles(graph: PriceGraph, maxHops = 5): ArbitrageC
           reverseNodes.push(cur);
           const p = prev.get(cur);
           if (!p) break;
-          poolIds.unshift(p.poolId);
-          dexNames.unshift(p.dex);
+          poolIds.push(p.poolId);
+          dexNames.push(p.dex);
           cur = p.token;
           safetyNet++;
         }
@@ -211,20 +211,18 @@ export function detectNegativeCycles(graph: PriceGraph, maxHops = 5): ArbitrageC
         const node = Array.from(graph.nodes.get(from) ?? []).find((n) => n.poolId === poolId);
         dexNames.push(node?.dexName ?? '');
 
-        const cycleKey = [...path].sort().join('-');
-        if (!seen.has(cycleKey) && path.length >= 2) {
+        const cycleKey = [...cyclePath].sort().join('-');
+        if (!seen.has(cycleKey)) {
           seen.add(cycleKey);
-          // Calculate profit multiplier from accumulated log-price
           const totalLogCost = poolIds.reduce((acc, pid, idx) => {
-            const tk = path[idx];
-            const tkNext = path[idx + 1] ?? startToken;
+            const tk = fullPath[idx];
+            const tkNext = fullPath[idx + 1];
             const w = graph.edges.get(`${tk}:${tkNext}:${pid}`) ?? 0;
             return acc + w;
           }, 0);
           const profitMultiplier = Math.exp(-totalLogCost);
           if (profitMultiplier > 1.0001) {
-            // minimum 0.01% profit threshold
-            cycles.push({ path: [...path, startToken], poolIds, dexNames, profitMultiplier });
+            cycles.push({ path: fullPath, poolIds, dexNames, profitMultiplier });
           }
         }
       }
