@@ -3392,3 +3392,96 @@ model ArchivalAppeal {
   @@index([slashId])
   @@map("archival_appeals")
 }
+
+// ── Cross-Chain Bridge Tracker ─────────────────────────────────────────────────
+
+model BridgeTransaction {
+  id                    String   @id @default(uuid())
+  transactionHash       String   @unique
+  sourceChain           String   @db.VarChar(50)
+  destinationChain      String   @db.VarChar(50)
+  asset                 String   @db.VarChar(50)
+  amount                Decimal  @db.Decimal(30, 7)
+  sender                String   @db.VarChar(100)
+  recipient             String   @db.VarChar(100)
+  protocol              String   @db.VarChar(50)
+  status                String   @default("pending") @db.VarChar(20)
+  confirmations         Int      @default(0)
+  requiredConfirmations Int      @default(0)
+  sourceTimestamp       DateTime?
+  destinationTimestamp  DateTime?
+  estimatedArrivalAt    DateTime?
+  bridgeFee             Decimal? @db.Decimal(20, 7)
+  sourceTxUrl           String?
+  destinationTxUrl      String?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([protocol])
+  @@index([sourceChain])
+  @@index([destinationChain])
+  @@index([status])
+  @@index([sender])
+  @@index([recipient])
+  @@index([createdAt])
+  @@map("bridge_transactions")
+}
+
+model BridgeAlert {
+  id              String   @id @default(uuid())
+  type            String   @db.VarChar(50)
+  severity        String   @default("info") @db.VarChar(20)
+  protocol        String?  @db.VarChar(50)
+  chain           String?  @db.VarChar(50)
+  address         String?  @db.VarChar(100)
+  transactionHash String?  @db.VarChar(100)
+  asset           String?  @db.VarChar(50)
+  amount          Decimal? @db.Decimal(30, 7)
+  message         String   @db.Text
+  data            Json?
+  acknowledged    Boolean  @default(false)
+  triggeredAt     DateTime @default(now())
+
+  @@index([type])
+  @@index([severity])
+  @@index([address])
+  @@index([triggeredAt])
+  @@map("bridge_alerts")
+}
+
+model MonitoredAddress {
+  id           String   @id @default(uuid())
+  address      String   @db.VarChar(100)
+  chain        String   @db.VarChar(50)
+  label        String?
+  minAlertUsd  Decimal? @db.Decimal(20, 2)
+  alertOnTx    Boolean  @default(true)
+  alertOnBridging Boolean @default(true)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([address, chain])
+  @@index([address])
+  @@index([chain])
+  @@map("monitored_addresses")
+}
+
+model BridgeVolume {
+  id          String   @id @default(uuid())
+  protocol    String   @db.VarChar(50)
+  chain       String   @db.VarChar(50)
+  asset       String   @db.VarChar(50)
+  volume      Decimal  @db.Decimal(30, 7)
+  count       Int      @default(0)
+  period      String   @db.VarChar(20)
+  periodStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([protocol, chain, asset, period, periodStart])
+  @@index([protocol, period])
+  @@index([chain, period])
+  @@index([periodStart])
+  @@map("bridge_volumes")
+}

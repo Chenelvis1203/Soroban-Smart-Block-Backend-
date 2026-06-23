@@ -25,6 +25,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { logger } from './logger';
 import { feedOrchestrator } from './feed/orchestrator';
 import { startPriceUpdater, stopPriceUpdater } from './services/pricing';
+import { startBridgeWorker, stopBridgeWorker } from './bridge-tracker';
 import { writeFile, mkdir } from 'fs/promises';
 import { resolve } from 'path';
 
@@ -137,6 +138,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
       logger.info('[shutdown] WebSocket server closed');
     }
 
+    stopBridgeWorker();
+    logger.info('[shutdown] Bridge worker stopped');
+
     feedOrchestrator.shutdown();
     logger.info('[shutdown] Feed orchestrator stopped');
 
@@ -216,6 +220,11 @@ async function main() {
       startFeeAggregator();
     } catch (err) {
       logger.warn('Fee aggregator failed to start', { error: String(err) });
+    }
+    try {
+      startBridgeWorker();
+    } catch (err) {
+      logger.warn('Bridge worker failed to start', { error: String(err) });
     }
   }
 
