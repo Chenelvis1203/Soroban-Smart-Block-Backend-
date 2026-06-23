@@ -28,11 +28,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'Token Metadata', description: 'Token metadata resolution' },
       { name: 'Protocol', description: 'Protocol version and reconciliation' },
       { name: 'i18n', description: 'Internationalization translation management' },
-      {
-        name: 'Composability',
-        description:
-          'Cross-contract call-graph analysis, safety verification, exploit detection, and ecosystem-health metrics',
-      },
+      { name: 'Threat Intelligence', description: 'Advisories, review workflow, subscriptions, webhooks, RSS/JSON feeds, analytics, and source management' },
     ],
     components: {
       securitySchemes: {
@@ -1431,302 +1427,106 @@ const options: swaggerJsdoc.Options = {
             acknowledged: { type: 'boolean', example: false },
           },
         },
-        // ── Composability Engine ──────────────────────────────────────────────
-        // An indexed multi-contract composed transaction (full ComposedTransaction record).
-        ComposedTransaction: {
+        // ── Threat Intelligence Platform (#251) ───────────────────────────────
+        // Full ThreatAdvisory record as stored in DB. mitigations is String? in
+        // the schema even though the Zod input accepts an array.
+        ThreatAdvisory: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2comptx01' },
-            txHash: {
-              type: 'string',
-              example: '3389e9f0f1a4e32477b1c0d9e8a6f5b4c3d2e1f0a9b8c7d6e5f40312233445566',
-            },
-            ledgerSeq: { type: 'integer', example: 3168075 },
-            timestamp: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            contractCalls: {
-              type: 'array',
-              nullable: true,
-              items: {
-                type: 'object',
-                properties: {
-                  from: {
-                    type: 'string',
-                    example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI',
-                  },
-                  to: {
-                    type: 'string',
-                    example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-                  },
-                  method: { type: 'string', example: 'swap' },
-                  args: { type: 'array', items: {}, example: ['1000000000', 'USDC'] },
-                },
-              },
-            },
-            callGraph: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2advis001' },
+            title: { type: 'string', example: 'Reentrancy in transfer hook' },
+            description: { type: 'string', nullable: true, example: 'A reentrancy vulnerability allows double-spend via malicious token hook.' },
+            severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low', 'info'], example: 'high' },
+            cvssScore: { type: 'number', nullable: true, example: 8.1 },
+            cveId: { type: 'string', nullable: true, example: 'CVE-2026-1234' },
+            ghsaId: { type: 'string', nullable: true, example: null },
+            affectedContracts: { type: 'array', items: { type: 'string' }, example: ['CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5'] },
+            affectedChains: { type: 'array', items: { type: 'string' }, example: ['stellar'] },
+            mitigations: { type: 'string', nullable: true, description: 'Stored as a serialised value (schema column is String?)', example: null },
+            tags: { type: 'array', items: { type: 'string' }, example: ['reentrancy', 'community'] },
+            sourceId: { type: 'string', nullable: true, example: 'clz9q1x4t0000s6h2vsource1' },
+            status: { type: 'string', enum: ['open', 'under_review', 'resolved', 'disputed'], example: 'open' },
+            publishedAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-06-19T07:24:26.000Z' },
+            externalUrl: { type: 'string', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:27.000Z' },
+          },
+        },
+        // A review decision for a ThreatAdvisory (full ThreatReview record).
+        ThreatReview: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2review001' },
+            advisoryId: { type: 'string', example: 'clz9q1x4t0000s6h2advis001' },
+            role: { type: 'string', nullable: true, enum: ['analyst', 'admin'], example: 'analyst' },
+            decision: { type: 'string', nullable: true, enum: ['approve', 'reject', 'escalate'], example: 'approve' },
+            notes: { type: 'string', nullable: true, example: 'Confirmed exploitable on testnet.' },
+            reviewerKey: { type: 'string', example: 'sk_live_abc123' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
+          },
+        },
+        // A community comment on a ThreatAdvisory (full ThreatComment record).
+        ThreatComment: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2comment01' },
+            advisoryId: { type: 'string', example: 'clz9q1x4t0000s6h2advis001' },
+            authorKey: { type: 'string', description: 'X-API-Key header value, or "anonymous" if absent', example: 'anonymous' },
+            body: { type: 'string', example: 'Reproduced on testnet ledger 3168075.' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
+          },
+        },
+        // A TIP notification subscription (full TipSubscription record).
+        TipSubscription: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2tipsub01' },
+            channel: { type: 'string', enum: ['email', 'slack', 'discord', 'telegram'], example: 'slack' },
+            target: { type: 'string', description: 'Channel-specific destination (email address, webhook URL, user id, etc.)', example: '#security-alerts' },
+            active: { type: 'boolean', example: true },
+            filters: {
               type: 'object',
               nullable: true,
-              description: 'Adjacency graph of contract calls',
-              example: {
-                nodes: [{ address: 'CALLD5...' }],
-                edges: [{ from: 'GBZX...', to: 'CALLD5...', method: 'swap' }],
+              description: 'Optional severity/tag filters',
+              properties: {
+                severity: { type: 'array', items: { type: 'string' }, example: ['critical', 'high'] },
+                tags: { type: 'array', items: { type: 'string' }, example: ['reentrancy'] },
               },
-            },
-            safetyScore: {
-              type: 'number',
-              nullable: true,
-              description: 'Composite safety score (0-100)',
-              example: 85.5,
-            },
-            riskLevel: {
-              type: 'string',
-              nullable: true,
-              enum: ['safe', 'low_risk', 'medium_risk', 'high_risk', 'critical'],
-              example: 'low_risk',
-            },
-            analysisStatus: { type: 'string', example: 'completed' },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-          },
-        },
-        // A catalogued composability pattern (full CompositionPattern record).
-        CompositionPattern: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2comppat1' },
-            name: { type: 'string', example: 'flash_loan_reentry' },
-            description: {
-              type: 'string',
-              example: 'Flash loan followed by re-entrant call into the lending pool',
-            },
-            category: { type: 'string', example: 'reentrancy' },
-            riskRating: {
-              type: 'string',
-              enum: ['safe', 'low_risk', 'medium_risk', 'high_risk', 'critical'],
-              example: 'critical',
-            },
-            requiredCalls: { type: 'integer', example: 2 },
-            detectionRules: { type: 'object', nullable: true, example: null },
-            safeIf: { type: 'object', nullable: true, example: null },
-            mitigationGuide: {
-              type: 'string',
-              nullable: true,
-              example: 'Add reentrancy guard to borrow and repay functions',
-            },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-          },
-        },
-        // Per-contract composability profile (full ContractComposability record).
-        ContractComposabilityProfile: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2comprf01' },
-            contractId: {
-              type: 'string',
-              example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-            },
-            contractAddress: {
-              type: 'string',
-              example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-            },
-            composedWith: { type: 'array', nullable: true, items: {}, example: [] },
-            compositionCount: { type: 'integer', example: 42 },
-            uniqueCallers: { type: 'integer', example: 8 },
-            uniqueCallees: { type: 'integer', example: 3 },
-            avgCompositionDepth: { type: 'number', nullable: true, example: 2.4 },
-            safetyScoreAvg: { type: 'number', nullable: true, example: 88.5 },
-            riskIncidents: { type: 'integer', example: 1 },
-            lastAnalyzed: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-06-19T07:24:26.000Z',
-            },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-          },
-        },
-        // Composition safety verification result (full ComposabilityVerification record).
-        ComposabilityVerification: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2compvfy1' },
-            txHash: {
-              type: 'string',
-              example: '3389e9f0f1a4e32477b1c0d9e8a6f5b4c3d2e1f0a9b8c7d6e5f40312233445566',
-            },
-            atomicity: { type: 'boolean', example: true },
-            authorization: { type: 'boolean', example: true },
-            stateConsistency: { type: 'boolean', example: true },
-            reentrancyFree: { type: 'boolean', example: false },
-            oracleFreshness: { type: 'boolean', example: true },
-            atomicityScore: { type: 'number', example: 90.0 },
-            authorizationScore: { type: 'number', example: 95.0 },
-            stateScore: { type: 'number', example: 80.0 },
-            reentrancyScore: { type: 'number', example: 60.0 },
-            oracleScore: { type: 'number', example: 75.0 },
-            totalScore: { type: 'number', example: 80.0 },
-            proofData: { type: 'object', nullable: true, example: null },
-            verified: { type: 'boolean', example: false },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-          },
-        },
-        // Static analysis result for a contract (full ComposabilityStaticAnalysis record).
-        ComposabilityStaticAnalysis: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2compsa01' },
-            contractAddress: {
-              type: 'string',
-              example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-            },
-            externalCalls: {
-              type: 'array',
-              nullable: true,
-              items: {},
-              example: [{ callee: 'GBZX...', method: 'transfer' }],
-            },
-            callGraph: { type: 'object', nullable: true, example: null },
-            circularDeps: { type: 'array', nullable: true, items: {}, example: [] },
-            hasUnboundedRecursion: { type: 'boolean', example: false },
-            maxCallDepth: { type: 'integer', example: 3 },
-            analysisVersion: { type: 'string', example: '1.0' },
-            analyzedAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-06-19T07:24:26.000Z',
-            },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-          },
-        },
-        // A composability alert or exploit finding (full CompositionAlert record).
-        CompositionAlert: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2compalrt' },
-            txHash: {
-              type: 'string',
-              nullable: true,
-              example: '3389e9f0f1a4e32477b1c0d9e8a6f5b4c3d2e1f0a9b8c7d6e5f40312233445566',
-            },
-            contractAddress: {
-              type: 'string',
-              nullable: true,
-              example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-            },
-            patternId: { type: 'string', nullable: true, example: null },
-            severity: {
-              type: 'string',
-              enum: ['critical', 'high', 'medium', 'low'],
-              example: 'critical',
-            },
-            title: { type: 'string', example: 'Exploit: flash_loan_reentry' },
-            description: {
-              type: 'string',
-              example: 'Flash loan followed by re-entrant call detected',
-            },
-            exploitDetected: { type: 'boolean', example: true },
-            mitigated: { type: 'boolean', example: false },
-            mitigationPatch: { type: 'object', nullable: true, example: null },
-            createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            resolvedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
-          },
-        },
-        // A composability fuzz campaign record (full ComposabilityFuzzCampaign).
-        ComposabilityFuzzCampaign: {
-          type: 'object',
-          properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2compfuz1' },
-            contractAddress: {
-              type: 'string',
-              example: 'CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5',
-            },
-            status: { type: 'string', example: 'completed' },
-            totalCases: { type: 'integer', example: 100 },
-            unsafeFound: { type: 'integer', example: 3 },
-            falsePositives: { type: 'integer', example: 0 },
-            coveragePct: { type: 'number', example: 0.72 },
-            findings: { type: 'array', nullable: true, items: {}, example: [] },
-            startedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            completedAt: {
-              type: 'string',
-              format: 'date-time',
-              nullable: true,
-              example: '2026-06-19T07:24:27.000Z',
+              example: { severity: ['critical', 'high'] },
             },
             createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
             updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:27.000Z' },
           },
         },
-        // An exploit entry in the composability knowledge base (full ComposabilityExploit record).
-        ComposabilityExploit: {
+        // A registered threat intelligence feed source (full VulnerabilitySource record).
+        VulnerabilitySource: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2compexp1' },
-            title: { type: 'string', example: 'StellarSwap Flash Loan Re-entry' },
-            description: {
-              type: 'string',
-              example: 'Attacker borrowed XLM via flash loan and re-entered the swap function',
-            },
-            patternCategory: { type: 'string', example: 'reentrancy' },
-            cveId: { type: 'string', nullable: true, example: null },
-            affectedContracts: {
-              type: 'array',
-              items: { type: 'string' },
-              example: ['CALLD5GHXR4QSTKHSWQEK4UVMHM4QHU4KZ5G4SBKWY7C7TXKZ45RJ4M5'],
-            },
-            exploitTxHashes: {
-              type: 'array',
-              items: { type: 'string' },
-              example: ['3389e9f0f1a4e32477b1c0d9e8a6f5b4c3d2e1f0a9b8c7d6e5f40312233445566'],
-            },
-            advisoryUrl: { type: 'string', nullable: true, example: null },
-            severity: {
-              type: 'string',
-              enum: ['critical', 'high', 'medium', 'low'],
-              example: 'critical',
-            },
-            discoveredAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-06-19T07:24:26.000Z',
-            },
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2vsource1' },
+            name: { type: 'string', description: 'Unique source identifier, e.g. NVD_CVE, GHSA, COMMUNITY', example: 'NVD_CVE' },
+            sourceType: { type: 'string', description: 'Feed type: cve | ghsa | manual | onchain', example: 'cve' },
+            feedUrl: { type: 'string', nullable: true, example: 'https://services.nvd.nist.gov/rest/json/cves/2.0' },
+            lastFetchAt: { type: 'string', format: 'date-time', nullable: true, example: '2026-06-19T07:24:26.000Z' },
+            active: { type: 'boolean', example: true },
             createdAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
-            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:26.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-19T07:24:27.000Z' },
           },
         },
-        // A point-in-time snapshot of ecosystem-wide composability health (full EcosystemComposabilityIndex record).
-        EcosystemComposabilityIndex: {
+        // Validation error envelope for routes using .safeParse() + .flatten().
+        // Shape differs from ZodValidationError (which wraps .errors array).
+        ZodFlattenedError: {
           type: 'object',
           properties: {
-            id: { type: 'string', example: 'clz9q1x4t0000s6h2ecoidx01' },
-            score: {
-              type: 'number',
-              description: 'Composite ecosystem composability score (0-100)',
-              example: 74.5,
-            },
-            compositionDiversity: {
-              type: 'integer',
-              description: 'Number of unique pattern categories observed',
-              example: 5,
-            },
-            avgSafetyScore: { type: 'number', example: 82.3 },
-            exploitIncidentRate: {
-              type: 'number',
-              description: 'Exploits per composed transaction',
-              example: 0.002,
-            },
-            protocolInterconnectivity: {
-              type: 'number',
-              description: 'Composed transactions per unique contract',
-              example: 4.7,
-            },
-            totalContracts: { type: 'integer', example: 312 },
-            totalComposedTx: { type: 'integer', example: 1467 },
-            computedAt: {
-              type: 'string',
-              format: 'date-time',
-              example: '2026-06-19T07:24:26.000Z',
+            error: {
+              type: 'object',
+              properties: {
+                formErrors: { type: 'array', items: { type: 'string' }, example: [] },
+                fieldErrors: {
+                  type: 'object',
+                  additionalProperties: { type: 'array', items: { type: 'string' } },
+                  example: { title: ['String must contain at least 3 character(s)'] },
+                },
+              },
             },
           },
         },

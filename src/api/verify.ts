@@ -13,6 +13,7 @@ import {
 } from './compiler';
 import { decompileWasm } from '../indexer/wasm-decompiler';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { background } from '../utils/background';
 
 export const verifyRouter = Router();
 
@@ -87,12 +88,9 @@ verifyRouter.get(
       return;
     }
     if (!job.sourceFiles) {
-      res
-        .status(404)
-        .json({
-          error:
-            'Source files not available. Job may still be pending or failed before extraction.',
-        });
+      res.status(404).json({
+        error: 'Source files not available. Job may still be pending or failed before extraction.',
+      });
       return;
     }
     res.json({ jobId: job.id, status: job.status, files: job.sourceFiles });
@@ -145,12 +143,14 @@ async function runVerification(
       },
     });
   } catch (err: any) {
-    await prisma.verificationJob
-      .update({
-        where: { id: jobId },
-        data: { status: 'failed', errorMsg: err.message ?? String(err) },
-      })
-      .catch(() => {});
+    background('verify.updateJobFailed', () =>
+      prisma.verificationJob
+        .update({
+          where: { id: jobId },
+          data: { status: 'failed', errorMsg: err.message ?? String(err) },
+        })
+        .then(() => {}),
+    );
   } finally {
     if (extractedDir) await cleanupDir(path.dirname(extractedDir));
     await cleanupDir(archivePath);
@@ -221,7 +221,10 @@ verifyRouter.post(
       return;
     } finally {
       // Best-effort cleanup of temp file
-      import('fs').then((fs) => fs.promises.unlink(req.file!.path).catch(() => {}));
+      background('verify.cleanupTempFile', async () => {
+        const fs = await import('fs');
+        await fs.promises.unlink(req.file!.path);
+      });
     }
 
     let result;

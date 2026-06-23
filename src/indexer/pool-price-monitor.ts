@@ -8,6 +8,7 @@
 
 import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
+import { background } from '../utils/background';
 
 const POLL_INTERVAL_MS = 2500; // every ~1 block
 const DEVIATION_THRESHOLDS = [0.1, 0.5, 1.0, 2.0]; // percent
@@ -142,21 +143,23 @@ async function computePriceDeviations(
         // Only record if above smallest threshold
         if (deviation < DEVIATION_THRESHOLDS[0]) continue;
 
-        await prismaWrite.priceDeviation
-          .create({
-            data: {
-              tokenA,
-              tokenB,
-              poolIdA: pA.poolId,
-              poolIdB: pB.poolId,
-              priceA: pA.price,
-              priceB: pB.price,
-              deviationPercentage: deviation,
-              timestamp: now,
-              blockNumber,
-            },
-          })
-          .catch(() => {}); // ignore unique constraint races
+        background('poolPrice.priceDeviation', () =>
+          prismaWrite.priceDeviation
+            .create({
+              data: {
+                tokenA,
+                tokenB,
+                poolIdA: pA.poolId,
+                poolIdB: pB.poolId,
+                priceA: pA.price,
+                priceB: pB.price,
+                deviationPercentage: deviation,
+                timestamp: now,
+                blockNumber,
+              },
+            })
+            .then(() => {}),
+        );
       }
     }
   }
@@ -177,5 +180,5 @@ export function startPoolPriceMonitor() {
   }, POLL_INTERVAL_MS);
 
   // Initial poll
-  pollPools().catch(() => {});
+  background('poolPrice.initialPoll', () => pollPools().then(() => {}));
 }

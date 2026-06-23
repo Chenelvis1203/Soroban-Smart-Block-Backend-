@@ -304,13 +304,23 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+let currentWorker: SorobanEventWorker | null = null;
+
 export async function runIndexer() {
   await startIndexerService();
 }
 
 export async function startIndexerService() {
   const worker = new SorobanEventWorker();
+  currentWorker = worker;
   await worker.start();
+}
+
+export function stopIndexerService(): void {
+  if (currentWorker) {
+    currentWorker.stop();
+    currentWorker = null;
+  }
 }
 
 class SorobanEventWorker {
@@ -319,6 +329,17 @@ class SorobanEventWorker {
   private reconnectDelayMs = 1000;
   private isProcessing = false;
   private shouldStop = false;
+
+  stop(): void {
+    this.shouldStop = true;
+    if (this.websocket) {
+      this.websocket.close();
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+  }
 
   async start() {
     console.log('🔍 Soroban event worker starting...');

@@ -1,5 +1,6 @@
 import { prismaRead as prisma, prismaWrite } from '../db';
 import { resolveAddress } from '../middleware/sanitize';
+import { background } from '../utils/background';
 import {
   fetchHorizonAccount,
   fetchHorizonClaimableBalances,
@@ -357,7 +358,9 @@ export async function getUnifiedAccountView(rawAddress: string): Promise<Unified
 
   // Persist account snapshot asynchronously (fire-and-forget)
   if (horizonAccount) {
-    persistAccountSnapshot(address, horizonAccount, homeDomainVerified).catch(() => {});
+    background('accountAggregator.persistSnapshot', () =>
+      persistAccountSnapshot(address, horizonAccount, homeDomainVerified).then(() => {}),
+    );
   }
 
   return { classic, soroban, crossDomain, metadata };
