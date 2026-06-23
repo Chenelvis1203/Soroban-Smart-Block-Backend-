@@ -1209,26 +1209,33 @@ model Developer {
 }
 
 model DevApiKey {
-  id            String    @id
-  developerId   String
-  keyPrefix     String
-  keyHash       String
-  name          String
-  permissions   Json      @default("{}")
-  allowedIps    Json?
-  allowedDomains Json?
-  expiresAt     DateTime?
-  lastUsedAt    DateTime?
-  status        String    @default("active")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                String    @id
+  developerId       String
+  keyPrefix         String
+  keyHash           String
+  name              String
+  permissions       Json      @default("{}")
+  allowedIps        Json?
+  allowedDomains    Json?
+  allowedEndpoints  Json?     // endpoint whitelist (optional)
+  tier              String    @default("free") // "free" | "developer" | "pro" | "enterprise"
+  rateLimitOverride Int?      // custom req/min override
+  revokedAt         DateTime?
+  usageCount        Int       @default(0)
+  expiresAt         DateTime?
+  lastUsedAt        DateTime?
+  status            String    @default("active")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   developer     Developer     @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   usageRecords  UsageRecord[]
 
   @@index([developerId])
   @@index([keyPrefix])
+  @@index([keyHash])
   @@index([status])
+  @@index([tier])
 }
 
 model DevWebhook {
