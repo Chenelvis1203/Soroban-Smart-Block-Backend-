@@ -6,10 +6,42 @@ on:
   pull_request:
     branches: [main]
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+env:
+  STELLAR_NETWORK: testnet
+  DATABASE_URL: postgresql://postgres:password@localhost:5432/soroban_explorer_test
+  TESTNET_DATABASE_URL: postgresql://postgres:password@localhost:5432/soroban_explorer_test
+  TESTNET_READ_REPLICA_URL: postgresql://postgres:password@localhost:5432/soroban_explorer_test
+  TESTNET_RPC_URL: https://soroban-testnet.stellar.org
+  TESTNET_RPC_WS_URL: wss://soroban-testnet.stellar.org
+  TESTNET_HORIZON_URL: https://horizon-stellar.org
+  TESTNET_PASSPHRASE: "Test SDF Network ; September 2015"
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma validate
+      - run: npm run lint
+      - run: npm run build
+
+  test:
+    needs: lint-build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: postgres:16-alpine
@@ -24,28 +56,51 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:password@localhost:5432/soroban_explorer_test
-      STELLAR_NETWORK: testnet
-      STELLAR_RPC_URL: https://soroban-testnet.stellar.org
-      HORIZON_URL: https://horizon-testnet.stellar.org
-      NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
-
       - run: npx prisma generate
+      - run: npx prisma db push --accept-data-loss
+      - run: npx vitest --shard=${{ matrix.shard }}/${{ strategy.job-total }} --reporter=junit --outputFile=junit.xml --reporter=default
+      - uses: dorny/test-reporter@v2
+        if: success() || failure()
+        with:
+          name: Test Results (shard ${{ matrix.shard }})
+          path: junit.xml
+          reporter: java-junit
 
-      - run: npx prisma db push
-
-      - run: npm test
-
-      - run: npm run build
+  coverage:
+    needs: lint-build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: soroban_explorer_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma db push --accept-data-loss
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/

@@ -2,8 +2,8 @@ import { xdr, scValToNative, Address } from '@stellar/stellar-sdk';
 import type { AbiParam } from './registry';
 
 export interface DecodedArg {
-  raw: unknown;       // native JS value (BigInt, string, object, …)
-  formatted: string;  // human-readable display string
+  raw: unknown; // native JS value (BigInt, string, object, …)
+  formatted: string; // human-readable display string
 }
 
 /**
@@ -31,10 +31,21 @@ export function decodeScVal(val: xdr.ScVal, param: AbiParam, decimals?: number):
         return { raw, formatted: String(raw) };
       }
 
+      // ── 256-bit Integers ──────────────────────────────────────────────────
+      case type === 'i256' || type === 'u256': {
+        const raw = decode256BitInteger(val);
+        return { raw, formatted: raw?.toString() ?? 'invalid' };
+      }
+
       // ── Address ───────────────────────────────────────────────────────────
       case type === 'address': {
-        const raw = Address.fromScVal(val).toString();
-        return { raw, formatted: raw };
+        try {
+          const raw = Address.fromScVal(val).toString();
+          return { raw, formatted: raw };
+        } catch {
+          const raw = String(scValToNative(val));
+          return { raw, formatted: raw };
+        }
       }
 
       // ── Bool ──────────────────────────────────────────────────────────────
@@ -58,9 +69,8 @@ export function decodeScVal(val: xdr.ScVal, param: AbiParam, decimals?: number):
 
       // ── Symbol ────────────────────────────────────────────────────────────
       case type === 'symbol': {
-        const raw = val.switch().name === 'scvSymbol'
-          ? val.sym().toString()
-          : String(scValToNative(val));
+        const raw =
+          val.switch().name === 'scvSymbol' ? val.sym().toString() : String(scValToNative(val));
         return { raw, formatted: raw };
       }
 
@@ -114,7 +124,7 @@ export function decodeScVal(val: xdr.ScVal, param: AbiParam, decimals?: number):
 export function decodeTypedArgs(
   params: AbiParam[],
   rawArgs: xdr.ScVal[],
-  decimals?: number
+  decimals?: number,
 ): Record<string, DecodedArg> {
   const result: Record<string, DecodedArg> = {};
   for (let i = 0; i < params.length; i++) {
@@ -126,6 +136,34 @@ export function decodeTypedArgs(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Extract a 256-bit integer from an ScVal.
+ * Handles both i256 and u256 types.
+ */
+function decode256BitInteger(val: xdr.ScVal): bigint | null {
+  const typeName = val.switch().name;
+
+  if (typeName === 'scvI256') {
+    const parts = val.i256();
+    const hiHi = BigInt(parts.hiHi().toString());
+    const hiLo = BigInt(parts.hiLo().toString());
+    const loHi = BigInt(parts.loHi().toString());
+    const loLo = BigInt(parts.loLo().toString());
+    return (hiHi << 192n) | (hiLo << 128n) | (loHi << 64n) | loLo;
+  }
+
+  if (typeName === 'scvU256') {
+    const parts = val.u256();
+    const hiHi = BigInt(parts.hiHi().toString());
+    const hiLo = BigInt(parts.hiLo().toString());
+    const loHi = BigInt(parts.loHi().toString());
+    const loLo = BigInt(parts.loLo().toString());
+    return (hiHi << 192n) | (hiLo << 128n) | (loHi << 64n) | loLo;
+  }
+
+  return null;
+}
 
 /**
  * Format a bigint amount with 7 decimal places (Stellar standard) or custom decimals.
@@ -150,9 +188,10 @@ function decodeEnum(val: xdr.ScVal): { variant: string; value?: unknown } {
     return { variant: String(scValToNative(val)) };
   }
   const items = val.vec()!;
-  const variant = items[0]?.switch().name === 'scvSymbol'
-    ? items[0].sym().toString()
-    : String(scValToNative(items[0]));
+  const variant =
+    items[0]?.switch().name === 'scvSymbol'
+      ? items[0].sym().toString()
+      : String(scValToNative(items[0]));
   if (items.length === 1) return { variant };
   return { variant, value: scValToNative(items[1]) };
 }
@@ -164,9 +203,10 @@ function decodeStruct(val: xdr.ScVal): Record<string, unknown> {
   if (val.switch().name !== 'scvMap') return { raw: scValToNative(val) };
   const result: Record<string, unknown> = {};
   for (const entry of val.map()!) {
-    const key = entry.key().switch().name === 'scvSymbol'
-      ? entry.key().sym().toString()
-      : String(scValToNative(entry.key()));
+    const key =
+      entry.key().switch().name === 'scvSymbol'
+        ? entry.key().sym().toString()
+        : String(scValToNative(entry.key()));
     result[key] = scValToNative(entry.val());
   }
   return result;
