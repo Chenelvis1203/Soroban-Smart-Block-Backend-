@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { buildIntelligenceReport, findSimilarContracts } from '../intelligence/intelligence-service';
-import { getLlmStats } from '../intelligence/llm-provider';
 
 export const intelligenceRouter = Router({ mergeParams: true });
 
