@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { z } from 'zod';
 import { fetchContractSpec } from '../indexer/wasm-spec';
 import { abiRouter } from './abi';
+import { fuzzingRouter } from './fuzzing';
 
 export const contractRouter = Router();
 
@@ -108,3 +109,6 @@ contractRouter.post('/', async (req: Request, res: Response) => {
     res.status(400).json({ error: String(e) });
   }
 });
+
+contractRouter.use('/:address/abi', abiRouter);
+contractRouter.use('/:address/fuzz', fuzzingRouter);
