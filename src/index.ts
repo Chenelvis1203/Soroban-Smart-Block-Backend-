@@ -1,3 +1,4 @@
+import 'source-map-support/register';
 import express from 'express';
 import { createServer, Server } from 'http';
 import cors from 'cors';
