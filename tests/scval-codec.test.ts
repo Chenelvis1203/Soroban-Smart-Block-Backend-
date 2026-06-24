@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { encodeScVal, decodeScVal, ScValValidationError } from '../src/playground/scval-codec';
-import { xdr, Address, Keypair, StrKey } from '@stellar/stellar-sdk';
+import { Address, Keypair, StrKey } from '@stellar/stellar-sdk';
 
 describe('encodeScVal', () => {
   it('encodes void', () => {
