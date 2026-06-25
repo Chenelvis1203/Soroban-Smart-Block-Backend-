@@ -37,7 +37,9 @@
     "audit:indexes": "ts-node scripts/audit-indexes.ts",
     "test:routes": "vitest run tests/orphaned-routers-integration.test.ts",
     "lint:errors": "eslint src/api",
-    "lint:error-handling": "eslint 'src/api/**/*.ts' --rule 'error-handling/require-async-handler: error' --max-warnings 0"
+    "lint:error-handling": "eslint 'src/api/**/*.ts' --rule 'error-handling/require-async-handler: error' --max-warnings 0",
+    "validate:prisma": "ts-node scripts/validate-prisma-references.ts",
+    "migrate:impact": "ts-node scripts/validate-prisma-references.ts --diff"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
