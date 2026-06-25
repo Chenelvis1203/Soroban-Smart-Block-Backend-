@@ -78,7 +78,7 @@ router.use('/aa', aaRouter);
 router.use('/compliance', complianceRouter);
 
 // ── Token Pricing & Valuation ─────────────────────────────────────────────────
-router.use('/tokens', tokenPricesRouter);
+router.use('/token-prices', tokenPricesRouter);
 router.use('/market', marketRouter);
 router.use('/portfolio', portfolioRouter);
 router.use('/market/alerts', alertsRouter);
