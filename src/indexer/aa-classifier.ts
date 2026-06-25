@@ -478,7 +478,7 @@ export function extractAuthData(rawXdr: string): ExtractedAuthData {
   let operations: xdr.Operation[];
   if (envelope.switch().name === 'envelopeTypeTxFeeBump') {
     operations = envelope.feeBump().tx().innerTx().v1().tx().operations();
-  } else if (envelope.switch().name === 'envelopeTypeTxV1') {
+  } else if (envelope.switch().name === 'envelopeTypeTx') {
     operations = envelope.v1().tx().operations();
   } else {
     operations = (envelope as any).v0().tx().operations();
@@ -497,7 +497,7 @@ export function extractAuthData(rawXdr: string): ExtractedAuthData {
       const contractFn = fn.contractFn();
       functionNames.add(contractFn.functionName().toString());
       const addr = contractFn.contractAddress();
-      if (addr.switch().name === 'addressTypeContract') {
+      if (addr.switch().name === 'scAddressTypeContract') {
         contractAddresses.add(StrKey.encodeContract(addr.contractId()));
       }
     }
@@ -506,13 +506,13 @@ export function extractAuthData(rawXdr: string): ExtractedAuthData {
 
   for (const op of operations) {
     if (op.body().switch().name !== 'invokeHostFunction') continue;
-    for (const authEntry of op.body().invokeHostFunction().auth()) {
+    for (const authEntry of op.body().invokeHostFunctionOp().auth()) {
       const creds = authEntry.credentials();
       if (creds.switch().name === 'sorobanCredentialsAddress') {
         const addr = creds.address().address();
-        if (addr.switch().name === 'addressTypeAccount') {
+        if (addr.switch().name === 'scAddressTypeAccount') {
           signers.add(StrKey.encodeEd25519PublicKey(addr.accountId().ed25519()));
-        } else if (addr.switch().name === 'addressTypeContract') {
+        } else if (addr.switch().name === 'scAddressTypeContract') {
           contractAddresses.add(StrKey.encodeContract(addr.contractId()));
           hasContractAuth = true;
         }
