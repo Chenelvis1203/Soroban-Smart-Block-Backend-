@@ -26,7 +26,11 @@ export interface CompileResult {
 export async function extractArchive(archivePath: string, mimeType: string): Promise<string> {
   const workDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'soroban-verify-'));
 
-  if (mimeType === 'application/gzip' || archivePath.endsWith('.tar.gz') || archivePath.endsWith('.tgz')) {
+  if (
+    mimeType === 'application/gzip' ||
+    archivePath.endsWith('.tar.gz') ||
+    archivePath.endsWith('.tgz')
+  ) {
     await execFileAsync('tar', ['-xzf', archivePath, '-C', workDir]);
   } else if (mimeType === 'application/zip' || archivePath.endsWith('.zip')) {
     await execFileAsync('unzip', ['-q', archivePath, '-d', workDir]);
@@ -49,10 +53,15 @@ export async function extractArchive(archivePath: string, mimeType: string): Pro
  * Runs a sandboxed soroban/stellar/cargo-contract build inside the project directory.
  * Uses a pinned toolchain version for deterministic output.
  */
-export async function compileSandboxed(projectDir: string, toolchain: string): Promise<CompileResult> {
+export async function compileSandboxed(
+  projectDir: string,
+  toolchain: string,
+): Promise<CompileResult> {
   const bin = SUPPORTED_TOOLCHAINS[toolchain];
   if (!bin) {
-    throw new Error(`Unsupported toolchain "${toolchain}". Supported: ${Object.keys(SUPPORTED_TOOLCHAINS).join(', ')}`);
+    throw new Error(
+      `Unsupported toolchain "${toolchain}". Supported: ${Object.keys(SUPPORTED_TOOLCHAINS).join(', ')}`,
+    );
   }
 
   // Validate Cargo.toml exists to prevent arbitrary directory traversal
@@ -72,20 +81,20 @@ export async function compileSandboxed(projectDir: string, toolchain: string): P
 
   try {
     if (bin === 'cargo-contract') {
-      const result = await execFileAsync(
-        'cargo',
-        ['contract', 'build', '--release'],
-        { cwd: safeDir, timeout: 300_000, env: buildEnv() }
-      );
+      const result = await execFileAsync('cargo', ['contract', 'build', '--release'], {
+        cwd: safeDir,
+        timeout: 300_000,
+        env: buildEnv(),
+      });
       stdout = result.stdout;
       stderr = result.stderr;
     } else {
       // soroban / stellar CLI
-      const result = await execFileAsync(
-        bin,
-        ['contract', 'build'],
-        { cwd: safeDir, timeout: 300_000, env: buildEnv() }
-      );
+      const result = await execFileAsync(bin, ['contract', 'build'], {
+        cwd: safeDir,
+        timeout: 300_000,
+        env: buildEnv(),
+      });
       stdout = result.stdout;
       stderr = result.stderr;
     }
@@ -110,6 +119,46 @@ export async function compileSandboxed(projectDir: string, toolchain: string): P
 export function hashFile(filePath: string): string {
   const bytes = fs.readFileSync(filePath);
   return crypto.createHash('sha256').update(bytes).digest('hex');
+}
+
+export interface SourceFile {
+  path: string;
+  content: string;
+}
+
+/**
+ * Recursively collects .rs source files from a project directory.
+ * Returns at most 50 files, each capped at 64 KB.
+ */
+export async function extractSourceFiles(projectDir: string): Promise<SourceFile[]> {
+  const results: SourceFile[] = [];
+  const MAX_FILES = 50;
+  const MAX_BYTES = 64 * 1024;
+
+  async function walk(dir: string, base: string): Promise<void> {
+    if (results.length >= MAX_FILES) return;
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (results.length >= MAX_FILES) break;
+      const full = path.join(dir, entry.name);
+      const rel = path.join(base, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'target' || entry.name === '.git') continue;
+        await walk(full, rel);
+      } else if (entry.isFile() && entry.name.endsWith('.rs')) {
+        const stat = await fs.promises.stat(full);
+        const size = Math.min(stat.size, MAX_BYTES);
+        const buf = Buffer.alloc(size);
+        const fd = await fs.promises.open(full, 'r');
+        await fd.read(buf, 0, size, 0);
+        await fd.close();
+        results.push({ path: rel, content: buf.toString('utf8') });
+      }
+    }
+  }
+
+  await walk(projectDir, '');
+  return results;
 }
 
 /**
@@ -145,7 +194,9 @@ function findWasm(dir: string): string | null {
 
   for (const candidate of candidates) {
     if (!fs.existsSync(candidate)) continue;
-    const files = fs.readdirSync(candidate).filter(f => f.endsWith('.wasm') && !f.includes('.d.'));
+    const files = fs
+      .readdirSync(candidate)
+      .filter((f) => f.endsWith('.wasm') && !f.includes('.d.'));
     if (files.length > 0) return path.join(candidate, files[0]);
   }
 
