@@ -63,29 +63,27 @@ async function resolveApiKey(raw: string): Promise<ApiKeyContext | null> {
   if (cached && cached.expiresAt > Date.now()) return cached.ctx;
 
   const hash = hashKey(raw);
-  const record = await prismaRead.devApiKey.findFirst({
-    where: { keyHash: hash, status: 'active' },
-    select: {
-      id: true,
-      name: true,
-      developerId: true,
-      tier: true,
-      rateLimitOverride: true,
-      allowedIps: true,
-      allowedEndpoints: true,
-      allowedDomains: true,
-      expiresAt: true,
-      revokedAt: true,
-    },
-  }).catch(() => null);
+  const record = await prismaRead.devApiKey
+    .findFirst({
+      where: { keyHash: hash, status: 'active' },
+      select: {
+        id: true,
+        name: true,
+        developerId: true,
+        tier: true,
+        rateLimitOverride: true,
+        allowedIps: true,
+        allowedEndpoints: true,
+        allowedDomains: true,
+        expiresAt: true,
+        revokedAt: true,
+      },
+    })
+    .catch(() => null);
 
   let ctx: ApiKeyContext | null = null;
 
-  if (
-    record &&
-    !record.revokedAt &&
-    (!record.expiresAt || record.expiresAt > new Date())
-  ) {
+  if (record && !record.revokedAt && (!record.expiresAt || record.expiresAt > new Date())) {
     ctx = {
       id: record.id,
       keyName: record.name,
@@ -131,7 +129,7 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
   const clientIp = (req.ip ?? '').replace('::ffff:', '');
   if (ctx.allowedIps && ctx.allowedIps.length > 0) {
     if (!ctx.allowedIps.some((cidr) => ipMatchesCidr(clientIp, cidr))) {
-      logger.warn({ keyId: ctx.id, ip: clientIp }, '[api-key] IP not in whitelist');
+      logger.warn('[api-key] IP not in whitelist', { keyId: ctx.id, ip: clientIp });
       res.status(403).json({ error: 'IP address not permitted for this key' });
       return;
     }

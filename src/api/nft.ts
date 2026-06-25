@@ -34,9 +34,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prismaRead, prismaWrite } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { computeCollectionRarity, getItemRarityDetail, getCollectionRarityOverview } from '../services/nft-rarity-engine';
-import { analyzeCollectionWashTrading, getWashTradingAnalysis, getWashTradingLeaderboard } from '../services/nft-wash-trading';
-import { createPortfolio, getPortfolio, importPortfolioByAddress, getPortfolioActivity, getPortfolioValueHistory } from '../services/nft-portfolio-service';
+import { getItemRarityDetail, getCollectionRarityOverview } from '../services/nft-rarity-engine';
+import { getWashTradingAnalysis, getWashTradingLeaderboard } from '../services/nft-wash-trading';
+import {
+  createPortfolio,
+  getPortfolio,
+  importPortfolioByAddress,
+  getPortfolioActivity,
+  getPortfolioValueHistory,
+} from '../services/nft-portfolio-service';
 
 export const nftRouter = Router();
 
@@ -47,9 +53,9 @@ const paginationSchema = z.object({
   cursor: z.string().optional(),
 });
 
-const collectionSortSchema = z.enum([
-  'volume24h', 'volume7d', 'floorPrice', 'marketCap', 'uniqueHolders', 'detectedAt',
-]).default('volume24h');
+const collectionSortSchema = z
+  .enum(['volume24h', 'volume7d', 'floorPrice', 'marketCap', 'uniqueHolders', 'detectedAt'])
+  .default('volume24h');
 
 function formatCollection(c: Record<string, unknown>) {
   return {
@@ -122,14 +128,16 @@ nftRouter.post(
   '/collections/:address/register',
   asyncHandler(async (req, res) => {
     const { address } = req.params;
-    const body = z.object({
-      name: z.string().max(256).optional(),
-      symbol: z.string().max(32).optional(),
-      category: z.string().max(64).optional(),
-      description: z.string().max(2048).optional(),
-      website: z.string().url().optional(),
-      logoUri: z.string().url().optional(),
-    }).parse(req.body);
+    const body = z
+      .object({
+        name: z.string().max(256).optional(),
+        symbol: z.string().max(32).optional(),
+        category: z.string().max(64).optional(),
+        description: z.string().max(2048).optional(),
+        website: z.string().url().optional(),
+        logoUri: z.string().url().optional(),
+      })
+      .parse(req.body);
 
     const existing = await prismaRead.nftCollection.findUnique({
       where: { contractAddress: address },
@@ -179,8 +187,14 @@ nftRouter.get(
   asyncHandler(async (req, res) => {
     const { address } = req.params;
     const { limit, cursor } = paginationSchema.parse(req.query);
-    const sort = z.enum(['rarity', 'price', 'lastSale', 'tokenId']).default('rarity').parse(req.query.sort ?? 'rarity');
-    const order = z.enum(['asc', 'desc']).default('asc').parse(req.query.order ?? 'asc');
+    const sort = z
+      .enum(['rarity', 'price', 'lastSale', 'tokenId'])
+      .default('rarity')
+      .parse(req.query.sort ?? 'rarity');
+    const order = z
+      .enum(['asc', 'desc'])
+      .default('asc')
+      .parse(req.query.order ?? 'asc');
     const owner = typeof req.query.owner === 'string' ? req.query.owner : undefined;
     const attributes = typeof req.query.attributes === 'string' ? req.query.attributes : undefined;
 
@@ -196,10 +210,13 @@ nftRouter.get(
 
     // Parse attribute filters: "background:red,skin:gold"
     if (attributes) {
-      const attrFilters = attributes.split(',').map((a) => {
-        const [type, value] = a.split(':');
-        return { type: type.trim(), value: value?.trim() };
-      }).filter((a) => a.type && a.value);
+      const attrFilters = attributes
+        .split(',')
+        .map((a) => {
+          const [type, value] = a.split(':');
+          return { type: type.trim(), value: value?.trim() };
+        })
+        .filter((a) => a.type && a.value);
 
       if (attrFilters.length > 0) {
         // Filter items whose metadata contains all specified traits
@@ -328,13 +345,16 @@ nftRouter.get(
     });
 
     // Group by traitType
-    const grouped = new Map<string, Array<{
-      value: string;
-      count: number;
-      rarityScore: number | null;
-      rarityTier: string | null;
-      pct: number;
-    }>>();
+    const grouped = new Map<
+      string,
+      Array<{
+        value: string;
+        count: number;
+        rarityScore: number | null;
+        rarityTier: string | null;
+        pct: number;
+      }>
+    >();
 
     for (const t of traits) {
       const arr = grouped.get(t.traitType) ?? [];
@@ -367,7 +387,10 @@ nftRouter.get(
   '/collections/:address/charts',
   asyncHandler(async (req, res) => {
     const { address } = req.params;
-    const period = z.enum(['1h', '24h', '7d', '30d']).default('7d').parse(req.query.period ?? '7d');
+    const period = z
+      .enum(['1h', '24h', '7d', '30d'])
+      .default('7d')
+      .parse(req.query.period ?? '7d');
 
     const collection = await prismaRead.nftCollection.findUnique({
       where: { contractAddress: address },
@@ -425,7 +448,8 @@ nftRouter.get(
   asyncHandler(async (req, res) => {
     const { address } = req.params;
     const { limit, cursor } = paginationSchema.parse(req.query);
-    const marketplace = typeof req.query.marketplace === 'string' ? req.query.marketplace : undefined;
+    const marketplace =
+      typeof req.query.marketplace === 'string' ? req.query.marketplace : undefined;
     const seller = typeof req.query.seller === 'string' ? req.query.seller : undefined;
     const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
     const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
@@ -507,7 +531,13 @@ nftRouter.get(
   '/collections/:address/holders',
   asyncHandler(async (req, res) => {
     const { address } = req.params;
-    const limit = z.coerce.number().int().min(1).max(500).default(100).parse(req.query.limit ?? 100);
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(500)
+      .default(100)
+      .parse(req.query.limit ?? 100);
 
     const collection = await prismaRead.nftCollection.findUnique({
       where: { contractAddress: address },
@@ -683,7 +713,10 @@ nftRouter.get(
   '/collections/:address/floor-history',
   asyncHandler(async (req, res) => {
     const { address } = req.params;
-    const period = z.enum(['24h', '7d', '30d', 'all']).default('30d').parse(req.query.period ?? '30d');
+    const period = z
+      .enum(['24h', '7d', '30d', 'all'])
+      .default('30d')
+      .parse(req.query.period ?? '30d');
 
     const collection = await prismaRead.nftCollection.findUnique({
       where: { contractAddress: address },
@@ -706,7 +739,10 @@ nftRouter.get(
     });
 
     // Build OHLC candles grouped by day
-    const byDay = new Map<string, { open: number; high: number; low: number; close: number; vol: number }>();
+    const byDay = new Map<
+      string,
+      { open: number; high: number; low: number; close: number; vol: number }
+    >();
     for (const s of stats) {
       const day = s.timestamp.toISOString().slice(0, 10);
       const fp = s.floorPrice ? Number(s.floorPrice) : null;
@@ -734,13 +770,15 @@ nftRouter.get(
 nftRouter.post(
   '/alerts',
   asyncHandler(async (req, res) => {
-    const body = z.object({
-      collection: z.string(),
-      type: z.enum(['floor_change', 'volume_spike', 'whale_buy']),
-      condition: z.enum(['dropsBelow', 'risesAbove', 'changesBy']),
-      threshold: z.string(),
-      channels: z.array(z.enum(['email', 'webhook', 'discord'])).default(['webhook']),
-    }).parse(req.body);
+    const body = z
+      .object({
+        collection: z.string(),
+        type: z.enum(['floor_change', 'volume_spike', 'whale_buy']),
+        condition: z.enum(['dropsBelow', 'risesAbove', 'changesBy']),
+        threshold: z.string(),
+        channels: z.array(z.enum(['email', 'webhook', 'discord'])).default(['webhook']),
+      })
+      .parse(req.body);
 
     // Persist via AlertConfiguration model (reusing existing alerts table)
     const alert = await prismaWrite.alertConfiguration.create({
@@ -763,7 +801,13 @@ nftRouter.post(
 nftRouter.get(
   '/wash-trading/leaderboard',
   asyncHandler(async (req, res) => {
-    const limit = z.coerce.number().int().min(1).max(50).default(20).parse(req.query.limit ?? 20);
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(20)
+      .parse(req.query.limit ?? 20);
     const leaderboard = await getWashTradingLeaderboard(limit);
     res.json({ leaderboard });
   }),
@@ -839,11 +883,13 @@ nftRouter.get(
 nftRouter.post(
   '/portfolio',
   asyncHandler(async (req, res) => {
-    const body = z.object({
-      owner: z.string().min(1),
-      name: z.string().max(256).optional(),
-      userId: z.string().default('anonymous'),
-    }).parse(req.body);
+    const body = z
+      .object({
+        owner: z.string().min(1),
+        name: z.string().max(256).optional(),
+        userId: z.string().default('anonymous'),
+      })
+      .parse(req.body);
 
     const portfolio = await createPortfolio(body.userId, body.owner, body.name);
     res.status(201).json(portfolio);
@@ -877,7 +923,13 @@ nftRouter.get(
 nftRouter.get(
   '/portfolio/:id/activity',
   asyncHandler(async (req, res) => {
-    const limit = z.coerce.number().int().min(1).max(100).default(50).parse(req.query.limit ?? 50);
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .default(50)
+      .parse(req.query.limit ?? 50);
     const activity = await getPortfolioActivity(req.params.id, limit);
     if (!activity) return res.status(404).json({ error: 'Portfolio not found' });
     res.json({ activity });
@@ -900,10 +952,17 @@ nftRouter.post(
 nftRouter.get(
   '/trending',
   asyncHandler(async (req, res) => {
-    const by = z.enum(['volume', 'holders', 'floor', 'wash_adjusted']).default('volume').parse(
-      req.query.by ?? 'volume',
-    );
-    const limit = z.coerce.number().int().min(1).max(50).default(20).parse(req.query.limit ?? 20);
+    const by = z
+      .enum(['volume', 'holders', 'floor', 'wash_adjusted'])
+      .default('volume')
+      .parse(req.query.by ?? 'volume');
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(50)
+      .default(20)
+      .parse(req.query.limit ?? 20);
 
     const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
@@ -986,9 +1045,10 @@ nftRouter.get(
   '/search',
   asyncHandler(async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-    const collections = typeof req.query.collections === 'string'
-      ? req.query.collections.split(',').filter(Boolean)
-      : undefined;
+    const collections =
+      typeof req.query.collections === 'string'
+        ? req.query.collections.split(',').filter(Boolean)
+        : undefined;
     const { limit, cursor } = paginationSchema.parse(req.query);
     const priceMin = req.query.priceMin ? Number(req.query.priceMin) : undefined;
     const priceMax = req.query.priceMax ? Number(req.query.priceMax) : undefined;
@@ -1009,14 +1069,19 @@ nftRouter.get(
         ],
       },
       take: 10,
-      select: { contractAddress: true, name: true, symbol: true, logoUri: true, floorPriceUsd: true, volume24h: true },
+      select: {
+        contractAddress: true,
+        name: true,
+        symbol: true,
+        logoUri: true,
+        floorPriceUsd: true,
+        volume24h: true,
+      },
     });
 
     // Item search (by token ID or metadata name)
     const itemWhere: Record<string, unknown> = {
-      OR: [
-        { tokenId: { contains: q, mode: 'insensitive' } },
-      ],
+      OR: [{ tokenId: { contains: q, mode: 'insensitive' } }],
     };
     if (collections) {
       const colIds = await prismaRead.nftCollection.findMany({
@@ -1072,7 +1137,10 @@ nftRouter.get(
         collection: i.collection,
       })),
       pagination: { cursor: hasMore ? items[limit - 1]?.id : undefined, hasMore },
-      suggestions: collectionResults.slice(0, 5).map((c) => c.name).filter(Boolean),
+      suggestions: collectionResults
+        .slice(0, 5)
+        .map((c) => c.name)
+        .filter(Boolean),
     });
   }),
 );
@@ -1082,10 +1150,14 @@ nftRouter.get(
 nftRouter.post(
   '/collections/compare',
   asyncHandler(async (req, res) => {
-    const body = z.object({
-      collections: z.array(z.string()).min(2).max(5),
-      metrics: z.array(z.string()).default(['volume24h', 'floorPrice', 'uniqueHolders', 'washVolumePct']),
-    }).parse(req.body);
+    const body = z
+      .object({
+        collections: z.array(z.string()).min(2).max(5),
+        metrics: z
+          .array(z.string())
+          .default(['volume24h', 'floorPrice', 'uniqueHolders', 'washVolumePct']),
+      })
+      .parse(req.body);
 
     const collections = await prismaRead.nftCollection.findMany({
       where: { contractAddress: { in: body.collections }, isSpam: false },

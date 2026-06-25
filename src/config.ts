@@ -40,4 +40,6 @@ export const config = {
   // ── Rate limiting ─────────────────────────────────────────────────────────
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '60000'),
   rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX ?? '100'),
+  openAiApiKey: process.env.OPENAI_API_KEY ?? '',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
 };

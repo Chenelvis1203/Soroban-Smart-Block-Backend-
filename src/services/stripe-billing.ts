@@ -31,7 +31,7 @@ let _stripe: StripeInstance | null = null;
 async function getStripe(): Promise<StripeInstance> {
   if (_stripe) return _stripe;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Stripe = require('stripe');
     _stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', { apiVersion: '2024-04-10' });
     return _stripe;
@@ -43,7 +43,7 @@ async function getStripe(): Promise<StripeInstance> {
 // ─── Price mapping ────────────────────────────────────────────────────────────
 
 const TIER_PRICE_MAP: Record<string, string | undefined> = {
-  pro:        process.env.STRIPE_PRO_PRICE_ID,
+  pro: process.env.STRIPE_PRO_PRICE_ID,
   enterprise: process.env.STRIPE_ENTERPRISE_PRICE_ID,
 };
 
@@ -137,12 +137,14 @@ export const billingRouter = Router();
 billingRouter.post(
   '/checkout',
   asyncHandler(async (req, res) => {
-    const body = z.object({
-      developerId: z.string(),
-      tier:        z.enum(['pro', 'enterprise']),
-      successUrl:  z.string().url(),
-      cancelUrl:   z.string().url(),
-    }).parse(req.body);
+    const body = z
+      .object({
+        developerId: z.string(),
+        tier: z.enum(['pro', 'enterprise']),
+        successUrl: z.string().url(),
+        cancelUrl: z.string().url(),
+      })
+      .parse(req.body);
 
     const session = await createCheckoutSession(body);
     res.json(session);

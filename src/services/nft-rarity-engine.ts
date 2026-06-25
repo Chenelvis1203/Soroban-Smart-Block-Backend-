@@ -185,7 +185,7 @@ export async function computeCollectionRarity(collectionId: string): Promise<voi
     ),
   );
 
-  logger.info({ collectionId, items: items.length }, '[rarity-engine] Rarity computed');
+  logger.info('[rarity-engine] Rarity computed', { collectionId, items: items.length });
 }
 
 // ─── Item rarity detail ───────────────────────────────────────────────────────

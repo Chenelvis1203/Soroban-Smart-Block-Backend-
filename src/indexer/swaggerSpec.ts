@@ -30,6 +30,7 @@ const options: swaggerJsdoc.Options = {
       { name: 'i18n', description: 'Internationalization translation management' },
       { name: 'Threat Intelligence', description: 'Advisories, review workflow, subscriptions, webhooks, RSS/JSON feeds, analytics, and source management' },
       { name: 'Sandbox', description: 'In-memory Soroban sandbox for developing and testing smart contracts locally. Live VM state is kept in memory; sessions persist to the database.' },
+      { name: 'Reputation', description: 'Address reputation scoring, Sybil detection, attestations, verifiable credentials, cross-chain identity linking, trust networks, governance, and reputation NFTs.' },
     ],
     components: {
       securitySchemes: {
@@ -1729,6 +1730,275 @@ const options: swaggerJsdoc.Options = {
             invariant: { type: 'string', example: 'balance <= totalSupply' },
             counterexample: { type: 'object', nullable: true, description: 'Failing counterexample when passed is false', example: null },
             bound: { type: 'object', nullable: true, description: 'Bound constraints passed in the request', example: null },
+          },
+        },
+        // ── Reputation (#251) ─────────────────────────────────────────────────
+        // Per-signal breakdown item inside a ReputationScoreResult.
+        ReputationBreakdownItem: {
+          type: 'object',
+          properties: {
+            signal: { type: 'string', example: 'on_chain_activity' },
+            category: { type: 'string', example: 'activity' },
+            points: { type: 'number', example: 18 },
+            maxPoints: { type: 'number', example: 25 },
+            evidence: { type: 'string', example: 'tx_count=45,unique_contracts=12' },
+          },
+        },
+        // Per-chain score inside a ReputationScoreResult.
+        ReputationChainScore: {
+          type: 'object',
+          properties: {
+            chainId: { type: 'string', example: 'stellar' },
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            score: { type: 'number', example: 72.5 },
+            breakdown: { type: 'array', items: { $ref: '#/components/schemas/ReputationBreakdownItem' } },
+          },
+        },
+        // A badge earned by an address (Badge interface from reputation/types.ts).
+        ReputationBadge: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'whale' },
+            name: { type: 'string', example: 'Whale' },
+            description: { type: 'string', example: 'Holds a large native balance' },
+            criteria: { type: 'string', example: 'native_balance > 10000' },
+            earnedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            verifiable: { type: 'boolean', example: true },
+          },
+        },
+        // Sybil risk assessment returned by the reputation oracle (SybilAssessment from types.ts).
+        SybilAssessment: {
+          type: 'object',
+          properties: {
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            isSuspicious: { type: 'boolean', example: false },
+            risk: { type: 'number', description: 'Sybil risk score (0-1)', example: 0.12 },
+            confidence: { type: 'number', example: 0.85 },
+            reasons: { type: 'array', items: { type: 'string' }, example: [] },
+            cluster: { type: 'string', nullable: true, example: null },
+          },
+        },
+        // Proof envelope for a computed reputation score (ReputationProof from types.ts).
+        ReputationProof: {
+          type: 'object',
+          properties: {
+            algorithmVersion: { type: 'string', example: 'reputation-oracle-v1' },
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            linkedAddresses: { type: 'array', items: { type: 'string' }, example: [] },
+            chainIds: { type: 'array', items: { type: 'string' }, example: ['stellar'] },
+            score: { type: 'number', example: 72.5 },
+            inputHash: { type: 'string', example: 'e5f40312233445566778899aabbccddeeff00112' },
+            breakdownHash: { type: 'string', example: 'a1b2c3d4e5f67890abcdef1234567890abcdef12' },
+            badgeHash: { type: 'string', example: 'f0e1d2c3b4a5968778695a4b3c2d1e0f12345678' },
+          },
+        },
+        // Full reputation score result (ScoreResult from reputation/types.ts).
+        ReputationScoreResult: {
+          type: 'object',
+          properties: {
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            score: { type: 'number', example: 72.5 },
+            rankCategory: { type: 'string', example: 'respected' },
+            activeChains: { type: 'array', items: { type: 'string' }, example: ['stellar'] },
+            linkedAddresses: { type: 'array', items: { type: 'string' }, example: [] },
+            chainScores: { type: 'array', items: { $ref: '#/components/schemas/ReputationChainScore' } },
+            breakdown: { type: 'array', items: { $ref: '#/components/schemas/ReputationBreakdownItem' } },
+            badges: { type: 'array', items: { $ref: '#/components/schemas/ReputationBadge' } },
+            sybil: { $ref: '#/components/schemas/SybilAssessment' },
+            proof: { $ref: '#/components/schemas/ReputationProof' },
+          },
+        },
+        // Leaderboard entry (LeaderboardEntry from reputation/types.ts).
+        LeaderboardEntry: {
+          type: 'object',
+          properties: {
+            rank: { type: 'integer', example: 1 },
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            score: { type: 'number', example: 95.3 },
+            activeChains: { type: 'integer', example: 3 },
+            linkedAddresses: { type: 'array', items: { type: 'string' }, example: [] },
+            badges: { type: 'array', items: { type: 'string' }, example: ['whale', 'governance_voter'] },
+            sybilRisk: { type: 'number', example: 0.05 },
+          },
+        },
+        // Full oracle reputation response (OracleReputationResponse from reputation/types.ts).
+        OracleReputationResponse: {
+          type: 'object',
+          properties: {
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            score: { type: 'number', example: 72.5 },
+            breakdown: { type: 'array', items: { $ref: '#/components/schemas/ReputationBreakdownItem' } },
+            badges: { type: 'array', items: { $ref: '#/components/schemas/ReputationBadge' } },
+            attestations: { type: 'array', items: { type: 'object' } },
+            credentials: { type: 'array', items: { type: 'object' } },
+            sybil: { $ref: '#/components/schemas/SybilAssessment' },
+            proof: { $ref: '#/components/schemas/ReputationProof' },
+          },
+        },
+        // Prisma ReputationProfile record (used by search and history endpoints).
+        ReputationProfileRecord: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            chain: { type: 'string', nullable: true, example: 'stellar' },
+            combinedScore: { type: 'number', nullable: true, example: 72.5 },
+            sorobanScore: { type: 'number', nullable: true, example: 65.0 },
+            stellarScore: { type: 'number', nullable: true, example: 80.0 },
+            ethScore: { type: 'number', nullable: true, example: null },
+            solScore: { type: 'number', nullable: true, example: null },
+            categoryScores: { type: 'object', nullable: true, example: null },
+            signalBreakdown: { type: 'object', nullable: true, example: null },
+            categories: { type: 'array', items: { type: 'string' }, example: ['activity', 'governance'] },
+            badgeIds: { type: 'array', items: { type: 'string' }, example: ['whale'] },
+            lastUpdated: { type: 'string', format: 'date-time', nullable: true, example: '2026-06-23T00:00:00.000Z' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Prisma Attestation record returned by attest and attestation list endpoints.
+        ReputationAttestationRecord: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2attest01' },
+            uid: { type: 'string', example: 'e5f40312233445566778899aabbccddeeff00112' },
+            profileId: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            chainId: { type: 'string', example: 'stellar' },
+            schemaId: { type: 'string', example: 'schema-kyc-v1' },
+            attester: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            subject: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            recipient: { type: 'string', nullable: true, example: null },
+            revoked: { type: 'boolean', example: false },
+            signature: { type: 'string', nullable: true, example: null },
+            transactionHash: { type: 'string', nullable: true, example: null },
+            blockNumber: { type: 'integer', nullable: true, example: null },
+            data: { type: 'object', nullable: true, example: null },
+            verified: { type: 'boolean', example: true },
+            verificationMsg: { type: 'string', nullable: true, example: 'attestation has on-chain transaction evidence or valid signature' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Prisma VerifiableCredential record returned by credential endpoints.
+        ReputationVerifiableCredential: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2vc000001' },
+            profileId: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            credentialId: { type: 'string', example: 'https://example.edu/credentials/1' },
+            context: { type: 'string', nullable: true },
+            type: { type: 'string', nullable: true },
+            issuer: { type: 'string', nullable: true, example: 'did:example:issuer' },
+            issuanceDate: { type: 'string', format: 'date-time', nullable: true, example: '2026-06-23T00:00:00.000Z' },
+            expirationDate: { type: 'string', format: 'date-time', nullable: true, example: null },
+            subjectId: { type: 'string', nullable: true },
+            subjectData: { type: 'object', nullable: true },
+            proofType: { type: 'string', nullable: true, example: 'Ed25519Signature2020' },
+            proofCreated: { type: 'string', format: 'date-time', nullable: true, example: '2026-06-23T00:00:00.000Z' },
+            verificationMethod: { type: 'string', nullable: true },
+            proofPurpose: { type: 'string', nullable: true, example: 'assertionMethod' },
+            proofValue: { type: 'string', nullable: true },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Prisma LinkedIdentity record (fields from schema.prisma; message/signature not in model).
+        ReputationLinkedIdentity: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2link0001' },
+            profileId: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            chainId: { type: 'string', example: 'stellar' },
+            address: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            verified: { type: 'boolean', example: true },
+            metadata: { type: 'object', nullable: true, example: null },
+            lastVerified: { type: 'string', format: 'date-time', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Prisma Endorsement record.
+        ReputationEndorsement: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2endorse1' },
+            profileId: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            chainId: { type: 'string', example: 'stellar' },
+            endorser: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            subject: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            weight: { type: 'number', nullable: true, example: 1 },
+            timestamp: { type: 'string', format: 'date-time', nullable: true, example: null },
+            transactionHash: { type: 'string', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Prisma ReputationDispute record; GET /disputes/:id includes an embedded votes array.
+        ReputationDisputeRecord: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2dispute1' },
+            profileId: { type: 'string', example: 'clz9q1x4t0000s6h2profil01' },
+            challenger: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            respondent: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            status: { type: 'string', enum: ['open', 'resolved'], example: 'open' },
+            challenge: { type: 'string', nullable: true, example: 'Sybil farming accusations' },
+            evidenceHash: { type: 'string', nullable: true, example: 'e5f40312...' },
+            quorumVotes: { type: 'integer', nullable: true, example: 5 },
+            outcome: { type: 'string', nullable: true, enum: ['upheld', 'rejected', 'timeout'], example: null },
+            resolvedAt: { type: 'string', format: 'date-time', nullable: true, example: null },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+            updatedAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+            votes: {
+              type: 'array',
+              description: 'Included only when fetched via GET /disputes/:id',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  disputeId: { type: 'string' },
+                  voter: { type: 'string' },
+                  vote: { type: 'string', nullable: true },
+                  weight: { type: 'number', nullable: true },
+                  signature: { type: 'string', nullable: true },
+                  transactionHash: { type: 'string', nullable: true },
+                  createdAt: { type: 'string', format: 'date-time' },
+                },
+              },
+              example: [],
+            },
+          },
+        },
+        // Prisma ReputationNft record.
+        ReputationNftRecord: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'clz9q1x4t0000s6h2nft00001' },
+            address: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            badgeType: { type: 'string', example: 'whale' },
+            tokenId: { type: 'string', nullable: true, example: 'reputation-nft-GBZXN7PI-whale' },
+            mintedTxHash: { type: 'string', nullable: true, example: 'tx-abc123def4' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-06-23T00:00:00.000Z' },
+          },
+        },
+        // Verified identity link result (VerifiedIdentityLink from reputation/types.ts).
+        VerifiedIdentityLink: {
+          type: 'object',
+          properties: {
+            chainId: { type: 'string', example: 'stellar' },
+            address: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            canonicalAddress: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            verified: { type: 'boolean', example: true },
+            messageHash: { type: 'string', example: 'a1b2c3d4e5f67890abcdef1234567890abcdef12' },
+          },
+        },
+        // Trust path between two addresses (TrustPath from reputation/types.ts).
+        TrustPath: {
+          type: 'object',
+          properties: {
+            from: { type: 'string', example: 'GBZXN7PIRZGNMHGA7MUUUF4GWPY5AYPV6LY4UV2GL6VJGIQRXFDNMADI' },
+            to: { type: 'string', example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' },
+            path: { type: 'array', items: { type: 'string' }, nullable: true, example: ['GBZX...', 'GAAZ...'] },
+            distance: { type: 'integer', example: 2 },
+            chainIds: { type: 'array', items: { type: 'string' }, example: ['stellar'] },
           },
         },
       },

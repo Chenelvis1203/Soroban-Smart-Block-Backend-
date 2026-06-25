@@ -6,7 +6,6 @@
  */
 
 import { prismaRead, prismaWrite } from '../db';
-import { logger } from '../logger';
 
 // ─── Portfolio value computation ──────────────────────────────────────────────
 
@@ -65,9 +64,7 @@ async function computePortfolioValue(itemIds: string[]): Promise<{
     const col = item.collection;
     const floorUsd = col.floorPriceUsd ? Number(col.floorPriceUsd) : 0;
     // Value = floor price or last sale USD (whichever is available)
-    const valueUsd = item.lastSalePriceUsd
-      ? Number(item.lastSalePriceUsd)
-      : floorUsd;
+    const valueUsd = item.lastSalePriceUsd ? Number(item.lastSalePriceUsd) : floorUsd;
     // Cost basis = mint price USD or last sale at time of acquisition
     const paidUsd = item.mintPrice ? Number(item.mintPrice) * 0.1 : 0; // rough XLM-to-USD placeholder
 
