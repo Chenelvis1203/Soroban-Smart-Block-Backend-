@@ -165,6 +165,16 @@ app.get('/readyz', (_req, res) => {
   res.json({ status: 'ready' });
 });
 
+// Readiness probe — returns 503 when the indexer has suffered a fatal failure (#440)
+app.get('/ready', (_req, res) => {
+  const { healthy, failureReason } = getIndexerStatus();
+  if (!healthy) {
+    res.status(503).json({ status: 'unavailable', reason: failureReason });
+    return;
+  }
+  res.json({ status: 'ready' });
+});
+
 app.use(errorHandler);
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
