@@ -10,6 +10,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import multer from 'multer';
 import * as path from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
 import { z } from 'zod';
 import { extractArchive, compileSandboxed, extractSourceFiles, cleanupDir } from './compiler';
 
@@ -32,6 +33,33 @@ const upload = multer({
     }
   },
 });
+
+// ── Periodic stale temp-file cleanup ─────────────────────────────────────────
+// Remove Multer-uploaded files older than 1 hour that were never processed
+// (e.g. process crashed after upload but before the finally block ran).
+const STALE_AGE_MS = 60 * 60 * 1000; // 1 hour
+const CLEANUP_INTERVAL_MS = 15 * 60 * 1000; // run every 15 minutes
+
+export function startTempFileCleanup(): NodeJS.Timeout {
+  return setInterval(() => {
+    const tmpDir = os.tmpdir();
+    const cutoff = Date.now() - STALE_AGE_MS;
+    fs.readdir(tmpDir, (err, files) => {
+      if (err) return;
+      for (const file of files) {
+        // Multer writes files with a random hex name (no extension)
+        if (!/^[0-9a-f]{32}$/.test(file)) continue;
+        const filePath = path.join(tmpDir, file);
+        fs.stat(filePath, (statErr, stat) => {
+          if (statErr || !stat.isFile()) return;
+          if (stat.mtimeMs < cutoff) {
+            fs.unlink(filePath, () => {}); // best-effort
+          }
+        });
+      }
+    });
+  }, CLEANUP_INTERVAL_MS);
+}
 
 // ── GET / ─────────────────────────────────────────────────────────────────────
 
@@ -99,12 +127,14 @@ compilerRouter.post(
         .json({ error: 'Source archive is required (multipart field: source)' });
     }
 
+    const archivePath = req.file.path;
     const toolchain = req.body.toolchain as string;
+
     if (!toolchain) {
+      await cleanupDir(archivePath);
       return res.status(400).json({ error: 'toolchain field is required' });
     }
 
-    const archivePath = req.file.path;
     let workDir: string | null = null;
 
     try {
@@ -164,6 +194,8 @@ compilerRouter.post(
       return res.status(400).json({ error: 'Source archive is required' });
     }
 
+    const archivePath = req.file.path;
+
     const schema = z.object({
       toolchain: z.string().min(1),
       expectedHash: z.string().length(64, 'Expected SHA-256 hash (64 hex chars)'),
@@ -171,11 +203,11 @@ compilerRouter.post(
 
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
+      await cleanupDir(archivePath);
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
     const { toolchain, expectedHash } = parsed.data;
-    const archivePath = req.file.path;
     let workDir: string | null = null;
 
     try {
