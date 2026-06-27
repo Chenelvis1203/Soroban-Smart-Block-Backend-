@@ -42,15 +42,11 @@ import { portfolioRouter } from './portfolio';
 import { alertsRouter } from './alerts';
 
 // ── CSV Exports ───────────────────────────────────────────────────────────────
-import { exportsRouter } from './exports';
 import { requireApiKey } from '../middleware/apiKeyAuth';
 
 // ── Freeze Management ─────────────────────────────────────────────────────────
-import { freezeRouter } from './freeze';
 
 // ── Predictive Analytics ──────────────────────────────────────────────────────
-import { predictRouter } from './predict';
-import forecastRouter from './forecast';
 
 export const router = Router();
 
@@ -100,3 +96,7 @@ router.use('/bridge-tracker', bridgeTrackerRouter);
 // ── Admin ──────────────────────────────────────────────────────────────────────
 import { adminRouter } from './admin';
 router.use('/admin', adminRouter);
+
+// ── Flash Loan Security Analysis & Defense (#291) ─────────────────────────────
+import { flashLoanRouter } from './flash-loans';
+router.use('/security/flash-loans', flashLoanRouter);

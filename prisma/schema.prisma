@@ -3941,3 +3941,102 @@ model OAuthCode {
   @@index([userId])
   @@map("oauth_codes")
 }
+
+// ── Flash Loan Attack Analysis & Defense (#291) ───────────────────────────────
+
+model FlashLoanAttack {
+  id               String   @id @default(cuid())
+  txHash           String   @unique
+  attacker         String
+  detectedAt       DateTime
+  ledgerSequence   Int
+  attackArchetype  String
+  attackSubtype    String?
+
+  borrowedTotal    String
+  borrowedTokens   String[]
+  repaidTotal      String
+  profitAmount     String
+  profitUsd        Float?
+  protocolCount    Int      @default(1)
+  stepCount        Int      @default(1)
+  originalTvls     Json     @default("{}")
+
+  fundFlowGraph    Json     @default("{}")
+  attackerToxicity Float?
+
+  riskScore                Float    @default(0)
+  systemicRiskContribution Float?
+
+  detectionLatencyMs     Int      @default(0)
+  preFlightScore         Float?
+  watchtowerIntervention Boolean?
+  mitigationApplied      String?
+
+  variantPatterns  Json?
+  brokenInvariants Json?
+  cweMappings      String[]
+  advisoryIds      String[]
+
+  isArbitrage      Boolean  @default(false)
+  mevExtracted     String?
+  lvrEstimate      Float?
+
+  reconstruction   Json     @default("{}")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([txHash])
+  @@index([attacker])
+  @@index([attackArchetype])
+  @@index([ledgerSequence])
+  @@index([detectedAt])
+  @@index([profitUsd])
+  @@map("flash_loan_attacks")
+}
+
+model AttackerProfile {
+  id                String   @id @default(cuid())
+  address           String   @unique
+  firstSeen         DateTime
+  lastSeen          DateTime
+  totalProfit       String   @default("0")
+  attackCount       Int      @default(0)
+  favoriteArchetype String?
+  favoriteProtocols String[]
+  linkedAddresses   String[]
+  signature         Json     @default("{}")
+  riskLevel         Float    @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([address])
+  @@index([riskLevel])
+  @@index([attackCount])
+  @@map("attacker_profiles")
+}
+
+model ProtocolVulnerability {
+  id               String   @id @default(cuid())
+  protocolAddress  String
+  protocolName     String?
+  invariantBroken  String
+  fixSuggestion    String
+  firstExploitedAt DateTime
+  lastExploitedAt  DateTime
+  exploitCount     Int      @default(1)
+  totalLoss        String   @default("0")
+  severity         String   @default("MEDIUM")
+  parentArchetype  String
+  variantPattern   String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([protocolAddress])
+  @@index([severity])
+  @@index([parentArchetype])
+  @@map("protocol_vulnerabilities")
+}
