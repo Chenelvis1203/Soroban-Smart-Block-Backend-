@@ -22,6 +22,11 @@ import yogaHandler from './graphql';
 import { warmTokenMetadataCache } from './indexer/token-metadata';
 import { cacheConnect, cacheClose } from './cache';
 import { errorHandler } from './middleware/errorHandler';
+import { requestContext } from './middleware/requestContext';
+import { apiKeyAuth } from './middleware/apiKeyAuth';
+import { auditLogMiddleware } from './middleware/auditLog';
+import { adminApiKeysRouter } from './api/admin/api-keys';
+import { billingRouter } from './api/billing';
 import { logger } from './logger';
 import { feedOrchestrator } from './feed/orchestrator';
 import { startPriceUpdater, stopPriceUpdater } from './services/pricing';
@@ -62,6 +67,10 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(networkRouter);
+
+// Request context FIRST (generates requestId + start time for correlation)
+app.use(requestContext);
+
 // Auth must resolve before rate limiting so tier is known
 app.use(apiKeyAuth);
 app.use(tieredRateLimit);
@@ -102,7 +111,10 @@ app.get('/readyz', (_req, res) => {
   res.json({ status: 'ready' });
 });
 
+// Global error handler — MUST be after all routes but BEFORE 404 catch-all
 app.use(errorHandler);
+
+// 404 catch-all — only fires when no route matched (not an error)
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
 async function saveShutdownState(): Promise<void> {

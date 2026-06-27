@@ -21,6 +21,21 @@ export const httpRequestTotal = new Counter({
   registers: [registry],
 });
 
+// ── HTTP Errors (global error handler) ───────────────────────────────────────
+export const httpErrorsTotal = new Counter({
+  name: 'http_errors_total',
+  help: 'Total number of HTTP errors by classification code',
+  labelNames: ['code', 'severity', 'route'],
+  registers: [registry],
+});
+
+// ── 5xx Error Surge Alerting ─────────────────────────────────────────────────
+export const http5xxSurge = new Gauge({
+  name: 'http_5xx_surge_ratio',
+  help: 'Ratio of 5xx errors to total requests over 5min window (>0.01 triggers alert)',
+  registers: [registry],
+});
+
 // ── Indexer / ingestion ──────────────────────────────────────────────────────
 export const indexerLastLedger = new Gauge({
   name: 'indexer_last_ledger',

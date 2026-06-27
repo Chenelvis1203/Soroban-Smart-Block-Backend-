@@ -46,6 +46,9 @@ import { tokenPricesRouter } from './token-prices';
 import { portfolioRouter } from './portfolio';
 import { alertsRouter } from './alerts';
 
+// ── Admin ─────────────────────────────────────────────────────────────────────
+import { adminErrorsRouter } from './admin/errors';
+
 export const router = Router();
 
 // ── Core Stellar / Soroban ────────────────────────────────────────────────────
@@ -81,3 +84,6 @@ router.use('/data-market', dataMarketRouter);
 // ── NFT Collection Discovery, Rarity Engine, Marketplace Analytics & Portfolio ──
 import { nftRouter } from './nft';
 router.use('/nft', nftRouter);
+
+// ── Admin Dashboards ──────────────────────────────────────────────────────────
+router.use('/admin/errors', adminErrorsRouter);
