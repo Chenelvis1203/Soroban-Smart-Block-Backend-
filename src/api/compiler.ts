@@ -4,15 +4,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as os from 'os';
+import { z } from 'zod';
 
 const execFileAsync = promisify(execFile);
 
 // Pinned toolchain versions for deterministic builds
-const SUPPORTED_TOOLCHAINS: Record<string, string> = {
+export const SUPPORTED_TOOLCHAINS: Record<string, string> = {
   'soroban-cli@0.9.4': 'soroban',
   'stellar-cli@21.0.0': 'stellar',
   'cargo-contract@4.0.0': 'cargo-contract',
 };
+
+// Shared Zod enum for toolchain validation - rejects unknown identifiers
+export const ToolchainEnum = z.enum(Object.keys(SUPPORTED_TOOLCHAINS) as [string, ...string[]], {
+  required_error: 'toolchain field is required',
+  invalid_type_error: 'Invalid toolchain identifier',
+});
 
 export interface CompileResult {
   wasmHash: string;

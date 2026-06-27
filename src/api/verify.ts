@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import * as path from 'path';
 import * as os from 'os';
+import { z } from 'zod';
 import { prismaWrite as prisma } from '../db';
 import {
   extractArchive,
@@ -10,6 +11,7 @@ import {
   hashFile,
   cleanupDir,
   extractSourceFiles,
+  ToolchainEnum,
 } from './compiler';
 import { decompileWasm } from '../indexer/wasm-decompiler';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -38,10 +40,18 @@ verifyRouter.post(
       return;
     }
 
-    const { contractAddress, toolchain = 'soroban-cli@0.9.4' } = req.body as {
-      contractAddress?: string;
-      toolchain?: string;
-    };
+    const schema = z.object({
+      contractAddress: z.string().optional(),
+      toolchain: ToolchainEnum.optional(),
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      await cleanupDir(req.file.path);
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+
+    const { contractAddress, toolchain = 'soroban-cli@0.9.4' } = parsed.data;
 
     // Hash the raw archive for deduplication / audit
     const uploadedHash = hashFile(req.file.path);

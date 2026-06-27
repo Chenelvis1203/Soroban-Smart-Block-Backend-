@@ -12,7 +12,13 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { z } from 'zod';
-import { extractArchive, compileSandboxed, extractSourceFiles, cleanupDir } from './compiler';
+import {
+  extractArchive,
+  compileSandboxed,
+  extractSourceFiles,
+  cleanupDir,
+  ToolchainEnum,
+} from './compiler';
 
 export const compilerRouter = Router();
 
@@ -127,18 +133,21 @@ compilerRouter.post(
         .json({ error: 'Source archive is required (multipart field: source)' });
     }
 
-    const archivePath = req.file.path;
-    const toolchain = req.body.toolchain as string;
+    const schema = z.object({
+      toolchain: ToolchainEnum,
+    });
 
-    if (!toolchain) {
-      await cleanupDir(archivePath);
-      return res.status(400).json({ error: 'toolchain field is required' });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) {
+      await cleanupDir(req.file.path);
+      return res.status(400).json({ error: parsed.error.flatten() });
     }
 
+    const { toolchain } = parsed.data;
     let workDir: string | null = null;
 
     try {
-      workDir = await extractArchive(archivePath, req.file.mimetype);
+      workDir = await extractArchive(req.file.path, req.file.mimetype);
       const result = await compileSandboxed(workDir, toolchain);
 
       res.json({
@@ -151,7 +160,7 @@ compilerRouter.post(
       res.status(400).json({ error: err.message });
     } finally {
       if (workDir) await cleanupDir(workDir);
-      await cleanupDir(archivePath);
+      await cleanupDir(req.file.path);
     }
   }),
 );
@@ -197,7 +206,7 @@ compilerRouter.post(
     const archivePath = req.file.path;
 
     const schema = z.object({
-      toolchain: z.string().min(1),
+      toolchain: ToolchainEnum,
       expectedHash: z.string().length(64, 'Expected SHA-256 hash (64 hex chars)'),
     });
 
