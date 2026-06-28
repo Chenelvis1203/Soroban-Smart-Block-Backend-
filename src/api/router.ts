@@ -41,6 +41,8 @@ import { tokenPricesRouter } from './token-prices';
 import { portfolioRouter } from './portfolio';
 import { alertsRouter } from './alerts';
 
+// ── Admin ─────────────────────────────────────────────────────────────────────
+import { adminErrorsRouter } from './admin/errors';
 // ── CSV Exports ───────────────────────────────────────────────────────────────
 import { exportsRouter } from './exports';
 import { requireApiKey } from '../middleware/apiKeyAuth';
@@ -93,6 +95,8 @@ router.use('/data-market', requireApiKey, dataMarketRouter);
 import { nftRouter } from './nft';
 router.use('/nft', nftRouter);
 
+// ── Admin Dashboards ──────────────────────────────────────────────────────────
+router.use('/admin/errors', adminErrorsRouter);
 // ── Bridge Tracker ─────────────────────────────────────────────────────────────
 import { bridgeTrackerRouter } from './bridge-tracker';
 router.use('/bridge-tracker', bridgeTrackerRouter);
