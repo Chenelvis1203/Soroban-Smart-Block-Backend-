@@ -193,7 +193,10 @@ export async function processLedgerRange(start: number, end: number) {
     }
 
     const { eventType, decoded } = decodeEvent(event.topics, event.data);
-    const eventId = `${event.transactionHash}-${event.topics[0] ?? '0'}`;
+    // Include paging token (unique per event position) to prevent ID collisions
+    // when a single transaction emits multiple events with the same first topic.
+    const positionKey = event.pagingToken || `${event.ledgerSequence}-${events.indexOf(event)}`;
+    const eventId = `${event.transactionHash}-${positionKey}`;
     const savedEvent = await prisma.event.upsert({
       where: { id: eventId },
       update: {},

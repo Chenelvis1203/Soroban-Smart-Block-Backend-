@@ -3,7 +3,17 @@ import { SorobanRpc } from '@stellar/stellar-sdk';
 import { config } from '../config';
 import { cacheGet, cacheSet } from '../cache';
 
-export const rpc = new SorobanRpc.Server(config.stellarRpcUrl, { allowHttp: true });
+const isDevnet = config.profile.name === 'devnet';
+
+// Reject plain-HTTP RPC URLs in non-devnet environments at startup.
+if (!isDevnet && config.stellarRpcUrl.startsWith('http://')) {
+  throw new Error(
+    `[${config.profile.name}] Insecure RPC URL rejected: "${config.stellarRpcUrl}". ` +
+      `Use https:// for testnet and mainnet, or switch to STELLAR_NETWORK=devnet for local development.`,
+  );
+}
+
+export const rpc = new SorobanRpc.Server(config.stellarRpcUrl, { allowHttp: isDevnet });
 
 export interface LedgerEvent {
   contractId: string;
@@ -12,6 +22,7 @@ export interface LedgerEvent {
   ledgerCloseTime: Date;
   topics: string[];
   data: string;
+  pagingToken: string;
 }
 
 const LEDGER_CACHE_PREFIX = 'ledger:';
@@ -76,6 +87,14 @@ export async function fetchEvents(startLedger: number, endLedger: number): Promi
       break;
     }
 
+    // Stop paginating if every event on this page is already beyond endLedger.
+    // This is the server-side stop condition that prevents fetching unbounded
+    // pages when the range is small but there are many later events.
+    const minLedger = Math.min(...page.map((e: any) => Number(e.ledger)));
+    if (minLedger > endLedger) {
+      break;
+    }
+
     const mapped = page
       .filter(
         (e) => typeof e.ledger === 'number' && e.ledger >= startLedger && e.ledger <= endLedger,
@@ -87,6 +106,7 @@ export async function fetchEvents(startLedger: number, endLedger: number): Promi
         ledgerCloseTime: new Date(e.ledgerClosedAt ?? Date.now()),
         topics: Array.isArray(e.topic) ? e.topic.map((t: any) => t.toXDR('base64')) : [],
         data: e.value?.toXDR ? e.value.toXDR('base64') : String(e.value ?? ''),
+        pagingToken: String(e.pagingToken ?? e.paging_token ?? ''),
       }));
 
     events.push(...mapped);
@@ -156,9 +176,7 @@ export function getRpcWebsocketUrl(): string {
   return config.stellarRpcWsUrl;
 }
 
-export async function fetchLedgerMetadata(
-  sequence: number,
-): Promise<{
+export async function fetchLedgerMetadata(sequence: number): Promise<{
   sequence: number;
   hash: string;
   previousLedgerHash: string;

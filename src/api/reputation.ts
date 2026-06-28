@@ -1,3 +1,4 @@
+import { randomBytes, createHash } from 'crypto';
 import { Router, Request, Response } from 'express';
 import { prismaRead, prismaWrite } from '../db';
 import {
@@ -2054,7 +2055,7 @@ reputationRouter.post(
         address: canonical,
         badgeType,
         tokenId,
-        mintedTxHash: `tx-${Math.random().toString(36).substring(2, 12)}`,
+        mintedTxHash: `tx-${randomBytes(5).toString('hex')}`,
       },
     });
 
@@ -2223,12 +2224,14 @@ reputationRouter.post(
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
-    const apiKey = `rep-sdk-${Math.random().toString(36).substring(2, 15)}`;
+    const rawKey = randomBytes(32).toString('hex');
+    const apiKey = `rep-sdk-${rawKey}`;
+    const keyHash = createHash('sha256').update(apiKey).digest('hex');
     const dapp = await prismaWrite.registeredDapp.create({
-      data: { name, apiKey },
+      data: { name, apiKey: keyHash },
     });
 
-    return res.json(dapp);
+    return res.json({ ...dapp, apiKey });
   }),
 );
 
