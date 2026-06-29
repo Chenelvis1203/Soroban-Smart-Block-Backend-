@@ -83,3 +83,17 @@ export const dbConnectionStatus = new Gauge({
   help: 'Database connection status (1 = healthy, 0 = unhealthy)',
   registers: [registry],
 });
+
+// ── Cache health ─────────────────────────────────────────────────────────────
+export const cacheBackendStatus = new Gauge({
+  name: 'cache_backend_status',
+  help: 'Cache backend in use: 1 = Redis connected, 0 = in-memory fallback',
+  registers: [registry],
+});
+
+// ── Replica lag ──────────────────────────────────────────────────────────────
+export const replicaLagCheckErrors = new Counter({
+  name: 'replica_lag_check_errors_total',
+  help: 'Total number of replica lag-check failures (forces primary selection)',
+  registers: [registry],
+});

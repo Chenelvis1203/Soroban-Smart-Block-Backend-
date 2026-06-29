@@ -16,7 +16,7 @@ import { tieredRateLimit, initRateLimitStore } from './middleware/rateLimit';
 import { metricsMiddleware } from './middleware/metricsMiddleware';
 import { sanitizeInputs } from './middleware/sanitize';
 import { i18nMiddleware } from './i18n';
-import { registry, dbConnectionStatus } from './metrics';
+import { registry, dbConnectionStatus, cacheBackendStatus } from './metrics';
 import { replicaGuard } from './middleware/replicaGuard';
 import { coldStorageRouter, initializeColdStorage } from './middleware/coldStorageRouter';
 import { networkRouter } from './middleware/networkRouter';
@@ -25,7 +25,7 @@ import { attachWebSocketServer, shutdownWebSocketServer } from './ws/eventBroadc
 import { attachPrivacyWebSocket as attachPrivacyWebSocketReal } from './ws/privacyBroadcaster';
 import yogaHandler from './graphql';
 import { warmTokenMetadataCache } from './indexer/token-metadata';
-import { cacheConnect, cacheClose, isCacheReady } from './cache';
+import { cacheConnect, cacheClose, isCacheReady, cacheBackendType } from './cache';
 import { markReady, markNotReady, getReadinessState, isFullyReady } from './readiness';
 import { errorHandler } from './middleware/errorHandler';
 import { requestContext } from './middleware/requestContext';
@@ -225,6 +225,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     logger.info('[shutdown] State saved');
 
     await cacheClose();
+    cacheBackendStatus.set(0);
     logger.info('[shutdown] Cache connection closed');
 
     await prismaRead.$disconnect();
@@ -262,6 +263,7 @@ async function main() {
 
   await cacheConnect();
   if (isCacheReady()) markReady('cache');
+  cacheBackendStatus.set(cacheBackendType() === 'redis' ? 1 : 0);
 
   await prisma.$connect();
   dbConnectionStatus.set(1);
