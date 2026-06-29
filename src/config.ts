@@ -36,4 +36,13 @@ export const config = {
   // ── Rate limiting ─────────────────────────────────────────────────────────
   rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '60000'),
   rateLimitMax:      parseInt(process.env.RATE_LIMIT_MAX        ?? '100'),
+  rateLimitPublicMax: parseInt(process.env.RATE_LIMIT_PUBLIC_MAX ?? '100'),
+  rateLimitDeveloperMax: parseInt(process.env.RATE_LIMIT_DEVELOPER_MAX ?? '300'),
+  rateLimitPremiumMax: parseInt(process.env.RATE_LIMIT_PREMIUM_MAX ?? '1000'),
+  rateLimitPublicWindowMs: parseInt(process.env.RATE_LIMIT_PUBLIC_WINDOW_MS ?? '60000'),
+  rateLimitDeveloperWindowMs: parseInt(process.env.RATE_LIMIT_DEVELOPER_WINDOW_MS ?? '60000'),
+  rateLimitPremiumWindowMs: parseInt(process.env.RATE_LIMIT_PREMIUM_WINDOW_MS ?? '60000'),
+  rateLimitAdaptiveEnabled: process.env.RATE_LIMIT_ADAPTIVE_ENABLED !== 'false',
+  rateLimitAdaptiveThreshold: parseFloat(process.env.RATE_LIMIT_ADAPTIVE_THRESHOLD ?? '0.85'),
+  rateLimitAdaptiveMultiplier: parseFloat(process.env.RATE_LIMIT_ADAPTIVE_MULTIPLIER ?? '0.75'),
 };
