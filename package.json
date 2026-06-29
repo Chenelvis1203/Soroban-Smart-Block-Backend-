@@ -20,7 +20,7 @@
     "index:testnet": "STELLAR_NETWORK=testnet ts-node src/indexer/run.ts",
     "index:mainnet": "STELLAR_NETWORK=mainnet ts-node src/indexer/run.ts",
     "index:devnet": "STELLAR_NETWORK=devnet ts-node src/indexer/run.ts",
-    "repair": "echo 'Not implemented yet'",
+    "repair": "ts-node src/indexer/repair-run.ts",
     "archive": "ts-node src/archival/run.ts",
     "seed": "ts-node prisma/seed.ts",
     "test": "vitest run",

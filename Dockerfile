@@ -4,7 +4,7 @@ RUN apt-get update -qq && apt-get install -y -qq openssl ca-certificates > /dev/
 WORKDIR /app
 COPY package*.json ./
 COPY prisma/schema.prisma ./prisma/schema.prisma
-RUN npm ci && npm audit || true
+RUN npm ci && npm audit --audit-level=high
 COPY . .
 RUN npx prisma generate
 RUN npm run build
@@ -15,7 +15,7 @@ RUN apt-get update -qq && apt-get install -y -qq curl ca-certificates gnupg lsb-
     trivy --version && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app /app
-RUN trivy filesystem --exit-code 1 --severity CRITICAL --no-progress /app 2>&1 || echo "Trivy scan complete (some vulnerabilities found)"
+RUN trivy filesystem --exit-code 1 --severity CRITICAL --no-progress --format json --output /trivy-report.json /app
 
 FROM node:20-slim
 RUN addgroup --gid 1001 appgroup && \
@@ -27,7 +27,7 @@ RUN apt-get update -qq && apt-get install -y -qq openssl wget ca-certificates > 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm audit --omit=dev || true
+RUN npm ci --omit=dev --ignore-scripts && npm audit --omit=dev --audit-level=high
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
