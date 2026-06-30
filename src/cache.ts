@@ -83,6 +83,12 @@ function isExpired(entry: MemoryEntry): boolean {
   return entry.expiresAt !== null && entry.expiresAt <= localNow();
 }
 
+export function redactKey(key: string): string {
+  const separatorIndex = key.indexOf(':');
+  if (separatorIndex === -1) return key;
+  return `${key.slice(0, separatorIndex + 1)}***`;
+}
+
 function buildExpiry(ttlSeconds: number | null | undefined): number | null {
   if (ttlSeconds === undefined || ttlSeconds === null) return null;
   if (ttlSeconds <= 0) return null;
@@ -149,7 +155,9 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
     // Mirror the remaining Redis TTL into the local store so the entry expires at
     // the same time as the Redis key, preventing stale data from living forever.
     // pTTL returns: >0 = ms remaining, -1 = no expiry, -2 = key missing.
-    const pttl = await client.pTTL(normalizedKey);
+    const pttl = await (
+      client as RedisClientType & { pTTL: (key: string) => Promise<number> }
+    ).pTTL(normalizedKey);
     const expiresAt = pttl > 0 ? localNow() + pttl : null;
     const value = JSON.parse(payload) as T;
     lruSet(normalizedKey, { payload, expiresAt });

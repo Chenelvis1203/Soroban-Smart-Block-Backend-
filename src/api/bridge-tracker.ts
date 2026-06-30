@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import { asyncHandler } from '../middleware/asyncHandler';
 import type { Chain } from '../bridge-tracker/types';
 import {
   detectBridgeTransactions,
@@ -314,6 +315,9 @@ bridgeTrackerRouter.post('/worker/stop', async (_req: Request, res: Response) =>
 });
 
 // GET /api/v1/bridge-tracker/worker/status
-bridgeTrackerRouter.get('/worker/status', async (_req: Request, res: Response) => {
-  res.json({ running: isBridgeWorkerRunning() });
-});
+bridgeTrackerRouter.get(
+  '/worker/status',
+  asyncHandler(async (_req: Request, res: Response) => {
+    res.json({ running: isBridgeWorkerRunning() });
+  }),
+);

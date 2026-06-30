@@ -1,8 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { getStateAtLedger, getKeyHistory, getLedgerDiff, getFullSnapshot } from '../archive/query-engine';
+import {
+  getStateAtLedger,
+  getKeyHistory,
+  getLedgerDiff,
+  getFullSnapshot,
+} from '../archive/query-engine';
 import { captureStateChangesForTransaction } from '../archive/archiver';
 import { decodeScValXdr } from '../archive/scval-decoder';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 export const archiveRouter = Router({ mergeParams: true });
 
@@ -30,111 +36,131 @@ const stateQuery = z.object({
  * GET /contracts/:address/state?ledger=N
  * Storage state at a specific ledger (with pagination)
  */
-archiveRouter.get('/', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const parsed = stateQuery.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+archiveRouter.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const parsed = stateQuery.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  try {
-    const result = await getStateAtLedger(address, parsed.data.ledger, {
-      page: parsed.data.page,
-      pageSize: parsed.data.pageSize,
-      search: parsed.data.search,
-    });
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+    try {
+      const result = await getStateAtLedger(address, parsed.data.ledger, {
+        page: parsed.data.page,
+        pageSize: parsed.data.pageSize,
+        search: parsed.data.search,
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * GET /contracts/:address/state/history?key=<base64_key>
  * Full value history for a specific storage key
  */
-archiveRouter.get('/history', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const parsed = historyQuery.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+archiveRouter.get(
+  '/history',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const parsed = historyQuery.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  try {
-    const result = await getKeyHistory(address, parsed.data.key);
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+    try {
+      const result = await getKeyHistory(address, parsed.data.key);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * GET /contracts/:address/state/diff?from=N&to=M
  * Diff between two ledgers showing what changed
  */
-archiveRouter.get('/diff', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const parsed = diffQuery.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+archiveRouter.get(
+  '/diff',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const parsed = diffQuery.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  if (parsed.data.from >= parsed.data.to) {
-    return res.status(400).json({ error: '"from" must be less than "to"' });
-  }
+    if (parsed.data.from >= parsed.data.to) {
+      return res.status(400).json({ error: '"from" must be less than "to"' });
+    }
 
-  try {
-    const result = await getLedgerDiff(address, parsed.data.from, parsed.data.to);
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+    try {
+      const result = await getLedgerDiff(address, parsed.data.from, parsed.data.to);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * GET /contracts/:address/state/snapshot?ledger=N
  * Full human-readable state snapshot at any ledger
  */
-archiveRouter.get('/snapshot', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const parsed = ledgerQuery.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+archiveRouter.get(
+  '/snapshot',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const parsed = ledgerQuery.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  try {
-    const result = await getFullSnapshot(address, parsed.data.ledger);
-    res.json(result);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+    try {
+      const result = await getFullSnapshot(address, parsed.data.ledger);
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * POST /contracts/:address/state/ingest
  * Ingest state change records (called by indexer or external pipeline)
  */
-archiveRouter.post('/ingest', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const schema = z.object({
-    transactionHash: z.string(),
-    ledger: z.number().int().positive(),
-    ledgerCloseTime: z.string().datetime(),
-    changes: z.array(z.object({
-      key: z.string(),
-      before: z.string().optional(),
-      after: z.string().optional(),
-    })).min(1).max(500),
-  });
+archiveRouter.post(
+  '/ingest',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const schema = z.object({
+      transactionHash: z.string(),
+      ledger: z.number().int().positive(),
+      ledgerCloseTime: z.string().datetime(),
+      changes: z
+        .array(
+          z.object({
+            key: z.string(),
+            before: z.string().optional(),
+            after: z.string().optional(),
+          }),
+        )
+        .min(1)
+        .max(500),
+    });
 
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  try {
-    const saved = await captureStateChangesForTransaction(
-      address,
-      parsed.data.transactionHash,
-      parsed.data.ledger,
-      new Date(parsed.data.ledgerCloseTime),
-      parsed.data.changes,
-    );
-    res.status(201).json({ saved });
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+    try {
+      const saved = await captureStateChangesForTransaction(
+        address,
+        parsed.data.transactionHash,
+        parsed.data.ledger,
+        new Date(parsed.data.ledgerCloseTime),
+        parsed.data.changes,
+      );
+      res.status(201).json({ saved });
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * GET /contracts/:address/state/decode

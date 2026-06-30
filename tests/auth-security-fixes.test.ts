@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 import crypto from 'crypto';
 
 // ── Prisma mock ──────────────────────────────────────────────────────────────
@@ -48,10 +48,7 @@ const mockFind = (prismaRead as any).devApiKey.findFirst as ReturnType<typeof vi
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function makeReq(
-  headers: Record<string, string> = {},
-  extras: Partial<Request> = {},
-): Request {
+function makeReq(headers: Record<string, string> = {}, extras: Partial<Request> = {}): Request {
   return {
     headers,
     ip: '10.0.0.1',
@@ -273,10 +270,10 @@ describe('Issue 3 – endpoint restriction uses normalised full path', () => {
         ...VALID_RECORD,
         allowedEndpoints: ['/api/v1/contracts'],
       });
-      const req = makeReq(
-        { 'x-api-key': 'valid' },
-        { baseUrl: '/api/v1/contracts', path: '/' } as any,
-      );
+      const req = makeReq({ 'x-api-key': 'valid' }, {
+        baseUrl: '/api/v1/contracts',
+        path: '/',
+      } as any);
       const { res } = makeRes();
       const next = vi.fn();
       await apiKeyAuth(req, res, next);
@@ -288,10 +285,10 @@ describe('Issue 3 – endpoint restriction uses normalised full path', () => {
         ...VALID_RECORD,
         allowedEndpoints: ['/api/v1/contracts*'],
       });
-      const req = makeReq(
-        { 'x-api-key': 'valid' },
-        { baseUrl: '/api/v1/contracts', path: '/CABC123' } as any,
-      );
+      const req = makeReq({ 'x-api-key': 'valid' }, {
+        baseUrl: '/api/v1/contracts',
+        path: '/CABC123',
+      } as any);
       const { res } = makeRes();
       const next = vi.fn();
       await apiKeyAuth(req, res, next);
@@ -326,10 +323,10 @@ describe('Issue 3 – endpoint restriction uses normalised full path', () => {
         allowedEndpoints: ['/api/v1/tokens'],
       });
       // Exact pattern — must NOT match tokens-extended
-      const req = makeReq(
-        { 'x-api-key': 'valid' },
-        { baseUrl: '/api/v1/tokens-extended', path: '/' } as any,
-      );
+      const req = makeReq({ 'x-api-key': 'valid' }, {
+        baseUrl: '/api/v1/tokens-extended',
+        path: '/',
+      } as any);
       const { res, status } = makeRes();
       const next = vi.fn();
       await apiKeyAuth(req, res, next);
@@ -339,10 +336,10 @@ describe('Issue 3 – endpoint restriction uses normalised full path', () => {
 
     it('no allowedEndpoints restriction allows all paths', async () => {
       mockFind.mockResolvedValue({ ...VALID_RECORD, allowedEndpoints: null });
-      const req = makeReq(
-        { 'x-api-key': 'valid' },
-        { baseUrl: '/api/v1/anything', path: '/deep/path' } as any,
-      );
+      const req = makeReq({ 'x-api-key': 'valid' }, {
+        baseUrl: '/api/v1/anything',
+        path: '/deep/path',
+      } as any);
       const { res } = makeRes();
       const next = vi.fn();
       await apiKeyAuth(req, res, next);

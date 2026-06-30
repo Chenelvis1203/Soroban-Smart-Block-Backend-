@@ -19,7 +19,7 @@ import {
   cleanupDir,
   ToolchainEnum,
 } from './compiler';
-import { getQueueMetrics } from './build-queue';
+import { getActiveBuildCount, getConcurrencyLimit, getQueueMetrics } from './build-queue';
 import type { RateLimitTier } from '../middleware/tokenBucket';
 
 export const compilerRouter = Router();
@@ -31,9 +31,9 @@ export const compilerRouter = Router();
  */
 function buildQuotaMiddleware(req: Request, res: Response, next: (err?: any) => void) {
   const tier = (req.apiKey?.tier ?? 'unauthenticated') as RateLimitTier;
-  const active = req.apiKey?.rateLimitResult?.tier
-    ? getActiveBuildCount(req.apiKey.rateLimitResult.tier)
-    : 0;
+  const rateLimitTier = (req as Request & { rateLimitResult?: { tier?: string } }).rateLimitResult
+    ?.tier;
+  const active = rateLimitTier ? getActiveBuildCount(rateLimitTier) : 0;
   const limit = getConcurrencyLimit(tier);
 
   // Set quota headers for visibility

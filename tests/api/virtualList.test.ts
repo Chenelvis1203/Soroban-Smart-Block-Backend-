@@ -46,15 +46,17 @@ function makeApp(): Express {
 
 const MOCK_DATE = new Date('2024-01-15T12:00:00Z');
 
-function makeTx(overrides: Partial<{
-  id: string;
-  hash: string;
-  contractAddress: string | null;
-  status: string;
-  ledgerSequence: number;
-  ledgerCloseTime: Date;
-  humanReadable: string | null;
-}> = {}) {
+function makeTx(
+  overrides: Partial<{
+    id: string;
+    hash: string;
+    contractAddress: string | null;
+    status: string;
+    ledgerSequence: number;
+    ledgerCloseTime: Date;
+    humanReadable: string | null;
+  }> = {},
+) {
   return {
     id: 'cuid-1',
     hash: 'abc123',
@@ -220,7 +222,7 @@ describe('validate-prisma-references logic', () => {
   it('parsePrismaSchema extracts Transaction.humanReadable correctly', async () => {
     // Inline a mini schema to test the parser without filesystem dependency
     const { parsePrismaSchema } = await import('../../scripts/validate-prisma-references');
-    const path = require('path');
+    const path = await import('path');
     const schemaPath = path.resolve(__dirname, '../../prisma/schema.prisma');
     const models = parsePrismaSchema(schemaPath);
 
@@ -234,7 +236,7 @@ describe('validate-prisma-references logic', () => {
 
   it('parsePrismaSchema does NOT expose decodedDescription on Transaction', async () => {
     const { parsePrismaSchema } = await import('../../scripts/validate-prisma-references');
-    const path = require('path');
+    const path = await import('path');
     const schemaPath = path.resolve(__dirname, '../../prisma/schema.prisma');
     const models = parsePrismaSchema(schemaPath);
 

@@ -1,7 +1,7 @@
 /**
  * API Audit Log Middleware
  *
- * Logs every API request to auditLog with:
+ * Logs every API request to apiAuditLog with:
  *   api_key_id, key_name, tier, ip, method, endpoint,
  *   status, response_time_ms, rate_limit info, user_agent
  *
@@ -48,7 +48,7 @@ export function auditLogMiddleware(req: Request, res: Response, next: NextFuncti
 
     const endpoint = req.path.replace(/\/[0-9a-f-]{8,}/gi, '/:id').replace(/\/\d+/g, '/:id');
 
-    prismaWrite.auditLog
+    prismaWrite.apiAuditLog
       .create({
         data: {
           id: randomUUID(),

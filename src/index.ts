@@ -26,7 +26,7 @@ import { attachPrivacyWebSocket as attachPrivacyWebSocketReal } from './ws/priva
 import yogaHandler from './graphql';
 import { warmTokenMetadataCache } from './indexer/token-metadata';
 import { cacheConnect, cacheClose, isCacheReady, cacheBackendType } from './cache';
-import { markReady, markNotReady, getReadinessState, isFullyReady } from './readiness';
+import { markReady, markNotReady } from './readiness';
 import { errorHandler } from './middleware/errorHandler';
 import { requestContext } from './middleware/requestContext';
 import { apiKeyAuth } from './middleware/apiKeyAuth';
@@ -47,7 +47,6 @@ import { startFeeAggregator as startFeeAggregatorImpl } from './indexer/fee-aggr
 import { attachArbitrageWebSocket as attachArbitrageWebSocketImpl } from './ws/arbitrageBroadcaster';
 import { attachComposabilityWebSocket as attachComposabilityWebSocketImpl } from './ws/composabilityBroadcaster';
 import { getHealthStatus, getLivenessStatus, getReadinessStatus } from './health';
-import { getIndexerStatus } from './indexer-state';
 
 let isShuttingDown = false;
 const SERVICE_START_TIME = Date.now();

@@ -1,37 +1,19 @@
-import { describe, expect, it } from 'vitest';
-import { getRateLimitTier, normalizeTierConfig } from '../src/middleware/rateLimit';
-
-describe('rate limit configuration', () => {
-  it('falls back to defaults for invalid tier values', () => {
-    const config = normalizeTierConfig({
-      public: { windowMs: 0, max: -5 },
-      developer: { windowMs: 30_000, max: 250 },
-      premium: { windowMs: 90_000, max: 5000 },
-    } as any);
-
-    expect(config.public.windowMs).toBe(60_000);
-    expect(config.public.max).toBe(100);
-    expect(config.developer.windowMs).toBe(30_000);
-    expect(config.developer.max).toBe(250);
-  });
-
-  it('selects the highest matching tier for known API keys', () => {
-    const tier = getRateLimitTier('premium-api', new Set(['developer-api']), new Set(['premium-api']));
-    expect(tier).toBe('premium');
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { NextFunction, Request, Response } from 'express';
+import {
+  getRateLimitTier,
+  normalizeTierConfig,
+  tieredRateLimit,
+} from '../src/middleware/rateLimit';
+import { checkTokenBucket } from '../src/middleware/tokenBucket';
 
 vi.mock('../src/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn() } }));
-// Stub tokenBucket so no Redis is needed
 vi.mock('../src/middleware/tokenBucket', () => ({
   checkTokenBucket: vi.fn(),
   setRateLimitRedisClient: vi.fn(),
 }));
 
-import { tieredRateLimit } from '../src/middleware/rateLimit';
-import { checkTokenBucket } from '../src/middleware/tokenBucket';
-
-const mockCheck = checkTokenBucket as ReturnType<typeof vi.fn>;
+const mockCheck = vi.mocked(checkTokenBucket);
 
 function makeReq(overrides: Partial<Request> = {}): Request {
   return { headers: {}, ip: '127.0.0.1', method: 'GET', path: '/test', ...overrides } as Request;
@@ -49,13 +31,35 @@ function makeRes(): {
   return { res: { status, json, setHeader } as unknown as Response, status, json, setHeader };
 }
 
-describe('tieredRateLimit — token bucket mode', () => {
+describe('rate limit configuration', () => {
+  it('falls back to defaults for invalid tier values', () => {
+    const tierConfig = normalizeTierConfig({
+      public: { windowMs: 0, max: -5 },
+      developer: { windowMs: 30_000, max: 250 },
+      premium: { windowMs: 90_000, max: 5000 },
+    } as any);
+
+    expect(tierConfig.public.windowMs).toBe(60_000);
+    expect(tierConfig.public.max).toBe(100);
+    expect(tierConfig.developer.windowMs).toBe(30_000);
+    expect(tierConfig.developer.max).toBe(250);
+  });
+
+  it('selects the highest matching tier for known API keys', () => {
+    const tier = getRateLimitTier(
+      'premium-api',
+      new Set(['developer-api']),
+      new Set(['premium-api']),
+    );
+    expect(tier).toBe('premium');
+  });
+});
+
+describe('tieredRateLimit', () => {
   let next: NextFunction;
 
   beforeEach(() => {
     next = vi.fn();
-    // force token-bucket path via module internals — simulate useTokenBucket=true
-    // by making checkTokenBucket succeed
     mockCheck.mockResolvedValue({
       allowed: true,
       limit: 100,
@@ -65,10 +69,9 @@ describe('tieredRateLimit — token bucket mode', () => {
     });
   });
 
-  it('calls next() when token bucket allows', async () => {
+  it('calls next() when the fallback limiter allows the request', async () => {
     const { res } = makeRes();
     await tieredRateLimit(makeReq(), res, next);
-    // In no-Redis env, falls back to legacy limiter which also calls next
     expect(next).toHaveBeenCalled();
   });
 
@@ -81,16 +84,14 @@ describe('tieredRateLimit — token bucket mode', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('falls back to unauthenticated tier when no apiKey header', async () => {
+  it('falls back to unauthenticated tier when no apiKey header is present', async () => {
     const req = makeReq({ headers: {} });
     const { res } = makeRes();
     await tieredRateLimit(req, res, next);
-    // Should not throw
-    expect(true).toBe(true);
+    expect(next).toHaveBeenCalled();
   });
 });
 
-// ── Security: rate-limit bypass attempts ────────────────────────────────────
 describe('rate-limit security', () => {
   it('does not crash on spoofed X-Forwarded-For header', async () => {
     const next = vi.fn();

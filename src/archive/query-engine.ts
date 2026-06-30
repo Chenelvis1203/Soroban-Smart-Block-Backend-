@@ -1,4 +1,6 @@
-import { prismaRead as prisma } from '../db';
+import { prismaRead } from '../db';
+
+const prisma = prismaRead as any;
 
 export interface StateAtLedger {
   contractAddress: string;
@@ -50,7 +52,7 @@ export async function getStateAtLedger(
   const skip = (page - 1) * pageSize;
 
   // For each key, find the latest change at or before `ledger`
-  const allKeys = await prisma.contractStateChange.findMany({
+  const allKeys: Array<{ storageKey: string }> = await prisma.contractStateChange.findMany({
     where: { contractAddress, ledger: { lte: ledger } },
     select: { storageKey: true },
     distinct: ['storageKey'],
@@ -60,7 +62,7 @@ export async function getStateAtLedger(
   const search = options.search?.toLowerCase();
   const filteredKeys = search ? keyList.filter((k) => k.toLowerCase().includes(search)) : keyList;
 
-  const pageKeys = filteredKeys.slice(skip, skip + pageSize);
+  const pageKeys: string[] = filteredKeys.slice(skip, skip + pageSize);
 
   const entries = await Promise.all(
     pageKeys.map(async (key) => {
@@ -116,7 +118,13 @@ export async function getLedgerDiff(
     throw new Error('fromLedger must be less than toLedger');
   }
 
-  const changes = await prisma.contractStateChange.findMany({
+  const changes: Array<{
+    storageKey: string;
+    valueBefore: string | null;
+    valueAfter: string | null;
+    operation: string;
+    storageKeyHuman: string | null;
+  }> = await prisma.contractStateChange.findMany({
     where: { contractAddress, ledger: { gt: fromLedger, lte: toLedger } },
     orderBy: [{ storageKey: 'asc' }, { ledger: 'asc' }],
   });
