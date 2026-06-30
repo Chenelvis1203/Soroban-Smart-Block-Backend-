@@ -51,7 +51,6 @@ import { requireApiKey, requireKeyTier } from '../middleware/apiKeyAuth';
 import { compilerRouter } from './compiler-router';
 
 // ── MEV / Sandwich Detection (#290) ──────────────────────────────────────────
-import { sandwichRouter } from './sandwich';
 
 // ── Freeze Management ─────────────────────────────────────────────────────────
 

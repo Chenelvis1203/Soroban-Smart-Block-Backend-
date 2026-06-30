@@ -197,7 +197,6 @@ export const config = {
   rateLimitAdaptiveEnabled: process.env.RATE_LIMIT_ADAPTIVE_ENABLED !== 'false',
   rateLimitAdaptiveThreshold: parseFloat(process.env.RATE_LIMIT_ADAPTIVE_THRESHOLD ?? '0.85'),
   rateLimitAdaptiveMultiplier: parseFloat(process.env.RATE_LIMIT_ADAPTIVE_MULTIPLIER ?? '0.75'),
-  rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX ?? '100'),
   openAiApiKey: process.env.OPENAI_API_KEY ?? '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
 

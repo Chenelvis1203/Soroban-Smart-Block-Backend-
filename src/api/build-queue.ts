@@ -17,7 +17,7 @@ export interface BuildJob {
   memoryLimitMb: number;
   timeoutMs: number;
   status: 'queued' | 'running' | 'completed' | 'failed' | 'timeout';
-  resolve: (value: unknown) => void;
+  resolve: (value?: void | PromiseLike<void>) => void;
   reject: (error: Error) => void;
 }
 
@@ -133,7 +133,7 @@ export async function startBuildJob(tier: string): Promise<BuildJob | null> {
   job.status = 'running';
   const active = (activeByTier.get(tier) ?? 0) + 1;
   activeByTier.set(tier, active);
-  buildActiveGauge.set(active, { tier });
+  buildActiveGauge.set({ tier }, active);
   buildJobsTotal.inc({ tier, status: 'running' });
 
   // Set up timeout handling
@@ -155,7 +155,7 @@ export function completeBuildJob(tier: string, job: BuildJob, success = true): v
   job.status = finalStatus;
   const active = (activeByTier.get(tier) ?? 1) - 1;
   activeByTier.set(tier, Math.max(0, active));
-  buildActiveGauge.set(Math.max(0, active), { tier });
+  buildActiveGauge.set({ tier }, Math.max(0, active));
   buildJobsTotal.inc({ tier, status: finalStatus });
 
   const duration = (Date.now() - job.startTime) / 1000;

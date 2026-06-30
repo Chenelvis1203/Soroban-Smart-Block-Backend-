@@ -14,30 +14,33 @@ const fuzzStartSchema = z.object({
  * POST /contracts/:address/fuzz/start
  * Kick off a fuzzing job (async by default)
  */
-fuzzingRouter.post('/start', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  const parsed = fuzzStartSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+fuzzingRouter.post(
+  '/start',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    const parsed = fuzzStartSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { maxCases, targetFunctions, async: isAsync } = parsed.data;
+    const { maxCases, targetFunctions, async: isAsync } = parsed.data;
 
-  if (isAsync) {
-    const jobId = startFuzzJob(address, { maxCases, targetFunctions });
-    return res.status(202).json({
-      jobId,
-      status: 'running',
-      message: `Fuzzing started. Poll GET /contracts/${address}/fuzz/report/${jobId}`,
-    });
-  }
+    if (isAsync) {
+      const jobId = startFuzzJob(address, { maxCases, targetFunctions });
+      return res.status(202).json({
+        jobId,
+        status: 'running',
+        message: `Fuzzing started. Poll GET /contracts/${address}/fuzz/report/${jobId}`,
+      });
+    }
 
-  // Synchronous mode
-  try {
-    const report = await fuzzContract(address, { maxCases, targetFunctions });
-    return res.json(report);
-  } catch (e) {
-    return res.status(500).json({ error: String(e) });
-  }
-});
+    // Synchronous mode
+    try {
+      const report = await fuzzContract(address, { maxCases, targetFunctions });
+      return res.json(report);
+    } catch (e) {
+      return res.status(500).json({ error: String(e) });
+    }
+  }),
+);
 
 /**
  * GET /contracts/:address/fuzz/report/:jobId
@@ -61,12 +64,15 @@ fuzzingRouter.get('/report/:jobId', (req: Request, res: Response) => {
  * GET /contracts/:address/fuzz/report
  * Synchronous quick report (max 10 cases, fast)
  */
-fuzzingRouter.get('/report', async (req: Request, res: Response) => {
-  const { address } = req.params;
-  try {
-    const report = await fuzzContract(address, { maxCases: 10 });
-    res.json(report);
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
-  }
-});
+fuzzingRouter.get(
+  '/report',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { address } = req.params;
+    try {
+      const report = await fuzzContract(address, { maxCases: 10 });
+      res.json(report);
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  }),
+);

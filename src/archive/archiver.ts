@@ -1,4 +1,6 @@
-import { prismaWrite as prisma } from '../db';
+import { prismaWrite } from '../db';
+
+const prisma = prismaWrite as any;
 import { decodeScValXdr } from './scval-decoder';
 
 export type StateOperation = 'create' | 'update' | 'delete';

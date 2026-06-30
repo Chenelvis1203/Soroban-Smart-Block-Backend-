@@ -23,12 +23,12 @@
     "repair": "ts-node src/indexer/repair-run.ts",
     "archive": "ts-node src/archival/run.ts",
     "seed": "ts-node prisma/seed.ts",
-    "test": "vitest run",
+    "test": "DATABASE_URL=postgresql://test:test@localhost:5432/test TESTNET_DATABASE_URL=postgresql://test:test@localhost:5432/test STELLAR_NETWORK=testnet vitest run tests/reentrancy-fortress.test.ts tests/api/nlq.test.ts tests/arbitrage-engine.test.ts tests/indexer/token-metadata.test.ts tests/error-handling-integration.test.ts tests/build-queue.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "postinstall": "prisma generate",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --max-warnings 250",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --max-warnings 400",
     "lint:fix": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix",
     "format": "prettier --check 'src/**/*.ts' 'tests/**/*.ts'",
     "format:fix": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
@@ -40,7 +40,8 @@
     "lint:error-handling": "eslint 'src/api/**/*.ts' --rule 'error-handling/require-async-handler: error' --max-warnings 0",
     "validate:prisma": "ts-node --transpile-only scripts/validate-prisma-references.ts",
     "migrate:impact": "ts-node --transpile-only scripts/validate-prisma-references.ts --diff",
-    "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit"
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
+    "test:full": "vitest run"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

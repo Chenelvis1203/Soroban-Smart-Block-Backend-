@@ -24,7 +24,7 @@ export class KeyStorageUnavailableError extends Error {
   constructor(cause: unknown) {
     super('Key validation storage unavailable');
     this.name = 'KeyStorageUnavailableError';
-    this.cause = cause;
+    (this as Error & { cause?: unknown }).cause = cause;
   }
 }
 
@@ -146,7 +146,10 @@ export function normalizeRequestPath(req: Pick<Request, 'baseUrl' | 'path'>): st
  * Note: patterns are compared against the *full* path (`baseUrl + path`) so
  * they are portable across different router nesting depths.
  */
-function endpointAllowed(req: Pick<Request, 'baseUrl' | 'path'>, allowedEndpoints: string[]): boolean {
+function endpointAllowed(
+  req: Pick<Request, 'baseUrl' | 'path'>,
+  allowedEndpoints: string[],
+): boolean {
   if (allowedEndpoints.length === 0) return true;
   const fullPath = normalizeRequestPath(req);
   return allowedEndpoints.some((pattern) => {

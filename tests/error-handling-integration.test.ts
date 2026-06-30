@@ -346,10 +346,13 @@ describe('Error Handling Integration', () => {
     const app = express();
     app.use(requestContext);
 
-    app.get('/api/timed-error', async (_req, _res, next) => {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      next(new Error('Timed error'));
-    });
+    app.get(
+      '/api/timed-error',
+      asyncHandler(async (_req, _res, next) => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        next(new Error('Timed error'));
+      }),
+    );
 
     app.use(errorHandler);
 

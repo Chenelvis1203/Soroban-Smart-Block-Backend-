@@ -62,9 +62,9 @@ describe('JSON scalar __parseLiteral', () => {
   });
 
   it('throws GraphQLError for unsupported literal kinds', () => {
-    expect(() =>
-      jsonScalar.__parseLiteral({ kind: 'EnumValue', value: 'SOME_ENUM' }),
-    ).toThrow(GraphQLError);
+    expect(() => jsonScalar.__parseLiteral({ kind: 'EnumValue', value: 'SOME_ENUM' })).toThrow(
+      GraphQLError,
+    );
   });
 });
 
@@ -74,7 +74,6 @@ describe('JSON scalar __parseLiteral', () => {
 // document and checking that the error threshold is respected.
 
 import { complexityPlugin } from '../src/graphql/plugins';
-import { buildASTSchema } from 'graphql';
 
 function makeDoc(query: string) {
   return parse(query);
@@ -102,9 +101,9 @@ describe('complexityPlugin — fragment spread resolution', () => {
     // We verify onExecute throws when MAX_COMPLEXITY is set very low.
     const origEnv = process.env.GQL_MAX_COMPLEXITY;
     process.env.GQL_MAX_COMPLEXITY = '1';
-    expect(() =>
-      (complexityPlugin as any).onExecute({ args: { document: doc } }),
-    ).toThrow('Query too complex');
+    expect(() => (complexityPlugin as any).onExecute({ args: { document: doc } })).toThrow(
+      'Query too complex',
+    );
     process.env.GQL_MAX_COMPLEXITY = origEnv ?? '1000';
   });
 
@@ -164,9 +163,9 @@ describe('complexityPlugin — list multipliers', () => {
     // Set a limit that the low-fan-out query passes but the high one fails.
     const origEnv = process.env.GQL_MAX_COMPLEXITY;
     process.env.GQL_MAX_COMPLEXITY = '50';
-    expect(() =>
-      (complexityPlugin as any).onExecute({ args: { document: highFanOut } }),
-    ).toThrow('Query too complex');
+    expect(() => (complexityPlugin as any).onExecute({ args: { document: highFanOut } })).toThrow(
+      'Query too complex',
+    );
     expect(() =>
       (complexityPlugin as any).onExecute({ args: { document: lowFanOut } }),
     ).not.toThrow();
@@ -182,7 +181,9 @@ import { vi } from 'vitest';
 
 vi.mock('../src/db', () => ({
   prismaWrite: {
-    webhookSubscription: { create: vi.fn().mockResolvedValue({ id: '1', url: 'https://example.com' }) },
+    webhookSubscription: {
+      create: vi.fn().mockResolvedValue({ id: '1', url: 'https://example.com' }),
+    },
   },
   prismaRead: { webhookSubscription: { findMany: vi.fn().mockResolvedValue([]) } },
 }));
@@ -200,23 +201,17 @@ app.use('/webhooks', webhooksRouter);
 
 describe('webhook URL HTTPS enforcement', () => {
   it('rejects plain HTTP URLs', async () => {
-    const res = await request(app)
-      .post('/webhooks')
-      .send({ url: 'http://example.com/hook' });
+    const res = await request(app).post('/webhooks').send({ url: 'http://example.com/hook' });
     expect(res.status).toBe(400);
   });
 
   it('accepts HTTPS URLs', async () => {
-    const res = await request(app)
-      .post('/webhooks')
-      .send({ url: 'https://example.com/hook' });
+    const res = await request(app).post('/webhooks').send({ url: 'https://example.com/hook' });
     expect(res.status).toBe(201);
   });
 
   it('returns a clear validation error for HTTP URLs', async () => {
-    const res = await request(app)
-      .post('/webhooks')
-      .send({ url: 'http://evil.com/steal' });
+    const res = await request(app).post('/webhooks').send({ url: 'http://evil.com/steal' });
     expect(res.status).toBe(400);
     expect(JSON.stringify(res.body)).toMatch(/HTTPS/i);
   });
