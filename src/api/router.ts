@@ -108,6 +108,10 @@ router.use('/admin/errors', adminErrorsRouter);
 import { bridgeTrackerRouter } from './bridge-tracker';
 router.use('/bridge-tracker', bridgeTrackerRouter);
 
+// ── ZKP Verification History ──────────────────────────────────────────────────
+import { zkpVerificationsRouter } from './zkp-verifications';
+router.use('/zkp-verifications', zkpVerificationsRouter);
+
 // ── Admin ──────────────────────────────────────────────────────────────────────
 import { adminRouter } from './admin';
 router.use('/admin', adminRouter);
