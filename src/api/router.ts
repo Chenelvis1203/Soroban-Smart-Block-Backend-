@@ -120,3 +120,10 @@ router.use('/abi-extract', abiExtractRouter);
 // Auth and owner-scoping are enforced inside webhooksRouter itself.
 import { webhooksRouter } from './webhooks';
 router.use('/webhooks', webhooksRouter);
+
+// ── Blockchain Data Lake / Analytics Warehouse (#566) ─────────────────────────
+// POST /analytics/query — compute-heavy SQL against Iceberg lake; key required
+// GET  /analytics/dashboard/:type — fast materialized-view path; public + cached
+import { analyticsQueryRouter } from './analytics-query';
+router.use('/analytics/query', requireApiKey, analyticsQueryRouter);
+router.use('/analytics', analyticsQueryRouter);

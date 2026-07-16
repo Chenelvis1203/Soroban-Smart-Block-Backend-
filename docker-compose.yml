@@ -313,8 +313,169 @@ services:
     command: node dist/indexer/run.js
     profiles: [devnet]
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ANALYTICS DATA LAKE  (#566)
+  # Start with:  docker compose --profile analytics up
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ['CMD-SHELL', 'echo ruok | nc localhost 2181 | grep imok']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    logging: *logging
+    profiles: [analytics]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - '9092:9092'      # internal Compose network
+      - '29092:29092'    # host access for local dev
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      # Retention: 7 days so lagging consumers can catch up
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ['CMD-SHELL', 'kafka-broker-api-versions --bootstrap-server localhost:9092']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    logging: *logging
+    profiles: [analytics]
+
+  debezium:
+    image: debezium/connect:2.7
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      db-testnet:
+        condition: service_healthy
+    ports:
+      - '8083:8083'
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: soroban-debezium
+      CONFIG_STORAGE_TOPIC: debezium.configs
+      OFFSET_STORAGE_TOPIC: debezium.offsets
+      STATUS_STORAGE_TOPIC: debezium.statuses
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # Exactly-once semantics
+      EXACTLY_ONCE_SUPPORT: required
+      PRODUCER_OVERRIDE_ENABLE_IDEMPOTENCE: 'true'
+      CONNECT_PRODUCER_MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION: '1'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8083/connectors || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+    logging: *logging
+    profiles: [analytics]
+
+  trino:
+    image: trinodb/trino:448
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '8080:8080'
+    environment:
+      # Trino will auto-discover Iceberg tables from the Glue catalog
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    volumes:
+      - trino-catalog:/etc/trino/catalog
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8080/v1/info | grep -q "\"starting\":false"']
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.00'
+          memory: 2G
+        reservations:
+          cpus: '0.50'
+          memory: 512M
+    logging: *logging
+    profiles: [analytics]
+
+  # Kafka UI — browse topics and Debezium connector status
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - '8090:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: soroban-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://debezium:8083
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+    logging: *logging
+    profiles: [analytics]
+
 volumes:
   pgdata-testnet:
   pgdata-mainnet:
   pgdata-devnet:
   redis-data:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  trino-catalog:
