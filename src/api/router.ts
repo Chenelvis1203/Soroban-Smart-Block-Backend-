@@ -49,6 +49,7 @@ import { adminErrorsRouter } from './admin/errors';
 // ── CSV Exports ───────────────────────────────────────────────────────────────
 import { requireApiKey, requireKeyTier } from '../middleware/apiKeyAuth';
 import { compilerRouter } from './compiler-router';
+import { sandboxRouter } from './sandbox';
 
 // ── MEV / Sandwich Detection (#290) ──────────────────────────────────────────
 
@@ -72,6 +73,7 @@ router.use('/simulate', requireApiKey, simulateRouter);
 router.use('/verify', requireApiKey, verifyRouter);
 // compiler endpoints require developer+ tier (expensive builds)
 router.use('/compiler', requireKeyTier('developer'), compilerRouter);
+router.use('/sandbox', sandboxRouter);
 router.use('/sync-state', syncStateRouter);
 router.use('/network', networkRouter);
 router.use('/token-metadata', tokenMetadataRouter);
