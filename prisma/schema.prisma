@@ -22,34 +22,33 @@ model Ledger {
   @@index([closeTime])
 }
 
-
 model Contract {
-  id                 String   @id @default(cuid())
-  address            String   @unique
+  id                 String  @id @default(cuid())
+  address            String  @unique
   name               String?
   description        String?
   abi                Json?
   functionSignatures Json?
-  isToken            Boolean  @default(false)
+  isToken            Boolean @default(false)
   tokenSymbol        String?
   tokenName          String?
   tokenDecimals      Int?
   wasmHash           String?
-  isVerified         Boolean  @default(false)
+  isVerified         Boolean @default(false)
 
-  verificationBadge  String?                    // gold | silver | bronze | null
+  verificationBadge  String? // gold | silver | bronze | null
   lastVerifiedAt     DateTime?
   safetyScore        Int?
   verifiedProperties Int       @default(0)
   totalProperties    Int       @default(0)
   vulnerabilities    Json?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  transactions Transaction[]
-  events       Event[]
-  wasmUpgrades WasmUpgradeHistory[]
+  transactions     Transaction[]
+  events           Event[]
+  wasmUpgrades     WasmUpgradeHistory[]
   verificationRuns VerificationRun[]
 
   @@index([address])
@@ -58,16 +57,16 @@ model Contract {
 }
 
 model VerificationRun {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   contractAddress String
-  contract        Contract @relation(fields: [contractAddress], references: [address])
-  status          String   @default("pending")  // pending | running | completed | failed
-  badge           String?                       // gold | silver | bronze
+  contract        Contract  @relation(fields: [contractAddress], references: [address])
+  status          String    @default("pending") // pending | running | completed | failed
+  badge           String? // gold | silver | bronze
   safetyScore     Int?
   report          Json?
-  startedAt       DateTime @default(now())
+  startedAt       DateTime  @default(now())
   completedAt     DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   @@index([contractAddress])
   @@index([status])
@@ -86,19 +85,19 @@ model WasmUpgradeHistory {
 
   upgrader                  String?
   upgraderAccountAgeLedgers Int?
-  changeClassification String?
-  changeSummary        String?
-  diffStats            Json?
-  criticalFnChanges    String[]
-  governanceType       String?
-  signerCount          Int?
-  threshold            Int?
-  timelockSeconds      Int?
-  daoProposalId        String?
-  decentralizationScore Int?
-  suspiciousFlags String[]
-  isSuspicious    Boolean  @default(false)
-  riskLevel       String?
+  changeClassification      String?
+  changeSummary             String?
+  diffStats                 Json?
+  criticalFnChanges         String[]
+  governanceType            String?
+  signerCount               Int?
+  threshold                 Int?
+  timelockSeconds           Int?
+  daoProposalId             String?
+  decentralizationScore     Int?
+  suspiciousFlags           String[]
+  isSuspicious              Boolean  @default(false)
+  riskLevel                 String?
 
   contract Contract @relation(fields: [contractAddress], references: [address])
 
@@ -228,23 +227,22 @@ model ReorgEvent {
 }
 
 model LedgerGap {
-  id             String   @id @default(cuid())
-  startSequence  Int
-  endSequence    Int
-  detectedAt     DateTime @default(now())
-  resolved       Boolean  @default(false)
+  id            String   @id @default(cuid())
+  startSequence Int
+  endSequence   Int
+  detectedAt    DateTime @default(now())
+  resolved      Boolean  @default(false)
 }
 
-
 model SacMapping {
-  id           String   @id @default(cuid())
-  assetCode    String
-  assetIssuer  String?
-  assetType    String
-  sacAddress   String   @unique
+  id              String   @id @default(cuid())
+  assetCode       String
+  assetIssuer     String?
+  assetType       String
+  sacAddress      String   @unique
   firstSeenLedger Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([assetCode, assetIssuer])
   @@index([sacAddress])
@@ -280,19 +278,19 @@ model SacTrustlineMapping {
 }
 
 model VerificationJob {
-  id              String   @id @default(cuid())
-  contractAddress String?
-  toolchain       String   @default("soroban-cli@0.9.4")
-  status          String   @default("pending")
-  uploadedHash    String?
-  onChainWasmHash String?
+  id               String   @id @default(cuid())
+  contractAddress  String?
+  toolchain        String   @default("soroban-cli@0.9.4")
+  status           String   @default("pending")
+  uploadedHash     String?
+  onChainWasmHash  String?
   compiledWasmHash String?
-  matched         Boolean?
-  errorMsg        String?
-  logs            String?
-  sourceFiles     Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  matched          Boolean?
+  errorMsg         String?
+  logs             String?
+  sourceFiles      Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([contractAddress])
   @@index([status])
@@ -349,10 +347,10 @@ model FailedItem {
 }
 
 model ApiKey {
-  id         String   @id @default(cuid())
-  key        String   @unique
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id         String    @id @default(cuid())
+  key        String    @unique
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
 }
 
@@ -423,27 +421,27 @@ model AuthDecomposition {
 // ---------------------------------------------------------------------------
 
 model SanctionsList {
-  id              String   @id @default(cuid())
-  source          String    // "ofac_sdn" | "ofac_cap" | "eu" | "un" | "uk_ofsi" | "custom"
-  sourceUrl       String?
-  listVersion     String    // version/date of the list
-  listName        String?
-  entityType      String    // "individual" | "entity" | "vessel" | "aircraft" | "unknown"
-  address         String?
-  addressPattern  String?
-  name            String?
-  aliases         String[]
-  program         String?
-  country         String?
-  idDocument      String?
-  citizenship     String[]
-  birthDate       String?
-  placeOfBirth    String?
-  title           String?
-  isActive        Boolean   @default(true)
-  addedToListAt   DateTime
-  importedAt      DateTime  @default(now())
-  lastModifiedAt  DateTime?
+  id             String    @id @default(cuid())
+  source         String // "ofac_sdn" | "ofac_cap" | "eu" | "un" | "uk_ofsi" | "custom"
+  sourceUrl      String?
+  listVersion    String // version/date of the list
+  listName       String?
+  entityType     String // "individual" | "entity" | "vessel" | "aircraft" | "unknown"
+  address        String?
+  addressPattern String?
+  name           String?
+  aliases        String[]
+  program        String?
+  country        String?
+  idDocument     String?
+  citizenship    String[]
+  birthDate      String?
+  placeOfBirth   String?
+  title          String?
+  isActive       Boolean   @default(true)
+  addedToListAt  DateTime
+  importedAt     DateTime  @default(now())
+  lastModifiedAt DateTime?
 
   @@index([address])
   @@index([source, listVersion])
@@ -456,14 +454,14 @@ model ScreeningResult {
   id              String    @id @default(cuid())
   address         String
   txHash          String?
-  screenedAt      DateTime   @default(now())
-  riskScore       Int        @default(0)
-  status          String     @default("clear")
-  matchType       String?    // "exact" | "fuzzy_name" | "fuzzy_address" | "partial" | "no_match"
+  screenedAt      DateTime  @default(now())
+  riskScore       Int       @default(0)
+  status          String    @default("clear")
+  matchType       String? // "exact" | "fuzzy_name" | "fuzzy_address" | "partial" | "no_match"
   matchedEntries  Json?
-  screeningMethod String     @default("real_time")
+  screeningMethod String    @default("real_time")
   reviewerId      String?
-  reviewAction    String?    // "confirmed_positive" | "false_positive" | "escalated"
+  reviewAction    String? // "confirmed_positive" | "false_positive" | "escalated"
   reviewedAt      DateTime?
   notes           String?
   durationMs      Int?
@@ -495,17 +493,17 @@ model TravelRuleRecord {
 }
 
 model ComplianceReport {
-  id              String    @id @default(cuid())
-  reportType      String     // "daily_screening" | "weekly_summary" | "monthly_audit" | "address_history" | "sar" | "regulatory"
-  generatedAt     DateTime   @default(now())
-  periodStart     DateTime
-  periodEnd       DateTime
-  format          String     @default("pdf")
-  fileUrl         String?
-  fileData        Bytes?
-  parameters      Json?
-  reportData      Json?
-  createdBy       String?
+  id          String   @id @default(cuid())
+  reportType  String // "daily_screening" | "weekly_summary" | "monthly_audit" | "address_history" | "sar" | "regulatory"
+  generatedAt DateTime @default(now())
+  periodStart DateTime
+  periodEnd   DateTime
+  format      String   @default("pdf")
+  fileUrl     String?
+  fileData    Bytes?
+  parameters  Json?
+  reportData  Json?
+  createdBy   String?
 
   @@index([reportType, periodStart(sort: Desc)])
   @@index([generatedAt(sort: Desc)])
@@ -542,14 +540,14 @@ model TranslationKey {
 }
 
 model Translation {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   keyId          String
   language       String
   translatedText String
   approvedBy     String?
   approvedAt     DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   key TranslationKey @relation(fields: [keyId], references: [id])
 
@@ -559,47 +557,47 @@ model Translation {
 }
 
 model FeedChannel {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  category    String?
-  schema      Json?
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String?
+  category      String?
+  schema        Json?
   retentionDays Int?
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model FeedMessage {
-  id            String    @id @default(cuid())
-  channelName   String
-  data          Json
-  sequence      Int       @default(0)
-  indexedAt     DateTime?
+  id             String    @id @default(cuid())
+  channelName    String
+  data           Json
+  sequence       Int       @default(0)
+  indexedAt      DateTime?
   ledgerSequence Int?
-  timestamp     DateTime  @default(now())
-  createdAt     DateTime  @default(now())
+  timestamp      DateTime  @default(now())
+  createdAt      DateTime  @default(now())
 
   @@index([channelName])
   @@index([ledgerSequence])
 }
 
 model FeedSubscription {
-  id             String   @id @default(cuid())
-  channelName    String
-  deliveryType   String
-  deliveryConfig Json?
-  userId         String?
-  filters        Json?
-  batchSize      Int?
+  id               String    @id @default(cuid())
+  channelName      String
+  deliveryType     String
+  deliveryConfig   Json?
+  userId           String?
+  filters          Json?
+  batchSize        Int?
   maxRatePerSecond Int?
-  status         String   @default("active")
-  lastDeliveryAt DateTime?
-  lastError      String?
-  totalDelivered Int?
-  totalFailed    Int?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status           String    @default("active")
+  lastDeliveryAt   DateTime?
+  lastError        String?
+  totalDelivered   Int?
+  totalFailed      Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([channelName])
   @@index([status])
@@ -646,18 +644,18 @@ model PauseEvent {
 }
 
 model PauserAnalysis {
-  id                  String   @id @default(cuid())
-  contractAddress     String   @unique @db.VarChar(56)
-  pauserType          String   @db.VarChar(30)
-  pauserAddresses     String[]
-  unpauserAddresses   String[]
-  threshold           Int?
-  totalSigners        Int?
+  id                   String   @id @default(cuid())
+  contractAddress      String   @unique @db.VarChar(56)
+  pauserType           String   @db.VarChar(30)
+  pauserAddresses      String[]
+  unpauserAddresses    String[]
+  threshold            Int?
+  totalSigners         Int?
   timelockDelaySeconds BigInt?
-  governanceContract  String?  @db.VarChar(56)
-  automaticTriggers   Json?
-  analysisMethod      String?  @db.VarChar(30)
-  lastAnalyzed        DateTime @default(now())
+  governanceContract   String?  @db.VarChar(56)
+  automaticTriggers    Json?
+  analysisMethod       String?  @db.VarChar(30)
+  lastAnalyzed         DateTime @default(now())
 }
 
 model RecoveryAnalysis {
@@ -677,38 +675,38 @@ model RecoveryAnalysis {
 }
 
 model AlertConfiguration {
-  id               String   @id @default(cuid())
-  userId           String
-  contractAddress  String?  @db.VarChar(56)
-  name             String?  @db.VarChar(255)
-  alertType        String   @db.VarChar(50)
-  conditions       Json?
-  channels         Json
-  isActive         Boolean  @default(true)
-  cooldownMinutes  Int      @default(60)
-  lastTriggeredAt  DateTime?
-  createdAt        DateTime @default(now())
+  id              String    @id @default(cuid())
+  userId          String
+  contractAddress String?   @db.VarChar(56)
+  name            String?   @db.VarChar(255)
+  alertType       String    @db.VarChar(50)
+  conditions      Json?
+  channels        Json
+  isActive        Boolean   @default(true)
+  cooldownMinutes Int       @default(60)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
 
   @@index([userId])
   @@index([contractAddress])
 }
 
 model IncidentReport {
-  id                    String   @id @default(cuid())
-  contractAddress       String   @db.VarChar(56)
-  severity              String   @db.VarChar(20)
-  status                String   @default("open") @db.VarChar(20)
+  id                    String    @id @default(cuid())
+  contractAddress       String    @db.VarChar(56)
+  severity              String    @db.VarChar(20)
+  status                String    @default("open") @db.VarChar(20)
   pauseEventId          String?
-  title                 String   @db.VarChar(255)
+  title                 String    @db.VarChar(255)
   description           String?
   timeline              Json?
   affectedUsersEstimate BigInt?
-  affectedTvlEstimate   Decimal? @db.Decimal(30, 0)
+  affectedTvlEstimate   Decimal?  @db.Decimal(30, 0)
   rootCause             String?
   resolutionNotes       String?
   resolvedAt            DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @default(now())
 
   incidentComments IncidentComment[]
 
@@ -719,11 +717,11 @@ model IncidentReport {
 }
 
 model IncidentComment {
-  id          String   @id @default(cuid())
-  incidentId  String
-  author      String
-  body        String
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  incidentId String
+  author     String
+  body       String
+  createdAt  DateTime @default(now())
 
   incident IncidentReport @relation(fields: [incidentId], references: [id], onDelete: Cascade)
 
@@ -731,19 +729,19 @@ model IncidentComment {
 }
 
 model ProtocolHealthScore {
-  id                     String   @id @default(cuid())
-  contractAddress        String   @unique @db.VarChar(56)
-  protocolName           String?  @db.VarChar(255)
-  totalPauses30d         Int      @default(0)
-  totalPauses90d         Int      @default(0)
-  avgPauseDuration30d    BigInt?
-  totalDowntime30d       BigInt?
-  lastPauseDate          DateTime?
-  recoveryScore          Decimal? @db.Decimal(5, 2)
-  decentralizationScore  Decimal? @db.Decimal(5, 2)
-  healthScore            Decimal? @db.Decimal(5, 2)
-  riskLevel              String?  @db.VarChar(20)
-  computedAt             DateTime @default(now())
+  id                    String    @id @default(cuid())
+  contractAddress       String    @unique @db.VarChar(56)
+  protocolName          String?   @db.VarChar(255)
+  totalPauses30d        Int       @default(0)
+  totalPauses90d        Int       @default(0)
+  avgPauseDuration30d   BigInt?
+  totalDowntime30d      BigInt?
+  lastPauseDate         DateTime?
+  recoveryScore         Decimal?  @db.Decimal(5, 2)
+  decentralizationScore Decimal?  @db.Decimal(5, 2)
+  healthScore           Decimal?  @db.Decimal(5, 2)
+  riskLevel             String?   @db.VarChar(20)
+  computedAt            DateTime  @default(now())
 
   @@index([healthScore])
 }
@@ -753,44 +751,44 @@ model ProtocolHealthScore {
 // =========================================================================
 
 model StellarAccount {
-  id                    String   @id @default(uuid())
-  address               String   @unique @db.VarChar(56)
-  xlmBalance            Decimal  @default(0) @db.Decimal(30, 7)
-  buyingLiabilities     Decimal  @default(0) @db.Decimal(30, 7)
-  sellingLiabilities    Decimal  @default(0) @db.Decimal(30, 7)
-  sequenceNumber        BigInt?
-  subentryCount         Int      @default(0)
-  inflationDestination  String?  @db.VarChar(56)
-  homeDomain            String?  @db.VarChar(255)
-  homeDomainVerified    Boolean  @default(false)
-  flags                 Json?
-  thresholds            Json?
-  numSigners            Int      @default(0)
-  numTrustlines         Int      @default(0)
-  numDataEntries        Int      @default(0)
-  numClaimableBalances  Int      @default(0)
-  isActivated           Boolean  @default(false)
-  firstSeen             DateTime?
-  lastActivity          DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @default(now())
+  id                   String    @id @default(uuid())
+  address              String    @unique @db.VarChar(56)
+  xlmBalance           Decimal   @default(0) @db.Decimal(30, 7)
+  buyingLiabilities    Decimal   @default(0) @db.Decimal(30, 7)
+  sellingLiabilities   Decimal   @default(0) @db.Decimal(30, 7)
+  sequenceNumber       BigInt?
+  subentryCount        Int       @default(0)
+  inflationDestination String?   @db.VarChar(56)
+  homeDomain           String?   @db.VarChar(255)
+  homeDomainVerified   Boolean   @default(false)
+  flags                Json?
+  thresholds           Json?
+  numSigners           Int       @default(0)
+  numTrustlines        Int       @default(0)
+  numDataEntries       Int       @default(0)
+  numClaimableBalances Int       @default(0)
+  isActivated          Boolean   @default(false)
+  firstSeen            DateTime?
+  lastActivity         DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @default(now())
 
   trustlines AccountTrustline[]
   signers    AccountSigner[]
 }
 
 model AccountTrustline {
-  id                             BigInt   @id @default(autoincrement())
-  accountId                      String
-  assetCode                      String   @db.VarChar(12)
-  assetIssuer                    String   @db.VarChar(56)
-  balance                        Decimal  @default(0) @db.Decimal(30, 7)
-  limitAmount                    Decimal? @db.Decimal(30, 7)
-  authorized                     Boolean  @default(false)
-  authorizedToMaintainLiabilities Boolean @default(false)
-  clawbackBalanceSet             Boolean  @default(false)
-  isLiquidityPoolShare           Boolean  @default(false)
-  lastModified                   DateTime @default(now())
+  id                              BigInt   @id @default(autoincrement())
+  accountId                       String
+  assetCode                       String   @db.VarChar(12)
+  assetIssuer                     String   @db.VarChar(56)
+  balance                         Decimal  @default(0) @db.Decimal(30, 7)
+  limitAmount                     Decimal? @db.Decimal(30, 7)
+  authorized                      Boolean  @default(false)
+  authorizedToMaintainLiabilities Boolean  @default(false)
+  clawbackBalanceSet              Boolean  @default(false)
+  isLiquidityPoolShare            Boolean  @default(false)
+  lastModified                    DateTime @default(now())
 
   account StellarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -812,22 +810,22 @@ model AccountSigner {
 }
 
 model StellarAsset {
-  id                String   @id @default(uuid())
-  assetCode         String   @db.VarChar(12)
-  assetIssuer       String   @db.VarChar(56)
-  assetType         String   @db.VarChar(20)
-  totalSupply       Decimal  @default(0) @db.Decimal(30, 7)
-  numHolders        Int      @default(0)
-  numTrustlines     Int      @default(0)
-  volume24h         Decimal  @default(0) @db.Decimal(30, 7)
-  trades24h         Int      @default(0)
-  isAnchored        Boolean  @default(false)
-  anchorName        String?  @db.VarChar(255)
-  homeDomain        String?  @db.VarChar(255)
-  isBridgedToSoroban Boolean @default(false)
-  sorobanContract   String?  @db.VarChar(56)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now())
+  id                 String   @id @default(uuid())
+  assetCode          String   @db.VarChar(12)
+  assetIssuer        String   @db.VarChar(56)
+  assetType          String   @db.VarChar(20)
+  totalSupply        Decimal  @default(0) @db.Decimal(30, 7)
+  numHolders         Int      @default(0)
+  numTrustlines      Int      @default(0)
+  volume24h          Decimal  @default(0) @db.Decimal(30, 7)
+  trades24h          Int      @default(0)
+  isAnchored         Boolean  @default(false)
+  anchorName         String?  @db.VarChar(255)
+  homeDomain         String?  @db.VarChar(255)
+  isBridgedToSoroban Boolean  @default(false)
+  sorobanContract    String?  @db.VarChar(56)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
 
   @@unique([assetCode, assetIssuer])
 }
@@ -856,24 +854,24 @@ model UnifiedTransaction {
 }
 
 model AnchorsRegistry {
-  id             String   @id @default(uuid())
-  name           String   @db.VarChar(255)
-  homeDomain     String   @db.VarChar(255)
-  address        String?  @db.VarChar(56)
-  assets         Json
-  regions        String[]
-  kycRequired    Boolean  @default(false)
-  kycTypes       String[]
-  fees           Json?
-  limits         Json?
-  supportedSeps  String[]
-  isVerified     Boolean  @default(false)
-  rating         Decimal  @default(0) @db.Decimal(3, 2)
-  reviewCount    Int      @default(0)
-  status         String   @default("active") @db.VarChar(20)
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @default(now())
+  id            String   @id @default(uuid())
+  name          String   @db.VarChar(255)
+  homeDomain    String   @db.VarChar(255)
+  address       String?  @db.VarChar(56)
+  assets        Json
+  regions       String[]
+  kycRequired   Boolean  @default(false)
+  kycTypes      String[]
+  fees          Json?
+  limits        Json?
+  supportedSeps String[]
+  isVerified    Boolean  @default(false)
+  rating        Decimal  @default(0) @db.Decimal(3, 2)
+  reviewCount   Int      @default(0)
+  status        String   @default("active") @db.VarChar(20)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
 
   reviews AnchorReview[]
 
@@ -895,37 +893,37 @@ model AnchorReview {
 }
 
 model BridgedAsset {
-  id                    String   @id @default(uuid())
-  classicAssetCode      String   @db.VarChar(12)
-  classicAssetIssuer    String   @db.VarChar(56)
-  sorobanContract       String   @unique @db.VarChar(56)
-  bridgeProtocol        String   @db.VarChar(50)
-  bridgeContract        String?  @db.VarChar(56)
-  totalSupplyClassic    Decimal? @db.Decimal(30, 7)
-  totalSupplySoroban    Decimal? @db.Decimal(30, 7)
-  circulationClassic    Decimal? @db.Decimal(30, 7)
-  circulationSoroban    Decimal? @db.Decimal(30, 7)
-  lockedInBridge        Decimal? @db.Decimal(30, 7)
-  totalBridgedVolume    Decimal? @db.Decimal(30, 0)
-  bridgeFee             Decimal? @db.Decimal(5, 4)
-  status                String   @default("active") @db.VarChar(20)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @default(now())
+  id                 String   @id @default(uuid())
+  classicAssetCode   String   @db.VarChar(12)
+  classicAssetIssuer String   @db.VarChar(56)
+  sorobanContract    String   @unique @db.VarChar(56)
+  bridgeProtocol     String   @db.VarChar(50)
+  bridgeContract     String?  @db.VarChar(56)
+  totalSupplyClassic Decimal? @db.Decimal(30, 7)
+  totalSupplySoroban Decimal? @db.Decimal(30, 7)
+  circulationClassic Decimal? @db.Decimal(30, 7)
+  circulationSoroban Decimal? @db.Decimal(30, 7)
+  lockedInBridge     Decimal? @db.Decimal(30, 7)
+  totalBridgedVolume Decimal? @db.Decimal(30, 0)
+  bridgeFee          Decimal? @db.Decimal(5, 4)
+  status             String   @default("active") @db.VarChar(20)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
 }
 
 model StellarNetworkHealth {
-  id                      BigInt   @id @default(autoincrement())
-  nodeCount               Int?
-  organizationCount       Int?
-  countriesCount          Int?
-  consensusRoundTimeMs    Int?
-  ledgerCloseTimeMs       Int?
-  latestLedgerSequence    BigInt?
-  protocolVersion         Int?
-  scpMessagesPerSecond    Decimal? @db.Decimal(10, 2)
-  networkQuorumSet        Json?
-  topOrganizations        Json?
-  collectedAt             DateTime @default(now())
+  id                   BigInt   @id @default(autoincrement())
+  nodeCount            Int?
+  organizationCount    Int?
+  countriesCount       Int?
+  consensusRoundTimeMs Int?
+  ledgerCloseTimeMs    Int?
+  latestLedgerSequence BigInt?
+  protocolVersion      Int?
+  scpMessagesPerSecond Decimal? @db.Decimal(10, 2)
+  networkQuorumSet     Json?
+  topOrganizations     Json?
+  collectedAt          DateTime @default(now())
 }
 
 // =========================================================================
@@ -933,16 +931,16 @@ model StellarNetworkHealth {
 // =========================================================================
 
 model ComposedTransaction {
-  id              String   @id
-  txHash          String   @unique
-  ledgerSeq       Int
-  timestamp       DateTime
-  contractCalls   Json?
-  callGraph       Json?
-  safetyScore     Float?
-  riskLevel       String?
-  analysisStatus  String   @default("pending")
-  createdAt       DateTime @default(now())
+  id             String   @id
+  txHash         String   @unique
+  ledgerSeq      Int
+  timestamp      DateTime
+  contractCalls  Json?
+  callGraph      Json?
+  safetyScore    Float?
+  riskLevel      String?
+  analysisStatus String   @default("pending")
+  createdAt      DateTime @default(now())
 
   patternInstances CompositionPatternInstance[]
   patterns         Json?
@@ -1043,23 +1041,23 @@ model ComposabilityStaticAnalysis {
 }
 
 model ComposabilityVerification {
-  id                String   @id
-  txHash            String   @unique
-  atomicity         Boolean  @default(false)
-  authorization     Boolean  @default(false)
-  stateConsistency  Boolean  @default(false)
-  reentrancyFree    Boolean  @default(false)
-  oracleFreshness   Boolean  @default(false)
-  atomicityScore    Float    @default(0)
-  authorizationScore Float   @default(0)
-  stateScore        Float    @default(0)
-  reentrancyScore   Float    @default(0)
-  oracleScore       Float    @default(0)
-  totalScore        Float    @default(0)
-  proofData         Json?
-  verified          Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id
+  txHash             String   @unique
+  atomicity          Boolean  @default(false)
+  authorization      Boolean  @default(false)
+  stateConsistency   Boolean  @default(false)
+  reentrancyFree     Boolean  @default(false)
+  oracleFreshness    Boolean  @default(false)
+  atomicityScore     Float    @default(0)
+  authorizationScore Float    @default(0)
+  stateScore         Float    @default(0)
+  reentrancyScore    Float    @default(0)
+  oracleScore        Float    @default(0)
+  totalScore         Float    @default(0)
+  proofData          Json?
+  verified           Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([verified])
 }
@@ -1083,18 +1081,18 @@ model ComposabilityFuzzCampaign {
 }
 
 model ComposabilityExploit {
-  id               String   @id
-  title            String
-  description      String
-  patternCategory  String
-  cveId            String?
+  id                String   @id
+  title             String
+  description       String
+  patternCategory   String
+  cveId             String?
   affectedContracts String[]
-  exploitTxHashes  String[]
-  advisoryUrl      String?
-  severity         String
-  discoveredAt     DateTime @default(now())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  exploitTxHashes   String[]
+  advisoryUrl       String?
+  severity          String
+  discoveredAt      DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([patternCategory])
   @@index([severity])
@@ -1135,17 +1133,17 @@ model MevVictim {
 }
 
 model MevAttacker {
-  id              String    @id
-  address         String    @unique
-  totalProfitUsd  Float     @default(0)
-  attackCount     Int       @default(0)
-  favoriteType    String?
-  lastAttackAt    DateTime?
-  firstSeen       DateTime?
-  isContract      Boolean   @default(false)
-  tags            Json?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id
+  address        String    @unique
+  totalProfitUsd Float     @default(0)
+  attackCount    Int       @default(0)
+  favoriteType   String?
+  lastAttackAt   DateTime?
+  firstSeen      DateTime?
+  isContract     Boolean   @default(false)
+  tags           Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   mevEvents MevEvent[]
 
@@ -1154,8 +1152,8 @@ model MevAttacker {
 }
 
 model MevEvent {
-  id              String    @id
-  txHash          String    @unique
+  id              String   @id
+  txHash          String   @unique
   ledgerSeq       Int
   timestamp       DateTime
   mevType         String
@@ -1174,9 +1172,9 @@ model MevEvent {
   confidence      Float
   details         Json?
   flashLoanAlert  Boolean?
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime @default(now())
 
-  victim  MevVictim?  @relation(fields: [victimAddress], references: [address], onUpdate: Cascade)
+  victim   MevVictim?   @relation(fields: [victimAddress], references: [address], onUpdate: Cascade)
   attacker MevAttacker? @relation(fields: [attackerAddress], references: [address], onUpdate: Cascade)
 
   @@index([mevType])
@@ -1210,19 +1208,19 @@ model ProtocolMevResistance {
 }
 
 model MevAlert {
-  id               String    @id
-  alertType        String
-  severity         String
-  txHash           String?
-  victimAddress    String?
-  protocolAddress  String?
-  title            String
-  description      String
-  estimatedLoss    Float?
+  id                String    @id
+  alertType         String
+  severity          String
+  txHash            String?
+  victimAddress     String?
+  protocolAddress   String?
+  title             String
+  description       String
+  estimatedLoss     Float?
   recommendedAction String?
-  acknowledged     Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  resolvedAt       DateTime?
+  acknowledged      Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  resolvedAt        DateTime?
 
   @@index([alertType])
   @@index([severity])
@@ -1236,14 +1234,14 @@ model MevAlert {
 // =========================================================================
 
 model BillingPlan {
-  id              String   @id
-  name            String   @unique
-  requestsPerDay  Int
+  id               String   @id
+  name             String   @unique
+  requestsPerDay   Int
   requestsPerMonth Int
-  priceMonthly    Float    @default(0)
-  features        Json     @default("{}")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  priceMonthly     Float    @default(0)
+  features         Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   developers Developer[]
 }
@@ -1263,7 +1261,7 @@ model Developer {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  plan         BillingPlan? @relation(fields: [planId], references: [id], onUpdate: Cascade)
+  plan         BillingPlan?  @relation(fields: [planId], references: [id], onUpdate: Cascade)
   apiKeys      DevApiKey[]
   webhooks     DevWebhook[]
   usageRecords UsageRecord[]
@@ -1282,9 +1280,9 @@ model DevApiKey {
   permissions       Json      @default("{}")
   allowedIps        Json?
   allowedDomains    Json?
-  allowedEndpoints  Json?     // endpoint whitelist (optional)
+  allowedEndpoints  Json? // endpoint whitelist (optional)
   tier              String    @default("free") // "free" | "developer" | "pro" | "enterprise"
-  rateLimitOverride Int?      // custom req/min override
+  rateLimitOverride Int? // custom req/min override
   revokedAt         DateTime?
   usageCount        Int       @default(0)
   expiresAt         DateTime?
@@ -1293,8 +1291,8 @@ model DevApiKey {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  developer     Developer     @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  usageRecords  UsageRecord[]
+  developer    Developer     @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  usageRecords UsageRecord[]
 
   @@index([developerId])
   @@index([keyPrefix])
@@ -1304,22 +1302,22 @@ model DevApiKey {
 }
 
 model DevWebhook {
-  id                String    @id
-  developerId       String
-  url               String
-  secret            String
-  events            Json      @default("[]")
-  retryPolicy       Json?
-  headers           Json?
-  active            Boolean   @default(true)
-  storeResponseBody Boolean   @default(true)
-  responseRetentionDays Int   @default(90)
-  lastDeliveryAt    DateTime?
-  lastDeliveryStatus String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                    String    @id
+  developerId           String
+  url                   String
+  secret                String
+  events                Json      @default("[]")
+  retryPolicy           Json?
+  headers               Json?
+  active                Boolean   @default(true)
+  storeResponseBody     Boolean   @default(true)
+  responseRetentionDays Int       @default(90)
+  lastDeliveryAt        DateTime?
+  lastDeliveryStatus    String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  developer  Developer          @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  developer  Developer            @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   deliveries DevWebhookDelivery[]
 
   @@index([developerId])
@@ -1357,7 +1355,7 @@ model UsageRecord {
   ipAddress   String?
   createdAt   DateTime @default(now())
 
-  developer Developer @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  developer Developer  @relation(fields: [developerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   apiKey    DevApiKey? @relation(fields: [apiKeyId], references: [id], onUpdate: Cascade)
 
   @@index([developerId])
@@ -1400,24 +1398,24 @@ model ScheduledOperation {
 }
 
 model VestingSchedule {
-  id               String   @id
+  id               String    @id
   contractAddress  String
   tokenAddress     String
   tokenSymbol      String?
   beneficiary      String
-  totalAmount      Decimal  @db.Decimal(65, 30)
+  totalAmount      Decimal   @db.Decimal(65, 30)
   cliffDate        DateTime?
-  cliffAmount      Decimal? @db.Decimal(65, 30)
+  cliffAmount      Decimal?  @db.Decimal(65, 30)
   startDate        DateTime
   endDate          DateTime
   vestingType      String
   periodSeconds    Int?
-  amountPerPeriod  Decimal? @db.Decimal(65, 30)
+  amountPerPeriod  Decimal?  @db.Decimal(65, 30)
   periodsTotal     Int?
   nextUnlockDate   DateTime?
-  nextUnlockAmount Decimal? @db.Decimal(65, 30)
-  totalUnlocked    Decimal  @default(0) @db.Decimal(65, 30)
-  totalClaimed     Decimal  @default(0) @db.Decimal(65, 30)
+  nextUnlockAmount Decimal?  @db.Decimal(65, 30)
+  totalUnlocked    Decimal   @default(0) @db.Decimal(65, 30)
+  totalClaimed     Decimal   @default(0) @db.Decimal(65, 30)
   status           String
   sourceTx         String?
   detectedAt       DateTime
@@ -1479,14 +1477,14 @@ model CronJob {
 }
 
 model CronExecution {
-  id          String    @id
-  cronJobId   String
-  executedAt  DateTime
-  success     Boolean
-  txHash      String?
+  id           String   @id
+  cronJobId    String
+  executedAt   DateTime
+  success      Boolean
+  txHash       String?
   errorMessage String?
-  gasUsed     Int?
-  duration    Int?
+  gasUsed      Int?
+  duration     Int?
 
   cronJob CronJob @relation(fields: [cronJobId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
@@ -1494,15 +1492,15 @@ model CronExecution {
 }
 
 model TimerAlert {
-  id             String    @id
-  scheduledOpId  String?
-  alertType      String
-  severity       String
-  title          String
-  message        String
-  triggerTime    DateTime
-  delivered      Boolean   @default(false)
-  acknowledged   Boolean   @default(false)
+  id            String   @id
+  scheduledOpId String?
+  alertType     String
+  severity      String
+  title         String
+  message       String
+  triggerTime   DateTime
+  delivered     Boolean  @default(false)
+  acknowledged  Boolean  @default(false)
 
   scheduledOp ScheduledOperation? @relation(fields: [scheduledOpId], references: [id])
 
@@ -1515,48 +1513,48 @@ model TimerAlert {
 // =========================================================================
 
 model DexPool {
-  id              String    @id @default(uuid())
-  contractAddress String    @unique @db.VarChar(56)
-  dexName         String    @db.VarChar(100)
-  poolType        String    @db.VarChar(30)
+  id              String      @id @default(uuid())
+  contractAddress String      @unique @db.VarChar(56)
+  dexName         String      @db.VarChar(100)
+  poolType        String      @db.VarChar(30)
   aprPct          Float?
   feeBps          Int?
-  feeTier         Decimal?  @db.Decimal(5, 4)
-  fees24h         Decimal?  @db.Decimal(30, 0)
+  feeTier         Decimal?    @db.Decimal(5, 4)
+  fees24h         Decimal?    @db.Decimal(30, 0)
   fees24hUsd      Decimal?
   firstSeenLedger Int?
   ilRiskScore     Float?
-  isActive        Boolean   @default(true)
+  isActive        Boolean     @default(true)
   lastEventLedger Int?
   lastSyncedAt    DateTime?
   pairKey         String?
-  poolAddress     String?   @unique
+  poolAddress     String?     @unique
   poolPrices      PoolPrice[]
   priceAUsd       Decimal?
   priceBUsd       Decimal?
   protocol        String?
   reserveA        Decimal?
   reserveB        Decimal?
-  tokenA          String    @db.VarChar(56)
+  tokenA          String      @db.VarChar(56)
   tokenADecimals  Int?
-  tokenASymbol    String?   @db.VarChar(20)
-  tokenB          String    @db.VarChar(56)
+  tokenASymbol    String?     @db.VarChar(20)
+  tokenB          String      @db.VarChar(56)
   tokenBDecimals  Int?
-  tokenBSymbol    String?   @db.VarChar(20)
-  totalLiquidity  Decimal?  @db.Decimal(30, 0)
+  tokenBSymbol    String?     @db.VarChar(20)
+  totalLiquidity  Decimal?    @db.Decimal(30, 0)
   tvlUsd          Decimal?
   volume1hUsd     Decimal?
-  volume24h       Decimal?  @db.Decimal(30, 0)
+  volume24h       Decimal?    @db.Decimal(30, 0)
   volume24hUsd    Decimal?
   volume7dUsd     Decimal?
   volume30dUsd    Decimal?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @default(now())
 
-  priceDevA      PriceDeviation[] @relation("priceDevA")
-  priceDevB      PriceDeviation[] @relation("priceDevB")
-  arbBuyOpps     ArbitrageOpportunity[] @relation("buyPool")
-  arbSellOpps    ArbitrageOpportunity[] @relation("sellPool")
+  priceDevA   PriceDeviation[]       @relation("priceDevA")
+  priceDevB   PriceDeviation[]       @relation("priceDevB")
+  arbBuyOpps  ArbitrageOpportunity[] @relation("buyPool")
+  arbSellOpps ArbitrageOpportunity[] @relation("sellPool")
 
   @@index([dexName])
   @@index([tokenA, tokenB])
@@ -1564,19 +1562,19 @@ model DexPool {
 }
 
 model PoolPrice {
-  id         BigInt    @id @default(autoincrement())
-  poolId     String
+  id          BigInt   @id @default(autoincrement())
+  poolId      String
   blockNumber BigInt
-  timestamp  DateTime
-  reserveA   Decimal   @db.Decimal(30, 0)
-  reserveB   Decimal   @db.Decimal(30, 0)
-  spotPrice  Decimal   @db.Decimal(30, 18)
-  twap1m     Decimal?  @db.Decimal(30, 18)
-  twap5m     Decimal?  @db.Decimal(30, 18)
-  twap1h     Decimal?  @db.Decimal(30, 18)
-  vwap       Decimal?  @db.Decimal(30, 18)
-  tick       Int?
-  sqrtPrice  Decimal?  @db.Decimal(40, 0)
+  timestamp   DateTime
+  reserveA    Decimal  @db.Decimal(30, 0)
+  reserveB    Decimal  @db.Decimal(30, 0)
+  spotPrice   Decimal  @db.Decimal(30, 18)
+  twap1m      Decimal? @db.Decimal(30, 18)
+  twap5m      Decimal? @db.Decimal(30, 18)
+  twap1h      Decimal? @db.Decimal(30, 18)
+  vwap        Decimal? @db.Decimal(30, 18)
+  tick        Int?
+  sqrtPrice   Decimal? @db.Decimal(40, 0)
 
   pool DexPool @relation(fields: [poolId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -1630,9 +1628,9 @@ model ArbitrageOpportunity {
   executionTxHash  String?   @db.VarChar(64)
   createdAt        DateTime  @default(now())
 
-  buyPool  DexPool?              @relation(fields: [buyPoolId], references: [id], onUpdate: Cascade, name: "buyPool")
-  sellPool DexPool?              @relation(fields: [sellPoolId], references: [id], onUpdate: Cascade, name: "sellPool")
-  mevScore MevOpportunityScore?
+  buyPool    DexPool?             @relation(fields: [buyPoolId], references: [id], onUpdate: Cascade, name: "buyPool")
+  sellPool   DexPool?             @relation(fields: [sellPoolId], references: [id], onUpdate: Cascade, name: "sellPool")
+  mevScore   MevOpportunityScore?
   executions ArbitrageExecution[]
 
   @@index([status, detectedAt])
@@ -1643,17 +1641,17 @@ model ArbitrageOpportunity {
 }
 
 model MevOpportunityScore {
-  id                String    @id @default(uuid())
-  opportunityId     String    @unique
+  id                 String   @id @default(uuid())
+  opportunityId      String   @unique
   profitabilityScore Decimal? @db.Decimal(5, 2)
-  capitalEfficiency Decimal? @db.Decimal(10, 4)
-  speedRequirement  String?  @db.VarChar(20)
-  competitionLevel  String?  @db.VarChar(20)
-  slippageRisk      Decimal? @db.Decimal(5, 2)
-  frontrunningRisk  Decimal? @db.Decimal(5, 2)
-  overallScore      Decimal? @db.Decimal(5, 2)
-  recommendation    String?  @db.VarChar(50)
-  scoredAt          DateTime @default(now())
+  capitalEfficiency  Decimal? @db.Decimal(10, 4)
+  speedRequirement   String?  @db.VarChar(20)
+  competitionLevel   String?  @db.VarChar(20)
+  slippageRisk       Decimal? @db.Decimal(5, 2)
+  frontrunningRisk   Decimal? @db.Decimal(5, 2)
+  overallScore       Decimal? @db.Decimal(5, 2)
+  recommendation     String?  @db.VarChar(50)
+  scoredAt           DateTime @default(now())
 
   opportunity ArbitrageOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -1662,20 +1660,20 @@ model MevOpportunityScore {
 }
 
 model ArbitrageExecution {
-  id              String    @id @default(uuid())
-  opportunityId   String
-  searcherAddress String?   @db.VarChar(56)
-  txHash          String    @db.VarChar(64)
-  blockNumber     BigInt
-  capitalUsed     Decimal?  @db.Decimal(30, 0)
-  grossProfit     Decimal?  @db.Decimal(30, 0)
-  gasCost         Decimal?  @db.Decimal(30, 0)
-  netProfit       Decimal?  @db.Decimal(30, 0)
-  executionTimeMs Int?
-  success         Boolean
-  failureReason   String?
+  id                String   @id @default(uuid())
+  opportunityId     String
+  searcherAddress   String?  @db.VarChar(56)
+  txHash            String   @db.VarChar(64)
+  blockNumber       BigInt
+  capitalUsed       Decimal? @db.Decimal(30, 0)
+  grossProfit       Decimal? @db.Decimal(30, 0)
+  gasCost           Decimal? @db.Decimal(30, 0)
+  netProfit         Decimal? @db.Decimal(30, 0)
+  executionTimeMs   Int?
+  success           Boolean
+  failureReason     String?
   simulationResults Json?
-  executedAt      DateTime  @default(now())
+  executedAt        DateTime @default(now())
 
   opportunity ArbitrageOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
@@ -1686,23 +1684,23 @@ model ArbitrageExecution {
 }
 
 model ArbitrageBot {
-  id                 String    @id @default(uuid())
-  address            String    @unique @db.VarChar(56)
+  id                 String   @id @default(uuid())
+  address            String   @unique @db.VarChar(56)
   firstSeen          DateTime
   lastSeen           DateTime
-  totalTrades        Int       @default(0)
-  successfulTrades   Int       @default(0)
-  failedTrades       Int       @default(0)
-  totalProfit        Decimal   @default(0) @db.Decimal(30, 0)
-  totalGasSpent      Decimal   @default(0) @db.Decimal(30, 0)
-  avgProfitPerTrade  Decimal?  @db.Decimal(30, 0)
-  successRate        Decimal?  @db.Decimal(5, 4)
-  preferredPairs     String[]  @default([])
-  preferredDexs      String[]  @default([])
-  avgCapitalPerTrade Decimal?  @db.Decimal(30, 0)
-  isActive           Boolean   @default(true)
-  tags               String[]  @default([])
-  updatedAt          DateTime  @default(now())
+  totalTrades        Int      @default(0)
+  successfulTrades   Int      @default(0)
+  failedTrades       Int      @default(0)
+  totalProfit        Decimal  @default(0) @db.Decimal(30, 0)
+  totalGasSpent      Decimal  @default(0) @db.Decimal(30, 0)
+  avgProfitPerTrade  Decimal? @db.Decimal(30, 0)
+  successRate        Decimal? @db.Decimal(5, 4)
+  preferredPairs     String[] @default([])
+  preferredDexs      String[] @default([])
+  avgCapitalPerTrade Decimal? @db.Decimal(30, 0)
+  isActive           Boolean  @default(true)
+  tags               String[] @default([])
+  updatedAt          DateTime @default(now())
 
   @@index([totalProfit])
   @@index([isActive])
@@ -1710,19 +1708,19 @@ model ArbitrageBot {
 }
 
 model SandwichAttack {
-  id             String    @id @default(uuid())
-  pair           String    @db.VarChar(50)
-  dex            String    @db.VarChar(100)
-  victimTx       String    @db.VarChar(64)
-  victimAddress  String    @db.VarChar(56)
-  victimSlippage Decimal   @db.Decimal(10, 4)
-  victimLoss     Decimal?  @db.Decimal(30, 0)
+  id              String   @id @default(uuid())
+  pair            String   @db.VarChar(50)
+  dex             String   @db.VarChar(100)
+  victimTx        String   @db.VarChar(64)
+  victimAddress   String   @db.VarChar(56)
+  victimSlippage  Decimal  @db.Decimal(10, 4)
+  victimLoss      Decimal? @db.Decimal(30, 0)
   attackerAddress String   @db.VarChar(56)
-  attackerProfit Decimal?  @db.Decimal(30, 0)
-  frontRunTx     String    @db.VarChar(64)
-  backRunTx      String    @db.VarChar(64)
-  blockNumber    BigInt
-  timestamp      DateTime
+  attackerProfit  Decimal? @db.Decimal(30, 0)
+  frontRunTx      String   @db.VarChar(64)
+  backRunTx       String   @db.VarChar(64)
+  blockNumber     BigInt
+  timestamp       DateTime
 
   @@index([victimAddress])
   @@index([attackerAddress])
@@ -1812,13 +1810,13 @@ model PredictionScenario {
 }
 
 model PredictiveApiKey {
-  id        String    @id @default(cuid())
-  key       String    @unique
-  tier      String    @default("free")
-  active    Boolean   @default(true)
+  id         String    @id @default(cuid())
+  key        String    @unique
+  tier       String    @default("free")
+  active     Boolean   @default(true)
   lastUsedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([key])
 }
@@ -1828,27 +1826,27 @@ model PredictiveApiKey {
 // =========================================================================
 
 model AmmPool {
-  id              String   @id @default(cuid())
-  poolAddress     String
-  assetAAddress   String
-  assetBAddress   String
-  createdAt       DateTime @default(now())
+  id            String   @id @default(cuid())
+  poolAddress   String
+  assetAAddress String
+  assetBAddress String
+  createdAt     DateTime @default(now())
 
   @@index([poolAddress])
 }
 
 model AnonymitySetSnapshot {
-  id                String   @id @default(cuid())
-  protocol          String
-  setSize           Int
-  effectiveSetSize  Int
-  timestamp         DateTime
-  createdAt         DateTime @default(now())
+  id               String   @id @default(cuid())
+  protocol         String
+  setSize          Int
+  effectiveSetSize Int
+  timestamp        DateTime
+  createdAt        DateTime @default(now())
 }
 
 model Attestation {
-  id              String   @id @default(cuid())
-  uid             String   @unique
+  id              String    @id @default(cuid())
+  uid             String    @unique
   profileId       String
   chainId         String
   schemaId        String
@@ -1864,8 +1862,8 @@ model Attestation {
   verificationMsg String?
   issuedAt        DateTime?
   expiresAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   profile ReputationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
@@ -1923,7 +1921,7 @@ model Bn254GasExemption {
 }
 
 model CommodityDualSignerLog {
-  id                     String   @id @default(cuid())
+  id                     String    @id @default(cuid())
   transactionHash        String
   commodityType          String
   commodityCode          String
@@ -1942,7 +1940,7 @@ model CommodityDualSignerLog {
   secondarySigned        Boolean?
   bothSigned             Boolean?
   complianceStatus       String?
-  createdAt              DateTime @default(now())
+  createdAt              DateTime  @default(now())
 }
 
 model ContractBenchmarkSnapshot {
@@ -1998,7 +1996,7 @@ model DerivedMetric {
 }
 
 model DtccSettlementBridge {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   transactionHash  String
   dtccSettlementId String
   securityId       String
@@ -2013,13 +2011,13 @@ model DtccSettlementBridge {
   ledgerSequence   Int
   ledgerCloseTime  DateTime
   settlementStatus String
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   @@index([dtccSettlementId])
 }
 
 model Endorsement {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   profileId       String
   chainId         String
   endorser        String
@@ -2027,7 +2025,7 @@ model Endorsement {
   weight          Float?
   timestamp       DateTime?
   transactionHash String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   profile ReputationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
@@ -2141,29 +2139,29 @@ model GasGolfingTip {
 // values (i128-safe), matching the indexer's addIntegerStrings arithmetic.
 
 model GovernanceContract {
-  id              String   @id @default(cuid())
-  contractAddress String   @unique
-  governanceType  String
-  votingToken     String?
+  id                        String   @id @default(cuid())
+  contractAddress           String   @unique
+  governanceType            String
+  votingToken               String?
   // Shared voting config
-  quorumBps            Int? // quorum as basis points of total supply
-  votingPeriodLedgers  Int? // proposal voting window in ledgers
-  proposalThreshold    String? // min token balance to create a proposal
-  timelockDelaySecs    Int? // delay between passage and execution (null → service default 48h)
-  guardian             String? // address allowed to cancel queued proposals
-  categories           String[] @default([]) // delegation categories (e.g. tech, treasury)
+  quorumBps                 Int? // quorum as basis points of total supply
+  votingPeriodLedgers       Int? // proposal voting window in ledgers
+  proposalThreshold         String? // min token balance to create a proposal
+  timelockDelaySecs         Int? // delay between passage and execution (null → service default 48h)
+  guardian                  String? // address allowed to cancel queued proposals
+  categories                String[] @default([]) // delegation categories (e.g. tech, treasury)
   // Quadratic voting config
-  voiceCreditsPerRound Int? // per-voter credit budget per round
-  minTokenHolding      String? // Sybil floor: min balance for a credit budget
-  minReputationScore   Float? // optional reputation gate
+  voiceCreditsPerRound      Int? // per-voter credit budget per round
+  minTokenHolding           String? // Sybil floor: min balance for a credit budget
+  minReputationScore        Float? // optional reputation gate
   // Conviction voting config
   convictionHalfLifeLedgers Int? // decay half-life for conviction accrual
   convictionMaxRatioBps     Int? // max fraction of pool one proposal can request
   // Multisig config
-  multisigThreshold Int? // M of the active GovernanceMultisigSigner set
-  metadata          Json?
-  updatedAt         DateTime @updatedAt
-  createdAt         DateTime @default(now())
+  multisigThreshold         Int? // M of the active GovernanceMultisigSigner set
+  metadata                  Json?
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
 
   proposals   GovernanceProposal[]
   votes       GovernanceVote[]
@@ -2280,20 +2278,20 @@ model GovernanceProposal {
 }
 
 model GovernanceVote {
-  id              String   @id @default(cuid())
-  contractAddress String
-  proposalId      String // on-chain proposal id (FK to proposal's natural key)
-  voter           String
-  weight          String? // integer string (i128-safe)
-  support         String? // for | against | abstain | confirm | unknown
-  reason          String?
-  voiceCredits    Int? // quadratic: credits spent (= votes²)
-  stakeAmount     String? // conviction: currently staked tokens
-  convictionAt    String? // conviction: accrued conviction at lastUpdateLedger
+  id               String   @id @default(cuid())
+  contractAddress  String
+  proposalId       String // on-chain proposal id (FK to proposal's natural key)
+  voter            String
+  weight           String? // integer string (i128-safe)
+  support          String? // for | against | abstain | confirm | unknown
+  reason           String?
+  voiceCredits     Int? // quadratic: credits spent (= votes²)
+  stakeAmount      String? // conviction: currently staked tokens
+  convictionAt     String? // conviction: accrued conviction at lastUpdateLedger
   lastUpdateLedger Int? // conviction: ledger of last conviction update
-  transactionHash String?
-  ledgerSequence  Int?
-  createdAt       DateTime @default(now())
+  transactionHash  String?
+  ledgerSequence   Int?
+  createdAt        DateTime @default(now())
 
   contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
   proposal GovernanceProposal @relation(fields: [contractAddress, proposalId], references: [contractAddress, proposalId], onDelete: Cascade)
@@ -2306,16 +2304,16 @@ model GovernanceVote {
 // ─── DAO Treasury (issue #567 §Treasury Management) ─────────────────────────
 
 model TreasuryAccount {
-  id              String   @id @default(cuid())
-  contractAddress String // owning governance contract
-  accountAddress  String   @unique // on-chain treasury account/contract
-  name            String?
-  reputationWeight Float   @default(0) // 0..1 blend of reputation into voting power
-  metadata        Json?
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
+  id               String   @id @default(cuid())
+  contractAddress  String // owning governance contract
+  accountAddress   String   @unique // on-chain treasury account/contract
+  name             String?
+  reputationWeight Float    @default(0) // 0..1 blend of reputation into voting power
+  metadata         Json?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
 
-  governance   GovernanceContract       @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+  governance   GovernanceContract     @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
   assets       TreasuryAsset[]
   streams      TreasuryPayoutStream[]
   transactions TreasuryTransaction[]
@@ -2445,7 +2443,7 @@ model NetworkNode {
   nodeMetrics        Json?
   organization       String?
   organizationName   String?
-  publicKey          String?  @unique
+  publicKey          String?   @unique
   quorumSet          Json?
   quorumVotes        Int?
   roundTripLatencyMs Int?
@@ -2459,39 +2457,39 @@ model NetworkNode {
 }
 
 model OperationBenchmark {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String
   avgCpu        Float?
   avgMemory     Float?
   avgFeeStroops Float?
   samples       Int
   lastUpdated   DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 }
 
 model OracleCallback {
-  id                   String   @id @default(cuid())
+  id                    String   @id @default(cuid())
   oracleContractAddress String
   dataRequestorAddress  String
   requestTimestamp      DateTime
-  roundTripLatencyMs   Int?
+  roundTripLatencyMs    Int?
   status                String
   createdAt             DateTime @default(now())
 }
 
 model PoolSnapshot {
-  id            String   @id @default(cuid())
-  poolAddress   String
+  id             String   @id @default(cuid())
+  poolAddress    String
   ledgerSequence Int
-  reserveA      String?
-  reserveB      String?
-  tvlUsd        Float?
-  volume24hUsd  Float?
-  fees24hUsd    Float?
-  aprPct        Float?
-  priceAUsd     Float?
-  priceBUsd     Float?
-  createdAt     DateTime @default(now())
+  reserveA       String?
+  reserveB       String?
+  tvlUsd         Float?
+  volume24hUsd   Float?
+  fees24hUsd     Float?
+  aprPct         Float?
+  priceAUsd      Float?
+  priceBUsd      Float?
+  createdAt      DateTime @default(now())
 }
 
 model PoolSwap {
@@ -2519,23 +2517,23 @@ model PortfolioSnapshot {
 }
 
 model PrivacyAnalytics {
-  id                String   @id @default(cuid())
-  timestamp         DateTime
-  period            String?
-  totalPrivateTx    Int?
-  totalTx           Int?
-  totalVolume       Float?
-  privacyShare      Float?
-  volumeShare       Float?
-  byProtocol        Json?
-  avgAnonymitySet   Float?
-  maxAnonymitySet   Int?
+  id                 String   @id @default(cuid())
+  timestamp          DateTime
+  period             String?
+  totalPrivateTx     Int?
+  totalTx            Int?
+  totalVolume        Float?
+  privacyShare       Float?
+  volumeShare        Float?
+  byProtocol         Json?
+  avgAnonymitySet    Float?
+  maxAnonymitySet    Int?
   medianAnonymitySet Int?
-  avgPrivacyScore   Float?
-  avgRiskScore      Float?
-  uniqueUsers       Int?
-  uniqueContracts   Int?
-  createdAt         DateTime @default(now())
+  avgPrivacyScore    Float?
+  avgRiskScore       Float?
+  uniqueUsers        Int?
+  uniqueContracts    Int?
+  createdAt          DateTime @default(now())
 }
 
 model PrivacyComplianceReport {
@@ -2568,34 +2566,34 @@ model PrivacyProtocolDetail {
 }
 
 model PrivacyTransaction {
-  id                     String   @id @default(cuid())
-  txHash                 String   @unique
-  timestamp              DateTime
-  protocols              String[]
-  guarantees             String[]
+  id                      String   @id @default(cuid())
+  txHash                  String   @unique
+  timestamp               DateTime
+  protocols               String[]
+  guarantees              String[]
   cryptographicPrimitives Json?
-  anonymitySetSize       Int?
-  effectiveAnonymitySet  Int?
-  privacyScore           Float?
-  riskScore              Float?
-  totalValue             String?
-  usdValue               Float?
-  assetType              String?
-  participants           String[]
-  contractAddresses      String[]
-  participantCount       Int?
-  ledgerSequence         Int?
-  sourceAccount          String?
-  createdAt              DateTime @default(now())
+  anonymitySetSize        Int?
+  effectiveAnonymitySet   Int?
+  privacyScore            Float?
+  riskScore               Float?
+  totalValue              String?
+  usdValue                Float?
+  assetType               String?
+  participants            String[]
+  contractAddresses       String[]
+  participantCount        Int?
+  ledgerSequence          Int?
+  sourceAccount           String?
+  createdAt               DateTime @default(now())
 }
 
 model ReentrancyAlert {
-  id              String   @id @default(cuid())
-  transactionHash String  @unique
-  contractAddress String
-  severity        String?
+  id                    String   @id @default(cuid())
+  transactionHash       String   @unique
+  contractAddress       String
+  severity              String?
   repeatedWithdrawCalls Int?
-  createdAt       DateTime @default(now())
+  createdAt             DateTime @default(now())
 }
 
 model RegisteredDapp {
@@ -2606,13 +2604,13 @@ model RegisteredDapp {
 }
 
 model ReputationBadge {
-  id        String   @id @default(cuid())
-  profileId String
-  badgeType String
-  title     String?
+  id          String   @id @default(cuid())
+  profileId   String
+  badgeType   String
+  title       String?
   description String?
-  metadata  Json?
-  createdAt DateTime @default(now())
+  metadata    Json?
+  createdAt   DateTime @default(now())
 
   profile ReputationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
@@ -2620,11 +2618,11 @@ model ReputationBadge {
 }
 
 model ReputationDelegation {
-  id         String   @id @default(cuid())
-  delegator  String
-  delegatee  String
-  amount     String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  delegator String
+  delegatee String
+  amount    String?
+  createdAt DateTime @default(now())
 }
 
 model ReputationDispute {
@@ -2670,12 +2668,12 @@ model ReputationGovernanceVote {
 }
 
 model ReputationNft {
-  id          String   @id @default(cuid())
-  address     String
-  badgeType   String
-  tokenId     String?
+  id           String   @id @default(cuid())
+  address      String
+  badgeType    String
+  tokenId      String?
   mintedTxHash String?
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
 }
 
 model ReputationProfile {
@@ -2705,7 +2703,7 @@ model ReputationProfile {
 }
 
 model ReputationTrustConnection {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   profileId       String
   fromAddress     String?
   toAddress       String?
@@ -2714,7 +2712,7 @@ model ReputationTrustConnection {
   timestamp       DateTime?
   transactionHash String?
   weight          Float?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   profile ReputationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
@@ -2738,17 +2736,17 @@ model ReputationSignal {
 }
 
 model RwaComplianceEvent {
-  id                  String   @id @default(cuid())
-  transactionHash     String   @unique
-  ledgerSequence      Int
-  ledgerCloseTime     DateTime
+  id                   String   @id @default(cuid())
+  transactionHash      String   @unique
+  ledgerSequence       Int
+  ledgerCloseTime      DateTime
   assetContractAddress String
-  issuerAddress       String?
-  targetAddress       String?
-  amount              String?
-  complianceReason    String?
-  humanStatement      String?
-  createdAt           DateTime @default(now())
+  issuerAddress        String?
+  targetAddress        String?
+  amount               String?
+  complianceReason     String?
+  humanStatement       String?
+  createdAt            DateTime @default(now())
 }
 
 model SandboxAccount {
@@ -2780,28 +2778,28 @@ model SandboxCall {
 }
 
 model SandboxCiRun {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   sessionId  String
   status     String
   passed     Int?
   failed     Int?
   totalTests Int?
   logs       String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model SandboxContract {
-  id        String   @id @default(cuid())
-  sessionId String
-  address   String
+  id         String   @id @default(cuid())
+  sessionId  String
+  address    String
   contractId String?
-  name      String?
-  state     Json?
-  abi       Json?
-  source    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  name       String?
+  state      Json?
+  abi        Json?
+  source     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([sessionId, contractId])
 }
@@ -2946,99 +2944,99 @@ model ThreatReview {
 }
 
 model TipSubscription {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   channel   String
   target    String
   active    Boolean
   filters   Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([channel, target])
 }
 
 model TipWebhook {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   url       String
   events    Json?
   secret    String?
   active    Boolean
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Token {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   address         String
   name            String?
   symbol          String?
   decimals        Int?
   totalSupply     String?
   contractAddress String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model TokenPrice {
-  id              String    @id @default(cuid())
-  tokenAddress    String    @unique
-  priceUsd        Decimal   @default(0)
-  priceXlm        Decimal   @default(0)
-  source          String    @default("composite")
-  confidence      Float     @default(0)
-  volume24hUsd    Decimal?
-  volume24hXlm    Decimal?
-  marketCapUsd    Decimal?
+  id                    String   @id @default(cuid())
+  tokenAddress          String   @unique
+  priceUsd              Decimal  @default(0)
+  priceXlm              Decimal  @default(0)
+  source                String   @default("composite")
+  confidence            Float    @default(0)
+  volume24hUsd          Decimal?
+  volume24hXlm          Decimal?
+  marketCapUsd          Decimal?
   fullyDilutedValuation Decimal?
-  circulatingSupply Decimal?
-  totalSupply     Decimal?
-  priceChange1h   Float?
-  priceChange24h  Float?
-  priceChange7d   Float?
-  twap1h          Decimal?
-  twap24h         Decimal?
-  liquidityUsd    Decimal?
-  updatedAt       DateTime  @updatedAt
+  circulatingSupply     Decimal?
+  totalSupply           Decimal?
+  priceChange1h         Float?
+  priceChange24h        Float?
+  priceChange7d         Float?
+  twap1h                Decimal?
+  twap24h               Decimal?
+  liquidityUsd          Decimal?
+  updatedAt             DateTime @updatedAt
 
   @@index([updatedAt(sort: Desc)])
   @@index([volume24hUsd(sort: Desc)])
 }
 
 model TokenPriceHistory {
-  id              String    @id @default(cuid())
-  tokenAddress    String
-  priceUsd        Decimal
-  priceXlm        Decimal
-  source          String
-  confidence      Float
-  volume24hUsd    Decimal?
-  marketCapUsd    Decimal?
-  timestamp       DateTime
+  id           String   @id @default(cuid())
+  tokenAddress String
+  priceUsd     Decimal
+  priceXlm     Decimal
+  source       String
+  confidence   Float
+  volume24hUsd Decimal?
+  marketCapUsd Decimal?
+  timestamp    DateTime
 
   @@index([tokenAddress, timestamp(sort: Desc)])
   @@index([timestamp])
 }
 
 model TokenMarketData {
-  id              String    @id @default(cuid())
-  tokenAddress    String    @unique
-  symbol          String?
-  name            String?
-  decimals        Int?
-  totalSupply     Decimal?
-  circulatingSupply Decimal?
-  holderCount     Int       @default(0)
-  transferCount24h Int      @default(0)
-  uniqueSenders24h Int      @default(0)
-  uniqueReceivers24h Int    @default(0)
+  id                      String   @id @default(cuid())
+  tokenAddress            String   @unique
+  symbol                  String?
+  name                    String?
+  decimals                Int?
+  totalSupply             Decimal?
+  circulatingSupply       Decimal?
+  holderCount             Int      @default(0)
+  transferCount24h        Int      @default(0)
+  uniqueSenders24h        Int      @default(0)
+  uniqueReceivers24h      Int      @default(0)
   averageTransferValueUsd Decimal?
-  isStablecoin    Boolean   @default(false)
-  stablecoinPeg   String?
-  pegDeviation24h Float?
-  pegStabilityScore Float?
-  tags            String[]
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  isStablecoin            Boolean  @default(false)
+  stablecoinPeg           String?
+  pegDeviation24h         Float?
+  pegStabilityScore       Float?
+  tags                    String[]
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@index([holderCount(sort: Desc)])
   @@index([transferCount24h(sort: Desc)])
@@ -3053,29 +3051,29 @@ model PriceAlert {
   timeWindow      String?
   isActive        Boolean   @default(true)
   lastTriggeredAt DateTime?
-  createdAt       DateTime   @default(now())
+  createdAt       DateTime  @default(now())
 
   @@index([userId])
   @@index([tokenAddress])
 }
 
 model VerifiableCredential {
-  id                  String   @id @default(cuid())
-  profileId           String
-  credentialId        String
-  context             String?
-  type                String?
-  issuer              String?
-  issuanceDate        DateTime?
-  expirationDate      DateTime?
-  subjectId           String?
-  subjectData         Json?
-  proofType           String?
-  proofCreated        DateTime?
-  verificationMethod  String?
-  proofPurpose        String?
-  proofValue          String?
-  createdAt           DateTime @default(now())
+  id                 String    @id @default(cuid())
+  profileId          String
+  credentialId       String
+  context            String?
+  type               String?
+  issuer             String?
+  issuanceDate       DateTime?
+  expirationDate     DateTime?
+  subjectId          String?
+  subjectData        Json?
+  proofType          String?
+  proofCreated       DateTime?
+  verificationMethod String?
+  proofPurpose       String?
+  proofValue         String?
+  createdAt          DateTime  @default(now())
 
   profile ReputationProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
@@ -3132,18 +3130,18 @@ model WebhookDelivery {
 }
 
 model WebhookSubscription {
-  id              String    @id @default(cuid())
-  apiKeyId        String
-  url             String
-  secret          String
-  contractAddress String?
-  eventType       String?
-  topicSymbol     String?
-  active          Boolean  @default(true)
-  storeResponseBody Boolean @default(true)
-  responseRetentionDays Int @default(90)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  apiKeyId              String
+  url                   String
+  secret                String
+  contractAddress       String?
+  eventType             String?
+  topicSymbol           String?
+  active                Boolean  @default(true)
+  storeResponseBody     Boolean  @default(true)
+  responseRetentionDays Int      @default(90)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   delivery WebhookDelivery[]
 
@@ -3165,15 +3163,15 @@ model YieldDistribution {
 }
 
 model YieldHistorySnapshot {
-  id            String   @id @default(cuid())
-  opportunityId String
-  snapshotDate  DateTime
-  apy           Float?
-  baseApy       Float?
-  incentiveApy  Float?
-  tvl           Float?
+  id             String   @id @default(cuid())
+  opportunityId  String
+  snapshotDate   DateTime
+  apy            Float?
+  baseApy        Float?
+  incentiveApy   Float?
+  tvl            Float?
   ledgerSequence Int
-  createdAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([opportunityId])
 }
@@ -3200,16 +3198,16 @@ model YieldOpportunity {
 }
 
 model ZkpVerificationEvent {
-  id                  String   @id @default(cuid())
-  transactionHash     String
-  contractAddress     String
-  proofType           String?
-  publicInputHash     String?
-  verificationResult  Boolean?
-  certaintyPercent    Float?
-  ledgerSequence      Int
-  ledgerCloseTime     DateTime
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  transactionHash    String
+  contractAddress    String
+  proofType          String?
+  publicInputHash    String?
+  verificationResult Boolean?
+  certaintyPercent   Float?
+  ledgerSequence     Int
+  ledgerCloseTime    DateTime
+  createdAt          DateTime @default(now())
 }
 
 // ─── Soroban Reentrancy Fortress (Issue #307) ────────────────────────────────
@@ -3248,16 +3246,16 @@ model CallGraphVertex {
 }
 
 model CallGraphEdge {
-  id            String   @id @default(cuid())
-  txHash        String   @map("tx_hash")
-  fromVertexId  String   @map("from_vertex_id")
-  toVertexId    String   @map("to_vertex_id")
-  functionName  String   @map("function_name")
-  value         String?
-  gasForwarded  Int?     @map("gas_forwarded")
-  argsHash      String?  @map("args_hash")
-  callIndex     Int      @map("call_index")
-  timestamp     DateTime
+  id           String   @id @default(cuid())
+  txHash       String   @map("tx_hash")
+  fromVertexId String   @map("from_vertex_id")
+  toVertexId   String   @map("to_vertex_id")
+  functionName String   @map("function_name")
+  value        String?
+  gasForwarded Int?     @map("gas_forwarded")
+  argsHash     String?  @map("args_hash")
+  callIndex    Int      @map("call_index")
+  timestamp    DateTime
 
   @@index([txHash])
   @@index([fromVertexId])
@@ -3266,19 +3264,19 @@ model CallGraphEdge {
 }
 
 model ReentrancyFinding {
-  id              String            @id @default(cuid())
-  txHash          String            @map("tx_hash")
-  contractAddress String            @map("contract_address")
-  reentrancyType  ReentrancyType    @map("reentrancy_type")
+  id              String             @id @default(cuid())
+  txHash          String             @map("tx_hash")
+  contractAddress String             @map("contract_address")
+  reentrancyType  ReentrancyType     @map("reentrancy_type")
   severity        ReentrancySeverity
   likelihood      String
   loopPath        Json
-  entryPoint      String            @map("entry_point")
-  valueAtRisk     String?           @map("value_at_risk")
-  usdValueAtRisk  Float?            @map("usd_value_at_risk")
-  profitPotential Float?            @map("profit_potential")
+  entryPoint      String             @map("entry_point")
+  valueAtRisk     String?            @map("value_at_risk")
+  usdValueAtRisk  Float?             @map("usd_value_at_risk")
+  profitPotential Float?             @map("profit_potential")
   description     String
-  detectedAt      DateTime          @map("detected_at")
+  detectedAt      DateTime           @map("detected_at")
 
   @@index([txHash])
   @@index([contractAddress])
@@ -3287,31 +3285,31 @@ model ReentrancyFinding {
 }
 
 model ContractRiskScore {
-  id                String   @id @default(cuid())
-  contractAddress   String   @unique @map("contract_address")
-  riskScore         Int      @map("risk_score")
-  previousScore     Int?     @map("previous_score")
-  totalFindings     Int      @map("total_findings")
-  criticalFindings  Int      @map("critical_findings")
-  highFindings      Int      @map("high_findings")
-  mediumFindings    Int      @map("medium_findings")
-  riskFactors       Json     @map("risk_factors")
-  lastAnalyzed      DateTime @map("last_analyzed")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(cuid())
+  contractAddress  String   @unique @map("contract_address")
+  riskScore        Int      @map("risk_score")
+  previousScore    Int?     @map("previous_score")
+  totalFindings    Int      @map("total_findings")
+  criticalFindings Int      @map("critical_findings")
+  highFindings     Int      @map("high_findings")
+  mediumFindings   Int      @map("medium_findings")
+  riskFactors      Json     @map("risk_factors")
+  lastAnalyzed     DateTime @map("last_analyzed")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("contract_risk_scores")
 }
 
 model ReentrancyAlertExtended {
-  id              String   @id @default(cuid())
-  contractAddress String   @map("contract_address")
-  findingId       String?  @map("finding_id")
-  alertType       String   @map("alert_type")
+  id              String    @id @default(cuid())
+  contractAddress String    @map("contract_address")
+  findingId       String?   @map("finding_id")
+  alertType       String    @map("alert_type")
   severity        String
   message         String
   metadata        Json?
-  createdAt       DateTime @map("created_at")
-  acknowledged    Boolean  @default(false)
+  createdAt       DateTime  @map("created_at")
+  acknowledged    Boolean   @default(false)
   acknowledgedAt  DateTime? @map("acknowledged_at")
 
   @@index([contractAddress, createdAt(sort: Desc)])
@@ -3319,18 +3317,18 @@ model ReentrancyAlertExtended {
 }
 
 model ReentrancyStats {
-  id                  String   @id @default(cuid())
-  timestamp           DateTime
-  totalCallGraphs     Int      @map("total_call_graphs")
-  contractsAnalyzed   Int      @map("contracts_analyzed")
-  contractsWithLoops  Int      @map("contracts_with_loops")
-  highRiskContracts   Int      @map("high_risk_contracts")
-  criticalFindings    Int      @map("critical_findings")
-  totalFindings       Int      @map("total_findings")
-  mostCommonPatterns  Json     @map("most_common_patterns")
-  avgDepth            Float?   @map("avg_depth")
-  maxDepth            Int?     @map("max_depth")
-  valueAtRiskTotal    String?  @map("value_at_risk_total")
+  id                 String   @id @default(cuid())
+  timestamp          DateTime
+  totalCallGraphs    Int      @map("total_call_graphs")
+  contractsAnalyzed  Int      @map("contracts_analyzed")
+  contractsWithLoops Int      @map("contracts_with_loops")
+  highRiskContracts  Int      @map("high_risk_contracts")
+  criticalFindings   Int      @map("critical_findings")
+  totalFindings      Int      @map("total_findings")
+  mostCommonPatterns Json     @map("most_common_patterns")
+  avgDepth           Float?   @map("avg_depth")
+  maxDepth           Int?     @map("max_depth")
+  valueAtRiskTotal   String?  @map("value_at_risk_total")
 
   @@map("reentrancy_stats")
 }
@@ -3445,20 +3443,20 @@ model NlQueryTemplate {
 }
 
 model NlReport {
-  id          String    @id @default(cuid())
-  userId      String?
-  name        String
-  nlTemplate  String    @map("nl_template")
-  parameters  Json?
-  schedule    String?
-  reportType  String    @default("one-time") @map("report_type")
-  webhookUrl  String?   @map("webhook_url")
-  email       String?
-  active      Boolean   @default(true)
-  lastRun     DateTime? @map("last_run")
-  nextRun     DateTime? @map("next_run")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id         String    @id @default(cuid())
+  userId     String?
+  name       String
+  nlTemplate String    @map("nl_template")
+  parameters Json?
+  schedule   String?
+  reportType String    @default("one-time") @map("report_type")
+  webhookUrl String?   @map("webhook_url")
+  email      String?
+  active     Boolean   @default(true)
+  lastRun    DateTime? @map("last_run")
+  nextRun    DateTime? @map("next_run")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   history NlReportHistory[]
 
@@ -3467,30 +3465,30 @@ model NlReport {
 }
 
 model NlReportHistory {
-  id        String   @id @default(cuid())
-  reportId  String   @map("report_id")
-  report    NlReport @relation(fields: [reportId], references: [id])
-  status    String
-  result    Json?
-  error     String?
-  ranAt     DateTime @default(now()) @map("ran_at")
+  id       String   @id @default(cuid())
+  reportId String   @map("report_id")
+  report   NlReport @relation(fields: [reportId], references: [id])
+  status   String
+  result   Json?
+  error    String?
+  ranAt    DateTime @default(now()) @map("ran_at")
 
   @@index([reportId, ranAt(sort: Desc)])
   @@map("nl_report_history")
 }
 
 model NlAlert {
-  id          String   @id @default(cuid())
-  userId      String?
-  nlQuery     String   @map("nl_query")
-  intent      String
-  conditions  Json?
-  webhookUrl  String?  @map("webhook_url")
-  email       String?
-  active      Boolean  @default(true)
-  lastFired   DateTime? @map("last_fired")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String    @id @default(cuid())
+  userId     String?
+  nlQuery    String    @map("nl_query")
+  intent     String
+  conditions Json?
+  webhookUrl String?   @map("webhook_url")
+  email      String?
+  active     Boolean   @default(true)
+  lastFired  DateTime? @map("last_fired")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([active])
@@ -3534,40 +3532,40 @@ enum RetrievalStatus {
 }
 
 model ArchivalNode {
-  id               String             @id @default(cuid())
-  address          String             @unique
-  name             String?
-  endpoint         String
-  stakedAmount     Float              @default(0)
-  stakeAsset       String             @default("XLM")
-  commission       Float?
-  reputation       Float              @default(0)
+  id                String             @id @default(cuid())
+  address           String             @unique
+  name              String?
+  endpoint          String
+  stakedAmount      Float              @default(0)
+  stakeAsset        String             @default("XLM")
+  commission        Float?
+  reputation        Float              @default(0)
   reputationHistory Json?
-  totalEarnings    Float              @default(0)
-  totalServed      Int                @default(0)
-  totalChallenges  Int                @default(0)
-  challengesPassed Int                @default(0)
-  challengesFailed Int                @default(0)
-  uptime24h        Float              @default(0)
-  uptime7d         Float              @default(0)
-  uptime30d        Float              @default(0)
-  avgResponseTime  Int?
-  p95ResponseTime  Int?
-  maxStorageGb     Int?
-  usedStorageGb    Int?
-  supportedEpochs  Json?
-  slashedAmount    Float              @default(0)
-  status           ArchivalNodeStatus @default(active)
-  registeredAt     DateTime           @default(now())
-  lastSeen         DateTime           @default(now())
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  totalEarnings     Float              @default(0)
+  totalServed       Int                @default(0)
+  totalChallenges   Int                @default(0)
+  challengesPassed  Int                @default(0)
+  challengesFailed  Int                @default(0)
+  uptime24h         Float              @default(0)
+  uptime7d          Float              @default(0)
+  uptime30d         Float              @default(0)
+  avgResponseTime   Int?
+  p95ResponseTime   Int?
+  maxStorageGb      Int?
+  usedStorageGb     Int?
+  supportedEpochs   Json?
+  slashedAmount     Float              @default(0)
+  status            ArchivalNodeStatus @default(active)
+  registeredAt      DateTime           @default(now())
+  lastSeen          DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  epochs           ArchivalEpoch[]
-  challenges       StorageChallenge[]
-  retrievals       DataRetrieval[]
-  slaOffers        SlaOffer[]
-  slashes          ArchivalSlash[]
+  epochs     ArchivalEpoch[]
+  challenges StorageChallenge[]
+  retrievals DataRetrieval[]
+  slaOffers  SlaOffer[]
+  slashes    ArchivalSlash[]
 
   @@index([status])
   @@index([reputation])
@@ -3575,7 +3573,7 @@ model ArchivalNode {
 }
 
 model ArchivalEpoch {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   epochId     Int
   startLedger Int
   endLedger   Int
@@ -3583,14 +3581,14 @@ model ArchivalEpoch {
   checksum    String?
   merkleRoot  String?
   nodeId      String
-  node        ArchivalNode  @relation(fields: [nodeId], references: [id])
-  status      EpochStatus   @default(stored)
+  node        ArchivalNode @relation(fields: [nodeId], references: [id])
+  status      EpochStatus  @default(stored)
   verifiedAt  DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  challenges  StorageChallenge[]
-  retrievals  DataRetrieval[]
+  challenges StorageChallenge[]
+  retrievals DataRetrieval[]
 
   @@index([nodeId])
   @@index([epochId])
@@ -3615,7 +3613,7 @@ model StorageChallenge {
   respondedAt   DateTime?
   verifiedAt    DateTime?
 
-  slashes       ArchivalSlash[]
+  slashes ArchivalSlash[]
 
   @@index([nodeId])
   @@index([epochId])
@@ -3649,17 +3647,17 @@ model DataRetrieval {
 }
 
 model SlaOffer {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   nodeId      String
-  node        ArchivalNode  @relation(fields: [nodeId], references: [id])
+  node        ArchivalNode @relation(fields: [nodeId], references: [id])
   tier        String
   uptime      Float
   responseMs  Int
   description String?
   pricePerGb  Float
-  active      Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   acceptances SlaAcceptance[]
 
@@ -3669,13 +3667,13 @@ model SlaOffer {
 }
 
 model SlaAcceptance {
-  id          String    @id @default(cuid())
-  offerId     String
-  offer       SlaOffer  @relation(fields: [offerId], references: [id])
-  requester   String
-  fee         Float
-  status      String    @default("active")
-  createdAt   DateTime  @default(now())
+  id        String   @id @default(cuid())
+  offerId   String
+  offer     SlaOffer @relation(fields: [offerId], references: [id])
+  requester String
+  fee       Float
+  status    String   @default("active")
+  createdAt DateTime @default(now())
 
   @@index([offerId])
   @@index([requester])
@@ -3683,16 +3681,16 @@ model SlaAcceptance {
 }
 
 model ArchivalSlash {
-  id            String            @id @default(cuid())
-  nodeId        String
-  node          ArchivalNode      @relation(fields: [nodeId], references: [id])
-  challengeId   String?
-  challenge     StorageChallenge? @relation(fields: [challengeId], references: [id])
-  amount        Float
-  reason        String
-  createdAt     DateTime          @default(now())
+  id          String            @id @default(cuid())
+  nodeId      String
+  node        ArchivalNode      @relation(fields: [nodeId], references: [id])
+  challengeId String?
+  challenge   StorageChallenge? @relation(fields: [challengeId], references: [id])
+  amount      Float
+  reason      String
+  createdAt   DateTime          @default(now())
 
-  appeals       ArchivalAppeal[]
+  appeals ArchivalAppeal[]
 
   @@index([nodeId])
   @@index([challengeId])
@@ -3725,7 +3723,7 @@ model NftCollection {
   name             String?
   symbol           String?
   description      String?
-  category         String?   // "art" | "gaming" | "music" | "pfp" | "collectible" | "virtual-land" | "domain" | "soulbound"
+  category         String? // "art" | "gaming" | "music" | "pfp" | "collectible" | "virtual-land" | "domain" | "soulbound"
   totalSupply      Int       @default(0)
   uniqueHolders    Int       @default(0)
   floorPrice       Decimal?
@@ -3755,11 +3753,11 @@ model NftCollection {
   updatedAt        DateTime  @updatedAt
   lastSaleAt       DateTime?
 
-  items   NftItem[]
-  traits  NftTrait[]
-  sales   NftSale[]
+  items    NftItem[]
+  traits   NftTrait[]
+  sales    NftSale[]
   listings NftListing[]
-  stats   NftCollectionStats[]
+  stats    NftCollectionStats[]
   activity NftActivity[]
 
   @@index([volume24h(sort: Desc)])
@@ -3819,7 +3817,7 @@ model NftTrait {
 }
 
 model NftSale {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   collectionId   String
   itemId         String?
   tokenId        String
@@ -3828,13 +3826,13 @@ model NftSale {
   price          Decimal
   priceUsd       Decimal?
   priceToken     String?
-  txHash         String    @unique
+  txHash         String   @unique
   ledgerSequence Int?
   marketplace    String?
-  saleType       String    // "sale" | "offer" | "auction" | "bid"
+  saleType       String // "sale" | "offer" | "auction" | "bid"
   saleAt         DateTime
-  indexedAt      DateTime  @default(now())
-  isWashTrade    Boolean   @default(false)
+  indexedAt      DateTime @default(now())
+  isWashTrade    Boolean  @default(false)
   washTradeScore Float?
 
   collection NftCollection @relation(fields: [collectionId], references: [id])
@@ -3857,7 +3855,7 @@ model NftListing {
   marketplace  String?
   listedAt     DateTime
   expiresAt    DateTime?
-  status       String    // "active" | "cancelled" | "sold"
+  status       String // "active" | "cancelled" | "sold"
   cancelledAt  DateTime?
 
   collection NftCollection @relation(fields: [collectionId], references: [id])
@@ -3867,7 +3865,7 @@ model NftListing {
 }
 
 model NftCollectionStats {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   collectionId   String
   timestamp      DateTime
   floorPrice     Decimal?
@@ -3877,8 +3875,8 @@ model NftCollectionStats {
   avgPrice24h    Decimal?
   uniqueHolders  Int
   totalSupply    Int
-  washVolume24h  Decimal   @default(0)
-  washTxCount24h Int       @default(0)
+  washVolume24h  Decimal  @default(0)
+  washTxCount24h Int      @default(0)
 
   collection NftCollection @relation(fields: [collectionId], references: [id])
 
@@ -3887,27 +3885,27 @@ model NftCollectionStats {
 }
 
 model NftPortfolio {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   userId           String
   owner            String
   name             String?
-  items            String[]  @default([])
+  items            String[] @default([])
   totalValueUsd    Decimal?
   totalPaidUsd     Decimal?
   unrealizedPnlUsd Decimal?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([userId])
   @@index([owner])
 }
 
 model NftActivity {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   collectionId   String
   itemId         String?
   tokenId        String
-  activityType   String    // "mint" | "transfer" | "sale" | "offer" | "list" | "cancel" | "burn" | "bid"
+  activityType   String // "mint" | "transfer" | "sale" | "offer" | "list" | "cancel" | "burn" | "bid"
   fromAddress    String?
   toAddress      String?
   price          Decimal?
@@ -3925,26 +3923,27 @@ model NftActivity {
 }
 
 model NftMarketplace {
-  id               String    @id @default(cuid())
-  contractAddress  String    @unique
-  name             String?
-  description      String?
-  website          String?
-  logoUri          String?
-  totalVolume      Decimal   @default(0)
-  volume24h        Decimal   @default(0)
-  totalListings    Int       @default(0)
-  activeListings   Int       @default(0)
+  id                String   @id @default(cuid())
+  contractAddress   String   @unique
+  name              String?
+  description       String?
+  website           String?
+  logoUri           String?
+  totalVolume       Decimal  @default(0)
+  volume24h         Decimal  @default(0)
+  totalListings     Int      @default(0)
+  activeListings    Int      @default(0)
   uniqueCollections Int      @default(0)
-  activeTraders24h Int       @default(0)
-  feePct           Float?
-  isVerified       Boolean   @default(false)
-  isActive         Boolean   @default(true)
-  detectedAt       DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  activeTraders24h  Int      @default(0)
+  feePct            Float?
+  isVerified        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  detectedAt        DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([isActive])
 }
+
 model ApiAuditLog {
   id                 String   @id @default(cuid())
   apiKeyId           String?
@@ -3961,7 +3960,7 @@ model ApiAuditLog {
   requestId          String?
   region             String?
   isRateLimited      Boolean  @default(false)
-  month              String   // "YYYY-MM" — matches partition key
+  month              String // "YYYY-MM" — matches partition key
   createdAt          DateTime @default(now())
 
   @@index([apiKeyId])
@@ -3973,7 +3972,7 @@ model ApiAuditLog {
 
 model AbuseEvent {
   id           String    @id @default(cuid())
-  pattern      String    // "credential_stuffing" | "scraping" | "ddos" | "sequential_pagination" | "rapid_auth_failure"
+  pattern      String // "credential_stuffing" | "scraping" | "ddos" | "sequential_pagination" | "rapid_auth_failure"
   ip           String?
   apiKeyId     String?
   endpoint     String?
@@ -3990,28 +3989,29 @@ model AbuseEvent {
   @@index([createdAt(sort: Desc)])
   @@index([blockedUntil])
 }
+
 model BridgeTransaction {
-  id                    String   @id @default(uuid())
-  transactionHash       String   @unique
-  sourceChain           String   @db.VarChar(50)
-  destinationChain      String   @db.VarChar(50)
-  asset                 String   @db.VarChar(50)
-  amount                Decimal  @db.Decimal(30, 7)
-  sender                String   @db.VarChar(100)
-  recipient             String   @db.VarChar(100)
-  protocol              String   @db.VarChar(50)
-  status                String   @default("pending") @db.VarChar(20)
-  confirmations         Int      @default(0)
-  requiredConfirmations Int      @default(0)
+  id                    String    @id @default(uuid())
+  transactionHash       String    @unique
+  sourceChain           String    @db.VarChar(50)
+  destinationChain      String    @db.VarChar(50)
+  asset                 String    @db.VarChar(50)
+  amount                Decimal   @db.Decimal(30, 7)
+  sender                String    @db.VarChar(100)
+  recipient             String    @db.VarChar(100)
+  protocol              String    @db.VarChar(50)
+  status                String    @default("pending") @db.VarChar(20)
+  confirmations         Int       @default(0)
+  requiredConfirmations Int       @default(0)
   sourceTimestamp       DateTime?
   destinationTimestamp  DateTime?
   estimatedArrivalAt    DateTime?
-  bridgeFee             Decimal? @db.Decimal(20, 7)
+  bridgeFee             Decimal?  @db.Decimal(20, 7)
   sourceTxUrl           String?
   destinationTxUrl      String?
   metadata              Json?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@index([protocol])
   @@index([sourceChain])
@@ -4046,16 +4046,16 @@ model BridgeAlert {
 }
 
 model MonitoredAddress {
-  id           String   @id @default(uuid())
-  address      String   @db.VarChar(100)
-  chain        String   @db.VarChar(50)
-  label        String?
-  minAlertUsd  Decimal? @db.Decimal(20, 2)
-  alertOnTx    Boolean  @default(true)
-  alertOnBridging Boolean @default(true)
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  address         String   @db.VarChar(100)
+  chain           String   @db.VarChar(50)
+  label           String?
+  minAlertUsd     Decimal? @db.Decimal(20, 2)
+  alertOnTx       Boolean  @default(true)
+  alertOnBridging Boolean  @default(true)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@unique([address, chain])
   @@index([address])
@@ -4107,18 +4107,18 @@ model WalletUser {
 }
 
 model AuthSession {
-  id                String    @id
-  userId            String
-  tokenHash         String
-  refreshTokenHash  String
-  deviceInfo        Json?
-  appId             String?
-  isActive          Boolean   @default(true)
-  revokedAt         DateTime?
-  revocationReason  String?
-  lastActivity      DateTime  @default(now())
-  expiresAt         DateTime
-  createdAt         DateTime  @default(now())
+  id               String    @id
+  userId           String
+  tokenHash        String
+  refreshTokenHash String
+  deviceInfo       Json?
+  appId            String?
+  isActive         Boolean   @default(true)
+  revokedAt        DateTime?
+  revocationReason String?
+  lastActivity     DateTime  @default(now())
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
 
   user WalletUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -4209,10 +4209,10 @@ model OAuthCode {
 model WasmAbiExtract {
   id              String   @id @default(cuid())
   contractAddress String   @unique
-  source          String   // on-chain-spec | inferred | sep-matched | generic | manual
-  functions       Json     // ExtractedFunction[]
-  exports         Json     // WasmExport[]
-  imports         Json     // WasmImport[]
+  source          String // on-chain-spec | inferred | sep-matched | generic | manual
+  functions       Json // ExtractedFunction[]
+  exports         Json // WasmExport[]
+  imports         Json // WasmImport[]
   sepStandards    String[]
   coverageScore   Float    @default(0)
   warnings        String[]
@@ -4255,3 +4255,84 @@ model AbiCommunityContribution {
   @@map("abi_community_contributions")
 }
 
+// ── Distributed P2P Indexer Network ──────────────────────────────────────────
+// See docs/P2P_INDEXER_DESIGN.md. Every model here is scoped by `network` even
+// though each network already lives in its own physical database (profiles.ts) —
+// belt-and-suspenders so a cross-network bug is loud (a wrong-network row) rather
+// than silently mixing swarms.
+
+/// Registry of known peers in this network's P2P swarm, with locally-observed reputation.
+model PeerNode {
+  id               String   @id // libp2p PeerId (base58/CIDv1 string)
+  network          String
+  multiaddrs       String[]
+  firstSeenAt      DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  reputationScore  Float    @default(50) // 0-100, see reputation-scorer.ts
+  challengesPassed Int      @default(0)
+  challengesFailed Int      @default(0)
+  latencyMsEwma    Float?
+  stakeAmount      BigInt? // unused until StakeProvider is a real implementation
+  isBootstrapPeer  Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([network, lastSeenAt])
+  @@index([network, reputationScore])
+  @@map("p2p_peer_nodes")
+}
+
+/// A fixed ledger_seq range and which peers currently own it (rendezvous-hash top-K),
+/// plus this node's own indexing cursor for that range. Replaces the singleton
+/// IndexerState row's role when P2P_ENABLED=true (see src/p2p/responsibility.ts).
+model IndexerRangeClaim {
+  rangeId           String   @id // `${network}:${startLedger}-${endLedger}`
+  network           String
+  startLedger       Int
+  endLedger         Int
+  ownerPeerIds      String[] // advisory cache of last-computed top-K owners, not authoritative
+  lastIndexedLedger Int      @default(0)
+  lastClaimedAt     DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([network, startLedger])
+  @@index([network, endLedger])
+  @@map("p2p_indexer_range_claims")
+}
+
+/// Audit trail of challenge-response verification rounds between replica owners
+/// of the same range (see src/p2p/esm/protocols/challenge-protocol.mts).
+model VerificationChallenge {
+  id               String   @id @default(cuid())
+  network          String
+  ledgerSequence   Int
+  challengerPeerId String
+  challengedPeerId String
+  challengerHash   String
+  challengedHash   String
+  tiebreakerPeerId String?
+  tiebreakerHash   String?
+  result           String // 'match' | 'mismatch' | 'tiebreak_resolved'
+  createdAt        DateTime @default(now())
+
+  @@index([network, ledgerSequence])
+  @@index([network, challengedPeerId, createdAt])
+  @@map("p2p_verification_challenges")
+}
+
+/// Queue of ledgers flagged for re-indexing after a challenge mismatch or query
+/// read-repair (see src/p2p/reindex-queue.ts).
+model ReindexTask {
+  id             String    @id @default(cuid())
+  network        String
+  ledgerSequence Int
+  reason         String // 'challenge_mismatch' | 'read_repair'
+  sourcePeerId   String?
+  status         String    @default("pending") // 'pending' | 'in_progress' | 'done' | 'failed'
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@index([network, status])
+  @@index([network, ledgerSequence])
+  @@map("p2p_reindex_tasks")
+}

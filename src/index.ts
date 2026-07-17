@@ -47,6 +47,14 @@ import { startFeeAggregator as startFeeAggregatorImpl } from './indexer/fee-aggr
 import { attachArbitrageWebSocket as attachArbitrageWebSocketImpl } from './ws/arbitrageBroadcaster';
 import { attachComposabilityWebSocket as attachComposabilityWebSocketImpl } from './ws/composabilityBroadcaster';
 import { getHealthStatus, getLivenessStatus, getReadinessStatus } from './health';
+import {
+  getP2pStatusSnapshot,
+  resolveLedgerLocation,
+  startP2pNode,
+  stopP2pNode,
+  wireOnTheFlyIndexer,
+} from './p2p';
+import { indexSingleLedger } from './indexer/indexer';
 
 let isShuttingDown = false;
 const SERVICE_START_TIME = Date.now();
@@ -202,6 +210,35 @@ app.get(
   }),
 );
 
+// P2P indexer network status — peer table, range ownership, recent challenge
+// results (see docs/P2P_INDEXER_DESIGN.md §1.4 dashboard). Reports enabled:false
+// with an empty snapshot on single-node deployments rather than erroring.
+app.get(
+  '/p2p/status',
+  asyncHandler(async (_req, res) => {
+    const snapshot = await getP2pStatusSnapshot();
+    res.json(snapshot);
+  }),
+);
+
+// Coordinator-less ledger lookup (design doc §1.3): local DB first, then
+// DHT-forward to a live range owner, then on-the-fly indexing as a last
+// resort. Works identically whether P2P is enabled or not — in single-node
+// mode it's just a local lookup with graceful degradation to on-the-fly
+// indexing, which is a strict improvement over a plain 404.
+app.get(
+  '/p2p/ledger/:seq',
+  asyncHandler(async (req, res) => {
+    const seq = parseInt(req.params.seq, 10);
+    if (!Number.isFinite(seq) || seq < 0) {
+      return res.status(400).json({ error: 'Invalid ledger sequence' });
+    }
+    const includeEvents = req.query.events !== 'false';
+    const result = await resolveLedgerLocation(config.stellarNetwork, seq, includeEvents);
+    res.status(result.found ? 200 : 404).json(result);
+  }),
+);
+
 // Liveness probe - basic check that service is alive
 app.get('/livez', (_req, res) => {
   if (isShuttingDown) {
@@ -275,6 +312,11 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     stopIndexerService();
     logger.info('[shutdown] Indexer service stopped');
+
+    await stopP2pNode().catch((err) =>
+      logger.warn('[shutdown] Error stopping p2p node', { error: String(err) }),
+    );
+    logger.info('[shutdown] P2P node stopped');
 
     if (wssRef) {
       shutdownWebSocketServer();
@@ -357,6 +399,11 @@ async function main() {
 
   await initializeColdStorage();
   markReady('coldStorage');
+
+  wireOnTheFlyIndexer(indexSingleLedger);
+  await startP2pNode().catch((err) => {
+    logger.error('[p2p] failed to start', { error: String(err) });
+  });
 
   if (!process.env.DISABLE_INDEXER) {
     markReady('indexer');
