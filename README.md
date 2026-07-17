@@ -91,6 +91,31 @@ curl -X POST http://localhost:3000/api/v1/contracts \
   }'
 ```
 
+## Sandbox Capabilities
+
+The `src/sandbox/` module provides a **deterministic transactional state simulator** for Soroban contracts.
+
+**What it is:**
+- Pure TypeScript simulator — no WebAssembly execution
+- Contracts dispatched by `templateId` to hardcoded logic (SEP-41 token, AMM, NFT, multisig, etc.)
+- Deterministic by construction: same seed → same accounts, same results
+- Gas metering via configurable cost table (`src/sandbox/gas-model.ts`) — approximates Soroban but does **not** match mainnet within 1%
+- State isolation via copy-on-write snapshots
+- Fuzzing, CI pipelines, invariant verification built on top
+
+**What it is NOT:**
+- A WASM JIT sandbox — does not execute WASM bytecode
+- A mainnet replay oracle — `replayMainnet()` returns `{ equal: false, reason: 'sandbox substrate is not a WASM runtime' }`
+- The sandbox router (`src/api/sandbox.ts`) is exported but **not mounted** in `router.ts`
+
+**Design for a real WASM JIT sandbox** (issue #561):
+See `docs/sandbox-jit-design.md` for the target architecture including:
+- Tiered Cranelift compilation (baseline → optimizing + OSR)
+- Precise per-instruction gas metering with prepay/refund
+- Deterministic execution (float trapping, no wall clock, no threads)
+- Mainnet replay parity (<10% real execution time)
+- Side-channel hardening (constant-time metering, Spectre fences)
+
 ## Environment Variables
 
 | Variable | Default | Description |

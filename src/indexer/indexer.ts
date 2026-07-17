@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { xdr } from '@stellar/stellar-sdk';
 import { prismaWrite as prisma } from '../db';
 import { config } from '../config';
 import {
@@ -11,6 +12,7 @@ import {
   fetchLedgerMetadata,
 } from './rpc';
 import { decodeTransaction, decodeEvent } from './decoder';
+import { decodeZkpVerification, recordZkpVerification } from './zkp-verifier';
 import { processAaTransaction } from './aa-indexer';
 import { feedOrchestrator } from '../feed/orchestrator';
 import { amIResponsibleFor, getRangeCursor, isP2pEnabled, setRangeCursor } from '../p2p';
@@ -213,6 +215,36 @@ export async function processLedgerRange(
           feeCharged: String((txResult as any)?.feeCharged ?? ''),
         },
       });
+
+      // Record ZKP verifier invocations when the invoked function looks like
+      // a proof verification entry point (verify_proof / verify_snark /
+      // verify_stark / verify_groth16). Best-effort: a failure here must
+      // never disrupt the main indexing loop.
+      try {
+        if (rawXdr && decoded.functionName && decoded.contractAddress) {
+          const envelope = xdr.TransactionEnvelope.fromXDR(rawXdr, 'base64');
+          const ops =
+            envelope.switch().name === 'envelopeTypeTx'
+              ? envelope.v1().tx().operations()
+              : envelope.v0().tx().operations();
+          const invokeOp = ops.find((op) => op.body().switch().name === 'invokeHostFunction');
+          const scArgs = invokeOp
+            ? invokeOp.body().invokeHostFunctionOp().hostFunction().invokeContract().args()
+            : [];
+          const zkpData = decodeZkpVerification(decoded.functionName, scArgs);
+          if (zkpData) {
+            await recordZkpVerification(
+              transaction.hash,
+              decoded.contractAddress,
+              zkpData,
+              transaction.ledgerSequence,
+              transaction.ledgerCloseTime,
+            );
+          }
+        }
+      } catch (zkpErr) {
+        console.error('ZKP recording error:', zkpErr);
+      }
 
       // Trigger Account Abstraction processing (non-blocking)
       try {

@@ -197,6 +197,54 @@ model SessionAuthorization {
   @@index([expiryLedger])
 }
 
+model VulnerabilityAdvisory {
+  id            String   @id @default(cuid())
+  advisoryId    String   @unique
+  title         String
+  description   String?
+  severity      String   // low | medium | high | critical
+  affectedPackage String?
+  affectedContracts String[] // list of affected contract addresses
+  publishedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  propagationAnalyses PropagationAnalysis[]
+
+  @@index([severity])
+}
+
+model PropagationAnalysis {
+  id              String   @id @default(cuid())
+  advisoryId      String
+  vulnerableContract String
+  directAffected  String[] // list of directly affected contract addresses
+  affectedByDepth Json     // JSON map of depth -> string[] (e.g. { "1": ["addr1"], "2": ["addr2"] })
+  totalValueAtRisk Decimal? @default(0)
+  analysisDepth   Int      @default(5)
+  analyzedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  advisory VulnerabilityAdvisory @relation(fields: [advisoryId], references: [id])
+
+  @@index([advisoryId])
+  @@index([vulnerableContract])
+}
+
+model DexPool {
+  id             String   @id @default(cuid())
+  address        String   @unique
+  name           String?
+  tvlUsd         Decimal  @default(0)
+  tokenA         String?
+  tokenB         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([address])
+}
+
 model IndexerState {
   id         String   @id @default("singleton")
   lastLedger Int      @default(0)
@@ -4255,84 +4303,157 @@ model AbiCommunityContribution {
   @@map("abi_community_contributions")
 }
 
-// ── Distributed P2P Indexer Network ──────────────────────────────────────────
-// See docs/P2P_INDEXER_DESIGN.md. Every model here is scoped by `network` even
-// though each network already lives in its own physical database (profiles.ts) —
-// belt-and-suspenders so a cross-network bug is loud (a wrong-network row) rather
-// than silently mixing swarms.
 
-/// Registry of known peers in this network's P2P swarm, with locally-observed reputation.
-model PeerNode {
-  id               String   @id // libp2p PeerId (base58/CIDv1 string)
-  network          String
-  multiaddrs       String[]
-  firstSeenAt      DateTime @default(now())
-  lastSeenAt       DateTime @default(now())
-  reputationScore  Float    @default(50) // 0-100, see reputation-scorer.ts
-  challengesPassed Int      @default(0)
-  challengesFailed Int      @default(0)
-  latencyMsEwma    Float?
-  stakeAmount      BigInt? // unused until StakeProvider is a real implementation
-  isBootstrapPeer  Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+// ============================================================================
+// Fiat On/Off-Ramp Gateway (#fiat-ramp)
+// ============================================================================
 
-  @@index([network, lastSeenAt])
-  @@index([network, reputationScore])
-  @@map("p2p_peer_nodes")
+/// Universal KYC record — one per user, shared across all ramp providers.
+model RampKycRecord {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  /// tier1 = email+phone only ($0–$1k/day)
+  /// tier2 = ID verification ($1k–$10k/day)
+  /// tier3 = full KYC + source of funds ($10k+/day)
+  tier              String    @default("tier1")
+  /// pending | submitted | approved | rejected | expired
+  status            String    @default("pending")
+  documentType      String?
+  documentCountry   String?
+  livenessScore     Float?
+  pepScreened       Boolean   @default(false)
+  sanctionsScreened Boolean   @default(false)
+  verifiedAt        DateTime?
+  expiresAt         DateTime?
+  /// Map of provider name → provider-side KYC session/customer ID
+  providerKycIds    Json      @default("{}")
+  dailyLimitUsd     Float     @default(1000)
+  monthlyLimitUsd   Float     @default(10000)
+  dailyUsedUsd      Float     @default(0)
+  monthlyUsedUsd    Float     @default(0)
+  usageResetAt      DateTime?
+  jurisdiction      String?
+  blocked           Boolean   @default(false)
+  blockReason       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  orders RampOrder[]
+
+  @@index([status])
+  @@index([tier])
+  @@index([jurisdiction])
+  @@map("ramp_kyc_records")
 }
 
-/// A fixed ledger_seq range and which peers currently own it (rendezvous-hash top-K),
-/// plus this node's own indexing cursor for that range. Replaces the singleton
-/// IndexerState row's role when P2P_ENABLED=true (see src/p2p/responsibility.ts).
-model IndexerRangeClaim {
-  rangeId           String   @id // `${network}:${startLedger}-${endLedger}`
-  network           String
-  startLedger       Int
-  endLedger         Int
-  ownerPeerIds      String[] // advisory cache of last-computed top-K owners, not authoritative
-  lastIndexedLedger Int      @default(0)
-  lastClaimedAt     DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+/// Full lifecycle of a single fiat ↔ crypto ramp order.
+model RampOrder {
+  id              String    @id @default(cuid())
+  userId          String
+  kycId           String?
+  /// buy | sell
+  direction       String
+  provider        String
+  providerOrderId String?
+  /// pending | processing | completed | failed | refunded | cancelled
+  status          String    @default("pending")
+  fiatAmount      Float
+  fiatCurrency    String    @default("USD")
+  cryptoAmount    Float?
+  cryptoAsset     String
+  walletAddress   String
+  paymentMethod   String
+  exchangeRate    Float?
+  platformFeeUsd  Float     @default(0)
+  providerFeeUsd  Float     @default(0)
+  networkFeeUsd   Float     @default(0)
+  totalCostUsd    Float     @default(0)
+  txHash          String?
+  refundAmount    Float?
+  refundStatus    String?
+  refundedAt      DateTime?
+  userIp          String?
+  userCountry     String?
+  metadata        Json      @default("{}")
+  completedAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  @@unique([network, startLedger])
-  @@index([network, endLedger])
-  @@map("p2p_indexer_range_claims")
+  kyc    RampKycRecord? @relation(fields: [kycId], references: [id])
+  events RampOrderEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
+  @@index([providerOrderId])
+  @@index([direction])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@map("ramp_orders")
 }
 
-/// Audit trail of challenge-response verification rounds between replica owners
-/// of the same range (see src/p2p/esm/protocols/challenge-protocol.mts).
-model VerificationChallenge {
-  id               String   @id @default(cuid())
-  network          String
-  ledgerSequence   Int
-  challengerPeerId String
-  challengedPeerId String
-  challengerHash   String
-  challengedHash   String
-  tiebreakerPeerId String?
-  tiebreakerHash   String?
-  result           String // 'match' | 'mismatch' | 'tiebreak_resolved'
-  createdAt        DateTime @default(now())
+/// Immutable audit log — one row per order state change.
+model RampOrderEvent {
+  id          String   @id @default(cuid())
+  orderId     String
+  fromStatus  String?
+  toStatus    String
+  triggeredBy String   @default("system")
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
 
-  @@index([network, ledgerSequence])
-  @@index([network, challengedPeerId, createdAt])
-  @@map("p2p_verification_challenges")
+  order RampOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("ramp_order_events")
 }
 
-/// Queue of ledgers flagged for re-indexing after a challenge mismatch or query
-/// read-repair (see src/p2p/reindex-queue.ts).
-model ReindexTask {
-  id             String    @id @default(cuid())
-  network        String
-  ledgerSequence Int
-  reason         String // 'challenge_mismatch' | 'read_repair'
-  sourcePeerId   String?
-  status         String    @default("pending") // 'pending' | 'in_progress' | 'done' | 'failed'
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
+/// Daily provider reconciliation run results.
+model RampReconciliation {
+  id               String    @id @default(cuid())
+  provider         String
+  /// YYYY-MM-DD
+  periodDate       String
+  /// pending | running | completed | failed
+  status           String    @default("pending")
+  ordersChecked    Int       @default(0)
+  discrepancyCount Int       @default(0)
+  discrepancies    Json      @default("[]")
+  totalVolumeUsd   Float     @default(0)
+  errorRate        Float     @default(0)
+  runAt            DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  @@index([network, status])
-  @@index([network, ledgerSequence])
-  @@map("p2p_reindex_tasks")
+  @@unique([provider, periodDate])
+  @@index([status])
+  @@index([provider])
+  @@map("ramp_reconciliations")
+}
+
+/// AML monitoring alert raised against a user or order.
+model RampAmlFlag {
+  id          String    @id @default(cuid())
+  userId      String
+  orderId     String?
+  /// structuring | rapid_in_out | high_risk_jurisdiction | large_single | velocity
+  flagType    String
+  /// low | medium | high | critical
+  severity    String    @default("medium")
+  description String
+  metadata    Json      @default("{}")
+  resolved    Boolean   @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([flagType])
+  @@index([resolved])
+  @@index([createdAt(sort: Desc)])
+  @@map("ramp_aml_flags")
 }

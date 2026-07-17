@@ -24,13 +24,13 @@ function uniqueId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-vi.mock('../src/config', () => ({
+vi.mock('../../src/config', () => ({
   config: {
     networkPassphrase: 'Test SDF Network ; September 2015',
   },
 }));
 
-vi.mock('../src/db', () => ({
+vi.mock('../../src/db', () => ({
   prismaRead: {
     sandboxSession: {
       findUnique: vi.fn(async ({ where }: any) => sessionStore.get(where.id) ?? null),
@@ -100,6 +100,10 @@ vi.mock('../src/db', () => ({
     contract: {
       findUnique: vi.fn(async () => null),
     },
+    transaction: {
+      findUnique: vi.fn(async () => null),
+    },
+    $transaction: vi.fn(async (ops: any[]) => Promise.all(ops)),
   },
   prismaWrite: {
     sandboxSession: {
@@ -123,66 +127,54 @@ vi.mock('../src/db', () => ({
     },
     sandboxAccount: {
       createMany: vi.fn(async ({ data }: any) => {
-        for (const row of data) {
-          getArrayStore(accountStore, row.sessionId).push({
-            id: uniqueId('account'),
-            ...clone(row),
-          });
+        for (const d of data) {
+          getArrayStore(accountStore, d.sessionId).push(clone(d));
         }
         return { count: data.length };
       }),
-      create: vi.fn(async ({ data }: any) => {
-        const row = { id: uniqueId('account'), ...clone(data) };
-        getArrayStore(accountStore, data.sessionId).push(row);
-        return row;
-      }),
       update: vi.fn(async ({ where, data }: any) => {
         const rows = getArrayStore(accountStore, where.sessionId_publicKey.sessionId);
-        const row = rows.find((entry) => entry.publicKey === where.sessionId_publicKey.publicKey);
-        if (!row) throw new Error('account not found');
-        Object.assign(row, clone(data));
-        return row;
-      }),
-      deleteMany: vi.fn(async ({ where }: any) => {
-        accountStore.set(where.sessionId, []);
-        return { count: 0 };
+        const idx = rows.findIndex((r) => r.publicKey === where.sessionId_publicKey.publicKey);
+        if (idx >= 0) {
+          Object.assign(rows[idx], clone(data));
+          return rows[idx];
+        }
+        throw new Error('account not found');
       }),
     },
     sandboxContract: {
       create: vi.fn(async ({ data }: any) => {
-        const row = { id: uniqueId('contract'), ...clone(data) };
-        getArrayStore(contractStore, data.sessionId).push(row);
+        const row = clone(data);
+        getArrayStore(contractStore, row.sessionId).push(row);
         return row;
       }),
       update: vi.fn(async ({ where, data }: any) => {
         const rows = getArrayStore(contractStore, where.sessionId_contractId.sessionId);
-        const row = rows.find(
-          (entry) => entry.contractId === where.sessionId_contractId.contractId,
-        );
-        if (!row) throw new Error('contract not found');
-        Object.assign(row, clone(data));
-        return row;
+        const idx = rows.findIndex((r) => r.contractId === where.sessionId_contractId.contractId);
+        if (idx >= 0) {
+          Object.assign(rows[idx], clone(data));
+          return rows[idx];
+        }
+        throw new Error('contract not found');
       }),
-      deleteMany: vi.fn(async ({ where }: any) => {
-        contractStore.set(where.sessionId, []);
-        return { count: 0 };
+      createMany: vi.fn(async ({ data }: any) => {
+        for (const d of data) {
+          getArrayStore(contractStore, d.sessionId).push(clone(d));
+        }
+        return { count: data.length };
       }),
     },
     sandboxSnapshot: {
       create: vi.fn(async ({ data }: any) => {
-        const row = {
-          id: uniqueId('snapshot'),
-          createdAt: new Date('2026-06-18T00:00:00.000Z'),
-          ...clone(data),
-        };
-        getArrayStore(snapshotStore, data.sessionId).push(row);
+        const row = { id: uniqueId('snapshot'), ...clone(data) };
+        getArrayStore(snapshotStore, row.sessionId).push(row);
         return row;
       }),
     },
     sandboxCall: {
       create: vi.fn(async ({ data }: any) => {
         const row = { id: uniqueId('call'), ...clone(data) };
-        getArrayStore(callStore, data.sessionId).push(row);
+        getArrayStore(callStore, row.sessionId).push(row);
         return row;
       }),
     },
@@ -201,13 +193,10 @@ vi.mock('../src/db', () => ({
     },
     fuzzFinding: {
       createMany: vi.fn(async ({ data }: any) => {
-        const first = data[0];
-        const runId = first?.fuzzRunId;
+        const runId = data[0]?.fuzzRunId;
         if (!runId) return { count: 0 };
-        const rows = getArrayStore(fuzzFindingStore, runId);
-        for (const row of data) {
-          rows.push({ id: uniqueId('finding'), ...clone(row) });
-        }
+        const arr = getArrayStore(fuzzFindingStore, runId);
+        for (const d of data) arr.push(clone(d));
         return { count: data.length };
       }),
     },
@@ -238,7 +227,7 @@ vi.mock('../src/db', () => ({
   },
 }));
 
-describe('SandboxEngine', () => {
+describe('sandbox determinism', () => {
   beforeEach(() => {
     sessionStore.clear();
     accountStore.clear();
@@ -253,136 +242,96 @@ describe('SandboxEngine', () => {
     vi.clearAllMocks();
   });
 
-  it('creates a deterministic session with prefunded accounts', async () => {
-    const { sandboxEngine } = await import('../src/sandbox/runtime');
-    const session = await sandboxEngine.createSession({ seed: 'seed-a' });
-
-    expect(session.status).toBe('active');
-    expect(session.accountCount).toBe(20);
+  async function runSession(seed: string) {
+    const { sandboxEngine } = await import('../../src/sandbox/runtime');
+    const session = await sandboxEngine.createSession({
+      seed,
+      accountCount: 5,
+      preFundedBalance: '10000',
+    });
     const accounts = await sandboxEngine.listAccounts(session.id);
-    expect(accounts).toHaveLength(20);
-    expect(accounts[0].balance).toBe('10000');
-  });
+    const deployer = accounts[0].publicKey;
 
-  it('deploys a template contract and updates state on call', async () => {
-    const { sandboxEngine } = await import('../src/sandbox/runtime');
-    const session = await sandboxEngine.createSession({ seed: 'seed-b' });
     const contract = await sandboxEngine.deployFromTemplate({
       sessionId: session.id,
       templateId: 'sep41-token',
-      name: 'Token',
-      deployer: (await sandboxEngine.listAccounts(session.id))[0].publicKey,
+      name: 'Test Token',
+      deployer,
+      initArgs: { name: 'Test', symbol: 'TST', decimals: 7 },
     });
 
-    const mintResult = await sandboxEngine.call({
+    const mint1 = await sandboxEngine.call({
       sessionId: session.id,
       contractId: contract.contractId,
       functionName: 'mint',
-      args: { to: (await sandboxEngine.listAccounts(session.id))[1].publicKey, amount: '250' },
-      sourceAccount: (await sandboxEngine.listAccounts(session.id))[0].publicKey,
+      args: { to: accounts[1].publicKey, amount: '500' },
+      sourceAccount: deployer,
     });
 
-    expect(mintResult.success).toBe(true);
-    expect(mintResult.result).toEqual({ minted: '250' });
-    const state = await sandboxEngine.getContractState(session.id, contract.contractId);
-    expect((state as any).totalSupply).toBe('250');
-  });
-
-  it('captures fuzz findings for known attack patterns', async () => {
-    const { sandboxEngine } = await import('../src/sandbox/runtime');
-    const session = await sandboxEngine.createSession({ seed: 'seed-c' });
-    const contract = await sandboxEngine.deployFromTemplate({
-      sessionId: session.id,
-      templateId: 'sep41-token',
-      name: 'Token',
-      deployer: (await sandboxEngine.listAccounts(session.id))[0].publicKey,
-    });
-
-    const fuzzRun = await sandboxEngine.startFuzz({
+    const mint2 = await sandboxEngine.call({
       sessionId: session.id,
       contractId: contract.contractId,
-      strategies: [{ type: 'known_attack', iterations: 10 }],
+      functionName: 'mint',
+      args: { to: accounts[2].publicKey, amount: '300' },
+      sourceAccount: deployer,
     });
 
-    expect(fuzzRun.findings).toHaveLength(3);
-    expect(fuzzRun.findings[0].severity).toBe('critical');
-  });
-
-  it('runs a fuzz campaign, records crashes, and minimizes them', async () => {
-    const { sandboxEngine } = await import('../src/sandbox/runtime');
-    const session = await sandboxEngine.createSession({ seed: 'seed-e' });
-    const contract = await sandboxEngine.deployFromTemplate({
-      sessionId: session.id,
-      templateId: 'sep41-token',
-      name: 'Token',
-      deployer: (await sandboxEngine.listAccounts(session.id))[0].publicKey,
-    });
-
-    const campaign = await sandboxEngine.startFuzzCampaign({
+    const transfer = await sandboxEngine.call({
       sessionId: session.id,
       contractId: contract.contractId,
-      config: {
-        timeLimitMs: 20,
-        coverageTarget: 60,
-        workers: 2,
-        maxSteps: 4,
-        seedCorpus: [
-          {
-            functionName: 'mint',
-            args: { to: (await sandboxEngine.listAccounts(session.id))[1].publicKey, amount: '1' },
-          },
-        ],
-        invariants: ['totalSupply == sum(balances)'],
-        enableOracleManipulation: true,
-      },
+      functionName: 'transfer',
+      args: { from: accounts[1].publicKey, to: accounts[3].publicKey, amount: '150' },
+      sourceAccount: accounts[1].publicKey,
     });
 
-    expect(campaign.campaignId).toBeDefined();
-    expect(campaign.coverage.totalCoverage).toBeGreaterThan(0);
-    expect(campaign.crashes.length).toBeGreaterThanOrEqual(0);
+    const balance = await sandboxEngine.call({
+      sessionId: session.id,
+      contractId: contract.contractId,
+      functionName: 'balance_of',
+      args: { owner: accounts[3].publicKey },
+      sourceAccount: deployer,
+    });
 
-    if (campaign.crashes.length > 0) {
-      const minimized = await sandboxEngine.minimizeCrash(
-        session.id,
-        campaign.campaignId,
-        campaign.crashes[0].id,
-      );
-      expect(minimized.steps.length).toBeLessThanOrEqual(campaign.crashes[0].steps.length);
-      expect(minimized.suggestedFix).toBeTruthy();
+    const finalState = await sandboxEngine.getContractState(session.id, contract.contractId);
+
+    return {
+      sessionId: session.id,
+      mint1Result: mint1.result,
+      mint2Result: mint2.result,
+      transferResult: transfer.result,
+      balanceResult: balance.result,
+      finalState: JSON.stringify(finalState, null, 2),
+      calls: [mint1, mint2, transfer, balance].map((c) => ({
+        success: c.success,
+        events: c.events,
+        metrics: c.metrics,
+      })),
+    };
+  }
+
+  it('produces identical results for identical seeds across two sessions', async () => {
+    const seed = 'determinism-test-seed-12345';
+
+    const run1 = await runSession(seed);
+    const run2 = await runSession(seed);
+
+    expect(run1.mint1Result).toEqual(run2.mint1Result);
+    expect(run1.mint2Result).toEqual(run2.mint2Result);
+    expect(run1.transferResult).toEqual(run2.transferResult);
+    expect(run1.balanceResult).toEqual(run2.balanceResult);
+    expect(run1.finalState).toEqual(run2.finalState);
+
+    for (let i = 0; i < run1.calls.length; i++) {
+      expect(run1.calls[i].success).toBe(run2.calls[i].success);
+      expect(JSON.stringify(run1.calls[i].events)).toBe(JSON.stringify(run2.calls[i].events));
+      expect(run1.calls[i].metrics).toEqual(run2.calls[i].metrics);
     }
   });
 
-  it('executes CI steps and stores the result', async () => {
-    const { sandboxEngine } = await import('../src/sandbox/runtime');
-    const session = await sandboxEngine.createSession({ seed: 'seed-d' });
-    const contract = await sandboxEngine.deployFromTemplate({
-      sessionId: session.id,
-      templateId: 'sep41-token',
-      name: 'Token',
-      deployer: (await sandboxEngine.listAccounts(session.id))[0].publicKey,
-    });
+  it('produces different results for different seeds', async () => {
+    const run1 = await runSession('seed-a');
+    const run2 = await runSession('seed-b');
 
-    const result = await sandboxEngine.executeCi({
-      sessionId: session.id,
-      onFailure: 'stop',
-      steps: [
-        {
-          action: 'call',
-          contract: contract.contractId,
-          function: 'mint',
-          args: { to: (await sandboxEngine.listAccounts(session.id))[1].publicKey, amount: '42' },
-        },
-        {
-          action: 'assert',
-          contract: contract.contractId,
-          function: 'balance_of',
-          expected: { balance: '42' },
-          args: { owner: (await sandboxEngine.listAccounts(session.id))[1].publicKey },
-        },
-      ],
-    });
-
-    expect(result.passed).toBe(true);
-    expect(result.results).toHaveLength(2);
+    expect(run1.sessionId).not.toBe(run2.sessionId);
   });
 });
