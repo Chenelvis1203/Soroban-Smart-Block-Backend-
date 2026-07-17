@@ -124,3 +124,12 @@ router.use('/abi-extract', abiExtractRouter);
 // Auth and owner-scoping are enforced inside webhooksRouter itself.
 import { webhooksRouter } from './webhooks';
 router.use('/webhooks', webhooksRouter);
+
+// ── Governance & DAO Framework (#567) ─────────────────────────────────────────
+// Reads are public; writes are signature-authenticated inside the router.
+// Treasury mounts before the base router so /governance/treasury/... wins
+// over the /governance/:wildcard-style proposal routes.
+import { governanceTreasuryRouter } from './governance-treasury';
+router.use('/governance/treasury', governanceTreasuryRouter);
+import { governanceRouter } from './governance';
+router.use('/governance', governanceRouter);
