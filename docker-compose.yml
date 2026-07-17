@@ -107,7 +107,7 @@ services:
   # TESTNET
   # ═══════════════════════════════════════════════════════════════════════════
   db-testnet:
-    image: postgres:16-alpine
+    image: apache/age:latest
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -175,7 +175,7 @@ services:
   # MAINNET
   # ═══════════════════════════════════════════════════════════════════════════
   db-mainnet:
-    image: postgres:16-alpine
+    image: apache/age:latest
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -246,7 +246,7 @@ services:
   # DEVNET  (local Stellar Quickstart)
   # ═══════════════════════════════════════════════════════════════════════════
   db-devnet:
-    image: postgres:16-alpine
+    image: apache/age:latest
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

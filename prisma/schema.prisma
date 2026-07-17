@@ -1422,6 +1422,7 @@ model GovernanceTimelock {
   gracePeriod     Int?
 
   @@index([contractAddress])
+  @@index([proposalId])
   @@index([status])
   @@index([executionTime])
 }
@@ -2102,71 +2103,260 @@ model GasGolfingTip {
   createdAt    DateTime @default(now())
 }
 
+// ─── Governance & DAO Framework (issue #567) ────────────────────────────────
+// Design: docs/governance-framework.md
+//
+// GovernanceContract is the per-DAO configuration root. `governanceType`
+// discriminates the voting model: 'token_based' (default, written by the
+// indexer), 'quadratic', 'conviction', 'multisig'. Numeric on-chain amounts
+// (token weights, vote totals, stakes) are stored as strings holding integer
+// values (i128-safe), matching the indexer's addIntegerStrings arithmetic.
+
 model GovernanceContract {
   id              String   @id @default(cuid())
   contractAddress String   @unique
   governanceType  String
-  proposals       Json?
   votingToken     String?
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
+  // Shared voting config
+  quorumBps            Int? // quorum as basis points of total supply
+  votingPeriodLedgers  Int? // proposal voting window in ledgers
+  proposalThreshold    String? // min token balance to create a proposal
+  timelockDelaySecs    Int? // delay between passage and execution (null → service default 48h)
+  guardian             String? // address allowed to cancel queued proposals
+  categories           String[] @default([]) // delegation categories (e.g. tech, treasury)
+  // Quadratic voting config
+  voiceCreditsPerRound Int? // per-voter credit budget per round
+  minTokenHolding      String? // Sybil floor: min balance for a credit budget
+  minReputationScore   Float? // optional reputation gate
+  // Conviction voting config
+  convictionHalfLifeLedgers Int? // decay half-life for conviction accrual
+  convictionMaxRatioBps     Int? // max fraction of pool one proposal can request
+  // Multisig config
+  multisigThreshold Int? // M of the active GovernanceMultisigSigner set
+  metadata          Json?
+  updatedAt         DateTime @updatedAt
+  createdAt         DateTime @default(now())
+
+  proposals   GovernanceProposal[]
+  votes       GovernanceVote[]
+  delegates   GovernanceDelegate[]
+  delegations GovernanceDelegation[]
+  signers     GovernanceMultisigSigner[]
+  treasuries  TreasuryAccount[]
 }
 
+// Aggregate delegate leaderboard cache (one row per delegatee), maintained by
+// the indexer and rebuilt from GovernanceDelegation edges.
 model GovernanceDelegate {
   id              String   @id @default(cuid())
   contractAddress String
   delegatee       String
-  delegatedVotes  Float?
-  delegators      String[]
+  delegatedVotes  String? // integer string (i128-safe)
+  delegators      Int? // count of active inbound delegations
   proposalsVoted  Int?
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 
+  contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+
   @@unique([contractAddress, delegatee])
+}
+
+// Delegation edge (delegator → delegatee), optionally scoped to a category.
+// Edges are never deleted: revocation sets revokedAt, and power resolution
+// only follows edges where revokedAt IS NULL. History feeds analytics.
+model GovernanceDelegation {
+  id              String    @id @default(cuid())
+  contractAddress String
+  delegator       String
+  delegatee       String
+  category        String    @default("all")
+  transactionHash String?
+  ledgerSequence  Int?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+
+  @@index([contractAddress, delegator])
+  @@index([contractAddress, delegatee])
+  @@index([revokedAt])
+}
+
+// Quadratic-voting voice credit budgets, per (contract, round, holder).
+// Cost to cast N votes on one proposal = N² credits (debited by the service).
+model GovernanceVoiceCredit {
+  id              String   @id @default(cuid())
+  contractAddress String
+  round           Int
+  holder          String
+  budget          Int
+  spent           Int      @default(0)
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@unique([contractAddress, round, holder])
+  @@index([contractAddress, holder])
+}
+
+// Multisig signer set with membership history (removedAt NULL = active).
+model GovernanceMultisigSigner {
+  id              String    @id @default(cuid())
+  contractAddress String
+  signer          String
+  addedAt         DateTime  @default(now())
+  removedAt       DateTime?
+  transactionHash String?
+
+  contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+
+  @@unique([contractAddress, signer])
+  @@index([contractAddress, removedAt])
 }
 
 model GovernanceProposal {
   id              String    @id @default(cuid())
   contractAddress String
-  proposalId      String
+  proposalId      String // on-chain proposal id (natural key with contractAddress)
   proposer        String
   title           String
   description     String?
   targets         Json
+  values          Json? // per-target amounts for fund transfers
+  calldatas       Json? // per-target base64 InvokeContractArgs
+  votingModel     String? // snapshot of contract.governanceType at creation
+  template        String? // parameter_change | fund_transfer | contract_upgrade | text
+  snapshotLedger  Int? // ledger at which voting power is measured
   startBlock      Int
   endBlock        Int
-  quorum          Int?
-  status          String
+  quorum          String? // integer string (i128-safe)
+  status          String // draft|pending|active|queued|executing|executed|defeated|failed|cancelled|expired
+  queuedAt        DateTime?
+  eta             DateTime? // earliest execution time once queued
+  cancelledBy     String?
+  executionKind   String? // onchain | none (text proposals)
   executedAt      DateTime?
   executionTxHash String?
-  votes           Json?
-  votesFor        Float?
-  votesAgainst    Float?
-  votesAbstain    Float?
+  votesFor        String? // integer strings (i128-safe running totals)
+  votesAgainst    String?
+  votesAbstain    String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  governanceVotes GovernanceVote[]
+  contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+  votes    GovernanceVote[]
 
   @@unique([contractAddress, proposalId])
+  @@index([status])
+  @@index([proposer])
 }
 
 model GovernanceVote {
   id              String   @id @default(cuid())
   contractAddress String
-  proposalId      String
+  proposalId      String // on-chain proposal id (FK to proposal's natural key)
   voter           String
-  weight          Float?
-  support         Boolean?
+  weight          String? // integer string (i128-safe)
+  support         String? // for | against | abstain | confirm | unknown
   reason          String?
+  voiceCredits    Int? // quadratic: credits spent (= votes²)
+  stakeAmount     String? // conviction: currently staked tokens
+  convictionAt    String? // conviction: accrued conviction at lastUpdateLedger
+  lastUpdateLedger Int? // conviction: ledger of last conviction update
   transactionHash String?
   ledgerSequence  Int?
   createdAt       DateTime @default(now())
 
-  proposal GovernanceProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  contract GovernanceContract @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+  proposal GovernanceProposal @relation(fields: [contractAddress, proposalId], references: [contractAddress, proposalId], onDelete: Cascade)
 
   @@unique([contractAddress, proposalId, voter])
   @@index([proposalId])
+  @@index([voter])
+}
+
+// ─── DAO Treasury (issue #567 §Treasury Management) ─────────────────────────
+
+model TreasuryAccount {
+  id              String   @id @default(cuid())
+  contractAddress String // owning governance contract
+  accountAddress  String   @unique // on-chain treasury account/contract
+  name            String?
+  reputationWeight Float   @default(0) // 0..1 blend of reputation into voting power
+  metadata        Json?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  governance   GovernanceContract       @relation(fields: [contractAddress], references: [contractAddress], onDelete: Cascade)
+  assets       TreasuryAsset[]
+  streams      TreasuryPayoutStream[]
+  transactions TreasuryTransaction[]
+
+  @@index([contractAddress])
+}
+
+model TreasuryAsset {
+  id           String   @id @default(cuid())
+  treasuryId   String
+  assetType    String // native | sep41 | lp | wrapped | governance
+  assetCode    String // e.g. XLM, USDC, ETH
+  tokenAddress String? // SEP-41 contract (null for native XLM)
+  balance      String   @default("0") // integer string in stroops/base units
+  decimals     Int      @default(7)
+  valueUsd     Float?
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  treasury TreasuryAccount @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+
+  @@unique([treasuryId, assetCode, tokenAddress])
+  @@index([treasuryId])
+}
+
+// Streaming payouts (grants, contributor pay) created by fund_transfer
+// proposals; claims are executable payloads through the same pipeline.
+model TreasuryPayoutStream {
+  id              String    @id @default(cuid())
+  treasuryId      String
+  recipient       String
+  assetCode       String
+  tokenAddress    String?
+  amountPerPeriod String // integer string per period
+  periodSeconds   Int
+  startAt         DateTime
+  endAt           DateTime?
+  claimed         String    @default("0") // total claimed so far (integer string)
+  proposalId      String? // originating proposal (on-chain id, informational)
+  status          String    @default("active") // active | paused | completed | cancelled
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
+
+  treasury TreasuryAccount @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+
+  @@index([treasuryId])
+  @@index([recipient])
+  @@index([proposalId])
+}
+
+model TreasuryTransaction {
+  id              String   @id @default(cuid())
+  treasuryId      String
+  direction       String // inflow | outflow
+  assetCode       String
+  tokenAddress    String?
+  amount          String // integer string in base units
+  counterparty    String?
+  category        String? // grants | ops | protocol_revenue | ...
+  transactionHash String
+  ledgerSequence  Int?
+  timestamp       DateTime
+  createdAt       DateTime @default(now())
+
+  treasury TreasuryAccount @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+
+  @@unique([treasuryId, transactionHash, assetCode, direction])
+  @@index([treasuryId, timestamp])
+  @@index([transactionHash])
 }
 
 model LinkedIdentity {

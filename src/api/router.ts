@@ -121,9 +121,11 @@ router.use('/abi-extract', abiExtractRouter);
 import { webhooksRouter } from './webhooks';
 router.use('/webhooks', webhooksRouter);
 
-// ── Blockchain Data Lake / Analytics Warehouse (#566) ─────────────────────────
-// POST /analytics/query — compute-heavy SQL against Iceberg lake; key required
-// GET  /analytics/dashboard/:type — fast materialized-view path; public + cached
-import { analyticsQueryRouter } from './analytics-query';
-router.use('/analytics/query', requireApiKey, analyticsQueryRouter);
-router.use('/analytics', analyticsQueryRouter);
+// ── Governance & DAO Framework (#567) ─────────────────────────────────────────
+// Reads are public; writes are signature-authenticated inside the router.
+// Treasury mounts before the base router so /governance/treasury/... wins
+// over the /governance/:wildcard-style proposal routes.
+import { governanceTreasuryRouter } from './governance-treasury';
+router.use('/governance/treasury', governanceTreasuryRouter);
+import { governanceRouter } from './governance';
+router.use('/governance', governanceRouter);
