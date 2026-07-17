@@ -108,6 +108,10 @@ router.use('/admin/errors', adminErrorsRouter);
 import { bridgeTrackerRouter } from './bridge-tracker';
 router.use('/bridge-tracker', bridgeTrackerRouter);
 
+// ── ZKP Verification History ──────────────────────────────────────────────────
+import { zkpVerificationsRouter } from './zkp-verifications';
+router.use('/zkp-verifications', zkpVerificationsRouter);
+
 // ── Admin ──────────────────────────────────────────────────────────────────────
 import { adminRouter } from './admin';
 router.use('/admin', adminRouter);
@@ -121,8 +125,11 @@ router.use('/abi-extract', abiExtractRouter);
 import { webhooksRouter } from './webhooks';
 router.use('/webhooks', webhooksRouter);
 
-// ── Fiat On/Off-Ramp Gateway ──────────────────────────────────────────────────
-// User-facing routes require JWT auth (enforced inside rampRouter).
-// Provider webhook callbacks are HMAC-verified inside the handler.
-import { rampRouter } from './ramp';
-router.use('/ramp', rampRouter);
+// ── Governance & DAO Framework (#567) ─────────────────────────────────────────
+// Reads are public; writes are signature-authenticated inside the router.
+// Treasury mounts before the base router so /governance/treasury/... wins
+// over the /governance/:wildcard-style proposal routes.
+import { governanceTreasuryRouter } from './governance-treasury';
+router.use('/governance/treasury', governanceTreasuryRouter);
+import { governanceRouter } from './governance';
+router.use('/governance', governanceRouter);
