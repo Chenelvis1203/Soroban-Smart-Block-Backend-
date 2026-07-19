@@ -44,6 +44,11 @@
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "test:full": "vitest run"
   },
+  "overrides": {
+    "@types/memcached": {
+      "os": "linux"
+    }
+  },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
