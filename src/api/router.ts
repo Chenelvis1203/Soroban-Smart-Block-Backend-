@@ -129,3 +129,7 @@ import { governanceTreasuryRouter } from './governance-treasury';
 router.use('/governance/treasury', governanceTreasuryRouter);
 import { governanceRouter } from './governance';
 router.use('/governance', governanceRouter);
+
+// ── Contract Dependency Graph (#574) ───────────────────────────────────────────
+import { graphRouter } from './graph';
+router.use('/graph', graphRouter);

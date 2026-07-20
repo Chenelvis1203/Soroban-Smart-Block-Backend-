@@ -4255,3 +4255,21 @@ model AbiCommunityContribution {
   @@map("abi_community_contributions")
 }
 
+// ── Contract Dependency Graph (#574) ─────────────────────────────────────────
+
+model ContractDependency {
+  id             String   @id @default(cuid())
+  sourceAddress  String
+  targetAddress  String
+  isActive       Boolean  @default(true)
+  weight         Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([targetAddress, isActive])
+  @@index([sourceAddress, isActive])
+  @@index([targetAddress])
+  @@index([sourceAddress])
+  @@map("contract_dependencies")
+}
+
