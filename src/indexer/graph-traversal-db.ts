@@ -54,6 +54,7 @@ export async function traverseUpstream(
     const frontierArray = [...frontier];
     let lastCursor: string | undefined;
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (Date.now() - startTime > timeoutMs) {
         timedOut = true;

@@ -46,9 +46,14 @@ async function resolveCert(address: string, versionParam: string) {
   return prismaRead.auditCertificate.findFirst({
     where: { contractAddress: address, version },
     select: {
-      id: true, version: true, status: true,
-      certificateHash: true, anchorTxHash: true,
-      overallScore: true, generatedAt: true, expiresAt: true,
+      id: true,
+      version: true,
+      status: true,
+      certificateHash: true,
+      anchorTxHash: true,
+      overallScore: true,
+      generatedAt: true,
+      expiresAt: true,
       contractAddress: true,
     },
   });
@@ -73,17 +78,17 @@ contractAnchorRouter.get(
       const estimate = await estimateAnchorFee(cert.certificateHash);
 
       res.json({
-        contractAddress:  req.params.address,
-        version:          cert.version,
-        certificateHash:  cert.certificateHash,
-        alreadyAnchored:  !!cert.anchorTxHash,
-        feeEstimate:      estimate,
+        contractAddress: req.params.address,
+        version: cert.version,
+        certificateHash: cert.certificateHash,
+        alreadyAnchored: !!cert.anchorTxHash,
+        feeEstimate: estimate,
         anchorMechanism: {
-          primary:     'MEMO_HASH — SHA-256 of certificate payload embedded in tx memo',
-          secondary:   'ManageData — key/value record on anchor account for searchability',
-          noContract:  true,
+          primary: 'MEMO_HASH — SHA-256 of certificate payload embedded in tx memo',
+          secondary: 'ManageData — key/value record on anchor account for searchability',
+          noContract: true,
           sorobanCost: 0,
-          note:        'Classic Stellar transaction. No smart contract execution fee.',
+          note: 'Classic Stellar transaction. No smart contract execution fee.',
         },
       });
     } catch (e) {
@@ -104,7 +109,7 @@ contractAnchorRouter.post(
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const { force }   = anchorSchema.parse(req.body);
+      const { force } = anchorSchema.parse(req.body);
 
       const cert = await resolveCert(address, req.params.version);
       if (!cert) {
@@ -119,9 +124,9 @@ contractAnchorRouter.post(
 
       if (cert.anchorTxHash && !force) {
         return res.status(409).json({
-          error:        'Certificate is already anchored.',
+          error: 'Certificate is already anchored.',
           anchorTxHash: cert.anchorTxHash,
-          hint:         'Pass force=true to re-anchor.',
+          hint: 'Pass force=true to re-anchor.',
         });
       }
 
@@ -130,34 +135,36 @@ contractAnchorRouter.post(
 
       // Build Merkle tree for this contract to include root in the anchor
       const allCerts = await prismaRead.auditCertificate.findMany({
-        where:   { contractAddress: address, status: 'published' },
+        where: { contractAddress: address, status: 'published' },
         orderBy: [{ contractAddress: 'asc' }, { version: 'asc' }],
-        select:  { certificateHash: true },
+        select: { certificateHash: true },
       });
-      const tree       = buildMerkleTree(allCerts.map((c) => c.certificateHash));
+      const tree = buildMerkleTree(allCerts.map((c) => c.certificateHash));
       const merkleRoot = tree.root;
 
       logger.info('Anchoring certificate on-chain', {
-        certId: cert.id, version: cert.version, address,
+        certId: cert.id,
+        version: cert.version,
+        address,
       });
 
       const result = await anchorCertificate(cert.id, cert.certificateHash, merkleRoot);
 
       res.status(result.simulated ? 200 : 201).json({
-        contractAddress:  address,
-        version:          cert.version,
-        certificateId:    cert.id,
-        certificateHash:  cert.certificateHash,
-        txHash:           result.txHash,
-        ledgerSequence:   result.ledgerSequence,
-        feeCharged:       result.feeCharged,
+        contractAddress: address,
+        version: cert.version,
+        certificateId: cert.id,
+        certificateHash: cert.certificateHash,
+        txHash: result.txHash,
+        ledgerSequence: result.ledgerSequence,
+        feeCharged: result.feeCharged,
         merkleRoot,
-        leafCount:        allCerts.length,
-        simulated:        result.simulated,
-        anchored:         result.anchored,
-        feeEstimate:      estimate,
-        verifyUrl:        `/api/v1/contracts/${address}/audit/${cert.version}/anchor`,
-        proofUrl:         `/api/v1/contracts/${address}/audit/${cert.version}/anchor/proof`,
+        leafCount: allCerts.length,
+        simulated: result.simulated,
+        anchored: result.anchored,
+        feeEstimate: estimate,
+        verifyUrl: `/api/v1/contracts/${address}/audit/${cert.version}/anchor`,
+        proofUrl: `/api/v1/contracts/${address}/audit/${cert.version}/anchor/proof`,
         note: result.simulated
           ? 'Anchoring is in simulation mode. Set ANCHOR_ENABLED=true and ANCHOR_SECRET_KEY to submit real transactions.'
           : 'Certificate hash successfully anchored on Stellar mainnet/testnet.',
@@ -178,7 +185,7 @@ contractAnchorRouter.get(
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const cert        = await resolveCert(address, req.params.version);
+      const cert = await resolveCert(address, req.params.version);
       if (!cert) {
         return res.status(404).json({ error: 'Certificate version not found.' });
       }
@@ -188,12 +195,12 @@ contractAnchorRouter.get(
       if (!isAnchored) {
         return res.json({
           contractAddress: address,
-          version:         cert.version,
+          version: cert.version,
           certificateHash: cert.certificateHash,
-          anchored:        false,
-          anchorTxHash:    null,
-          hint:            `POST /api/v1/contracts/${address}/audit/${cert.version}/anchor to anchor.`,
-          estimateUrl:     `/api/v1/contracts/${address}/audit/${cert.version}/anchor/estimate`,
+          anchored: false,
+          anchorTxHash: null,
+          hint: `POST /api/v1/contracts/${address}/audit/${cert.version}/anchor to anchor.`,
+          estimateUrl: `/api/v1/contracts/${address}/audit/${cert.version}/anchor/estimate`,
         });
       }
 
@@ -201,13 +208,13 @@ contractAnchorRouter.get(
       const verification = await verifyOnChainAnchor(cert.id, cert.certificateHash);
 
       res.json({
-        contractAddress:  address,
-        version:          cert.version,
-        certificateHash:  cert.certificateHash,
-        anchored:         true,
-        anchorTxHash:     cert.anchorTxHash,
+        contractAddress: address,
+        version: cert.version,
+        certificateHash: cert.certificateHash,
+        anchored: true,
+        anchorTxHash: cert.anchorTxHash,
         onChainVerification: verification,
-        proofUrl:         `/api/v1/contracts/${address}/audit/${cert.version}/anchor/proof`,
+        proofUrl: `/api/v1/contracts/${address}/audit/${cert.version}/anchor/proof`,
       });
     } catch (e) {
       res.status(500).json({ error: String(e) });
@@ -223,7 +230,7 @@ contractAnchorRouter.get(
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const cacheKey    = `anchor:proof:${address}:${req.params.version}`;
+      const cacheKey = `anchor:proof:${address}:${req.params.version}`;
 
       const cached = await cacheGet(cacheKey);
       if (cached) return res.json(cached);
@@ -235,14 +242,14 @@ contractAnchorRouter.get(
 
       // Build Merkle tree from ALL published certs for this contract
       const allCerts = await prismaRead.auditCertificate.findMany({
-        where:   { contractAddress: address, status: 'published' },
+        where: { contractAddress: address, status: 'published' },
         orderBy: [{ contractAddress: 'asc' }, { version: 'asc' }],
-        select:  { id: true, certificateHash: true, version: true },
+        select: { id: true, certificateHash: true, version: true },
       });
 
-      const hashes   = allCerts.map((c) => c.certificateHash);
-      const tree     = buildMerkleTree(hashes);
-      const leafIdx  = hashes.findIndex((h) => h === cert.certificateHash);
+      const hashes = allCerts.map((c) => c.certificateHash);
+      const tree = buildMerkleTree(hashes);
+      const leafIdx = hashes.findIndex((h) => h === cert.certificateHash);
 
       if (leafIdx === -1) {
         return res.status(404).json({
@@ -254,23 +261,21 @@ contractAnchorRouter.get(
       proofData.certHash = cert.certificateHash;
 
       // Self-verify before returning
-      const selfValid = verifyMerkleProof(
-        cert.certificateHash, proofData.proof, tree.root,
-      );
+      const selfValid = verifyMerkleProof(cert.certificateHash, proofData.proof, tree.root);
 
       const result = {
-        contractAddress:    address,
-        version:            cert.version,
-        certificateId:      cert.id,
-        certificateHash:    cert.certificateHash,
-        merkleRoot:         tree.root,
-        treeDepth:          tree.layers.length - 1,
-        totalCertificates:  allCerts.length,
-        leafIndex:          leafIdx,
-        leafHash:           proofData.leafHash,
-        proof:              proofData.proof,
-        selfVerified:       selfValid,
-        anchorTxHash:       cert.anchorTxHash,
+        contractAddress: address,
+        version: cert.version,
+        certificateId: cert.id,
+        certificateHash: cert.certificateHash,
+        merkleRoot: tree.root,
+        treeDepth: tree.layers.length - 1,
+        totalCertificates: allCerts.length,
+        leafIndex: leafIdx,
+        leafHash: proofData.leafHash,
+        proof: proofData.proof,
+        selfVerified: selfValid,
+        anchorTxHash: cert.anchorTxHash,
         verifyInstructions: [
           '1. Compute: leafHash = SHA256(certificateHash)',
           '2. For each proof step: if direction="left"  → current = SHA256(sort(sibling, current))',
@@ -301,7 +306,7 @@ contractAnchorRouter.get(
 
 const merkleAnchorSchema = z.object({
   contractAddress: z.string().optional(),
-  adminKey:        z.string().optional(),
+  adminKey: z.string().optional(),
 });
 
 platformAnchorRouter.post('/merkle', async (req: Request, res: Response) => {
@@ -316,10 +321,10 @@ platformAnchorRouter.post('/merkle', async (req: Request, res: Response) => {
     const result = await anchorMerkleRoot(contractAddress);
 
     res.status(result.simulated ? 200 : 201).json({
-      merkleRoot:      result.merkleRoot,
-      leafCount:       result.leafCount,
-      txHash:          result.txHash,
-      simulated:       result.simulated,
+      merkleRoot: result.merkleRoot,
+      leafCount: result.leafCount,
+      txHash: result.txHash,
+      simulated: result.simulated,
       contractAddress: contractAddress ?? 'all',
       note: result.simulated
         ? 'Merkle root anchoring in simulation mode.'
@@ -336,7 +341,7 @@ platformAnchorRouter.post('/merkle', async (req: Request, res: Response) => {
 platformAnchorRouter.get('/merkle', async (req: Request, res: Response) => {
   try {
     const contractAddress = req.query.contractAddress as string | undefined;
-    const cacheKey        = `anchor:merkle:${contractAddress ?? 'all'}`;
+    const cacheKey = `anchor:merkle:${contractAddress ?? 'all'}`;
 
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
@@ -347,30 +352,33 @@ platformAnchorRouter.get('/merkle', async (req: Request, res: Response) => {
     const certs = await prismaRead.auditCertificate.findMany({
       where,
       orderBy: [{ contractAddress: 'asc' }, { version: 'asc' }],
-      select:  {
-        id: true, contractAddress: true, version: true,
-        certificateHash: true, anchorTxHash: true,
+      select: {
+        id: true,
+        contractAddress: true,
+        version: true,
+        certificateHash: true,
+        anchorTxHash: true,
       },
     });
 
     const tree = buildMerkleTree(certs.map((c) => c.certificateHash));
 
     const result = {
-      merkleRoot:     tree.root,
-      treeDepth:      tree.layers.length - 1,
-      totalLeaves:    certs.length,
-      anchored:       certs.filter((c) => !!c.anchorTxHash).length,
-      unanchored:     certs.filter((c) => !c.anchorTxHash).length,
+      merkleRoot: tree.root,
+      treeDepth: tree.layers.length - 1,
+      totalLeaves: certs.length,
+      anchored: certs.filter((c) => !!c.anchorTxHash).length,
+      unanchored: certs.filter((c) => !c.anchorTxHash).length,
       contractFilter: contractAddress ?? null,
-      certificates:   certs.map((c, i) => ({
-        id:              c.id,
+      certificates: certs.map((c, i) => ({
+        id: c.id,
         contractAddress: c.contractAddress,
-        version:         c.version,
+        version: c.version,
         certificateHash: c.certificateHash,
-        leafIndex:       i,
-        leafHash:        tree.leaves[i],
-        anchored:        !!c.anchorTxHash,
-        anchorTxHash:    c.anchorTxHash,
+        leafIndex: i,
+        leafHash: tree.leaves[i],
+        anchored: !!c.anchorTxHash,
+        anchorTxHash: c.anchorTxHash,
       })),
     };
 

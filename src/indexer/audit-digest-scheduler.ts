@@ -12,11 +12,7 @@
 
 import { prismaRead } from '../db';
 import { logger } from '../logger';
-import {
-  buildWeeklyDigest,
-  postToSlackChannel,
-  postToDiscordChannel,
-} from '../lib/audit-bot';
+import { buildWeeklyDigest, postToSlackChannel, postToDiscordChannel } from '../lib/audit-bot';
 
 const BASE_URL = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
 
@@ -26,10 +22,17 @@ function msUntilNextMondayNineUTC(): number {
   const now = new Date();
   const day = now.getUTCDay(); // 0=Sun, 1=Mon, ...
   const daysUntilMonday = day === 1 ? 7 : (8 - day) % 7 || 7;
-  const next = new Date(Date.UTC(
-    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysUntilMonday,
-    9, 0, 0, 0,
-  ));
+  const next = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + daysUntilMonday,
+      9,
+      0,
+      0,
+      0,
+    ),
+  );
   return next.getTime() - now.getTime();
 }
 
@@ -37,12 +40,13 @@ function msUntilNextMondayNineUTC(): number {
 
 export async function postDigestNow(): Promise<{ sent: number; failed: number }> {
   const digest = await buildWeeklyDigest(BASE_URL);
-  let sent = 0, failed = 0;
+  let sent = 0,
+    failed = 0;
 
   // Find all subscriptions that receive digest (certificate_update includes digest)
   const subs = await prismaRead.auditSubscription.findMany({
     where: {
-      isActive:   true,
+      isActive: true,
       alertTypes: { has: 'certificate_update' },
       OR: [
         { slackWebhookUrl: { not: null } },
@@ -50,8 +54,10 @@ export async function postDigestNow(): Promise<{ sent: number; failed: number }>
       ],
     },
     select: {
-      id: true, userId: true,
-      slackWebhookUrl: true, slackChannel: true,
+      id: true,
+      userId: true,
+      slackWebhookUrl: true,
+      slackChannel: true,
       webhookUrl: true,
     },
     distinct: ['slackWebhookUrl'],
@@ -60,7 +66,7 @@ export async function postDigestNow(): Promise<{ sent: number; failed: number }>
   for (const sub of subs) {
     try {
       const isDiscord = sub.userId?.startsWith('discord:');
-      const isSlack   = sub.userId?.startsWith('slack:') || !!sub.slackWebhookUrl;
+      const isSlack = sub.userId?.startsWith('slack:') || !!sub.slackWebhookUrl;
 
       if (isSlack && sub.slackWebhookUrl) {
         await postToSlackChannel(
@@ -111,5 +117,8 @@ export function startAuditDigestScheduler(): void {
 }
 
 export function stopAuditDigestScheduler(): void {
-  if (digestTimer) { clearTimeout(digestTimer); digestTimer = null; }
+  if (digestTimer) {
+    clearTimeout(digestTimer);
+    digestTimer = null;
+  }
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SEVERITY_MULTIPLIER, Severity } from '../src/indexer/severity';
+import { SEVERITY_MULTIPLIER } from '../src/indexer/severity';
 
 const prismaMock = {
   vulnerabilityAdvisory: {
@@ -39,10 +39,7 @@ describe('loadAffectedPoolsTvl', () => {
   });
 
   it('returns TVL values for matching pools', async () => {
-    prismaMock.dexPool.findMany.mockResolvedValue([
-      { tvlUsd: 100000 },
-      { tvlUsd: 200000 },
-    ]);
+    prismaMock.dexPool.findMany.mockResolvedValue([{ tvlUsd: 100000 }, { tvlUsd: 200000 }]);
 
     const { loadAffectedPoolsTvl } = await import('../src/indexer/propagation-engine');
     const result = await loadAffectedPoolsTvl(['CA', 'CB']);
@@ -66,9 +63,7 @@ describe('persistPropagation', () => {
     { severity: 'critical', multiplier: 1.0 },
   ])('computes totalValueAtRisk for $severity severity', async ({ severity, multiplier }) => {
     prismaMock.vulnerabilityAdvisory.findUnique.mockResolvedValue({ severity });
-    prismaMock.dexPool.findMany.mockResolvedValue([
-      { tvlUsd: 50000 },
-    ]);
+    prismaMock.dexPool.findMany.mockResolvedValue([{ tvlUsd: 50000 }]);
 
     const { persistPropagation } = await import('../src/indexer/propagation-engine');
 

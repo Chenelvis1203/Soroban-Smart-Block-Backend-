@@ -32,70 +32,70 @@ export type ContractCategory =
   | 'other';
 
 export type TvlBucket =
-  | 'micro'       // < $10 K
-  | 'small'       // $10 K – $100 K
-  | 'mid'         // $100 K – $1 M
-  | 'large';      // > $1 M
+  | 'micro' // < $10 K
+  | 'small' // $10 K – $100 K
+  | 'mid' // $100 K – $1 M
+  | 'large'; // > $1 M
 
 export interface PeerStats {
-  count:          number;
-  avgOverall:     number;
-  avgSecurity:    number;
-  avgGovernance:  number;
-  avgEconomic:    number;
-  avgCompliance:  number;
-  avgLiquidity:   number;
-  p25Overall:     number;
-  p50Overall:     number;  // median
-  p75Overall:     number;
-  minOverall:     number;
-  maxOverall:     number;
-  topScore:       number;
-  bottomScore:    number;
+  count: number;
+  avgOverall: number;
+  avgSecurity: number;
+  avgGovernance: number;
+  avgEconomic: number;
+  avgCompliance: number;
+  avgLiquidity: number;
+  p25Overall: number;
+  p50Overall: number; // median
+  p75Overall: number;
+  minOverall: number;
+  maxOverall: number;
+  topScore: number;
+  bottomScore: number;
 }
 
 export interface BenchmarkResult {
-  contractAddress:  string;
-  category:         ContractCategory;
-  tvlUsd:           number;
-  tvlBucket:        TvlBucket;
+  contractAddress: string;
+  category: ContractCategory;
+  tvlUsd: number;
+  tvlBucket: TvlBucket;
   // Subject contract scores
   scores: {
-    overall:    number;
-    security:   number;
+    overall: number;
+    security: number;
     governance: number;
-    economic:   number;
+    economic: number;
     compliance: number;
-    liquidity:  number;
+    liquidity: number;
   };
   // Peer group stats
-  peers:            PeerStats;
+  peers: PeerStats;
   // Percentile ranks (0-100 — higher = better than X% of peers)
   percentileRanks: {
-    overall:    number;
-    security:   number;
+    overall: number;
+    security: number;
     governance: number;
-    economic:   number;
+    economic: number;
     compliance: number;
-    liquidity:  number;
+    liquidity: number;
   };
   // Category average deltas (subject - peer avg, positive = above average)
   deltas: {
-    overall:    number;
-    security:   number;
+    overall: number;
+    security: number;
     governance: number;
-    economic:   number;
+    economic: number;
     compliance: number;
-    liquidity:  number;
+    liquidity: number;
   };
   // Narrative insight
-  insights:         string[];
+  insights: string[];
   // Peers list (limited to top/bottom for display)
   peerContracts: Array<{
     contractAddress: string;
-    overallScore:    number;
-    tvlUsd:          number;
-    grade:           string;
+    overallScore: number;
+    tvlUsd: number;
+    grade: string;
   }>;
   // Category-wide aggregates for radar comparison
   categoryAvgRadar: Array<{ dimension: string; subjectScore: number; peerAvg: number }>;
@@ -112,10 +112,14 @@ function grade(s: number): string {
 export async function getContractTvl(contractAddress: string): Promise<number> {
   const [yieldOpp, portfolio] = await Promise.all([
     prismaRead.yieldOpportunity.findFirst({
-      where: { contractAddress }, orderBy: { updatedAt: 'desc' }, select: { tvl: true },
+      where: { contractAddress },
+      orderBy: { updatedAt: 'desc' },
+      select: { tvl: true },
     }),
     prismaRead.portfolioSnapshot.findFirst({
-      where: { contractAddress }, orderBy: { snapshotAt: 'desc' }, select: { valueUsd: true },
+      where: { contractAddress },
+      orderBy: { snapshotAt: 'desc' },
+      select: { valueUsd: true },
     }),
   ]);
 
@@ -128,8 +132,8 @@ export async function getContractTvl(contractAddress: string): Promise<number> {
 
 export function tvlBucket(tvl: number): TvlBucket {
   if (tvl >= 1_000_000) return 'large';
-  if (tvl >= 100_000)   return 'mid';
-  if (tvl >= 10_000)    return 'small';
+  if (tvl >= 100_000) return 'mid';
+  if (tvl >= 10_000) return 'small';
   return 'micro';
 }
 
@@ -138,15 +142,16 @@ export function tvlBucket(tvl: number): TvlBucket {
 export async function inferCategory(contractAddress: string): Promise<ContractCategory> {
   // 1. YieldOpportunity type
   const yieldOpp = await prismaRead.yieldOpportunity.findFirst({
-    where: { contractAddress }, select: { type: true },
+    where: { contractAddress },
+    select: { type: true },
   });
   if (yieldOpp?.type) {
     const typeMap: Record<string, ContractCategory> = {
-      lp_farming:     'dex',
-      staking:        'staking',
-      lending:        'lending',
+      lp_farming: 'dex',
+      staking: 'staking',
+      lending: 'lending',
       liquid_staking: 'staking',
-      vault:          'other',
+      vault: 'other',
     };
     const mapped = typeMap[yieldOpp.type];
     if (mapped) return mapped;
@@ -154,26 +159,29 @@ export async function inferCategory(contractAddress: string): Promise<ContractCa
 
   // 2. Token contract
   const contract = await prismaRead.contract.findUnique({
-    where:  { address: contractAddress },
+    where: { address: contractAddress },
     select: { isToken: true, tokenSymbol: true, name: true },
   });
   if (contract?.isToken) return 'token';
 
   // 3. DEX pool
   const dexPool = await prismaRead.dexPool.findFirst({
-    where: { contractAddress }, select: { id: true },
+    where: { contractAddress },
+    select: { id: true },
   });
   if (dexPool) return 'dex';
 
   // 4. AMM pool
   const ammPool = await prismaRead.ammPool.findFirst({
-    where: { poolAddress: contractAddress }, select: { id: true },
+    where: { poolAddress: contractAddress },
+    select: { id: true },
   });
   if (ammPool) return 'dex';
 
   // 5. Governance contract
   const govContract = await prismaRead.governanceContract.findFirst({
-    where: { contractAddress }, select: { id: true },
+    where: { contractAddress },
+    select: { id: true },
   });
   if (govContract) return 'governance';
 
@@ -185,12 +193,12 @@ export async function inferCategory(contractAddress: string): Promise<ContractCa
   });
   const fnNames = fns.map((t) => (t.functionName ?? '').toLowerCase()).join(' ');
 
-  if (/\bborrow\b|\blend\b|\brepay\b|\bcollateral/.test(fnNames))  return 'lending';
-  if (/\bstake\b|\bunstake\b|\bdelegate/.test(fnNames))            return 'staking';
-  if (/\bnft\b|\bmint_pass\b|\btoken_id/.test(fnNames))            return 'nft';
-  if (/\bswap\b|\bliquidity\b|\bpool/.test(fnNames))               return 'dex';
-  if (/\bbridge\b|\block\b|\bunlock\b/.test(fnNames))              return 'bridge';
-  if (/\btransfer\b|\bbalance_of\b|\bmint\b/.test(fnNames))        return 'token';
+  if (/\bborrow\b|\blend\b|\brepay\b|\bcollateral/.test(fnNames)) return 'lending';
+  if (/\bstake\b|\bunstake\b|\bdelegate/.test(fnNames)) return 'staking';
+  if (/\bnft\b|\bmint_pass\b|\btoken_id/.test(fnNames)) return 'nft';
+  if (/\bswap\b|\bliquidity\b|\bpool/.test(fnNames)) return 'dex';
+  if (/\bbridge\b|\block\b|\bunlock\b/.test(fnNames)) return 'bridge';
+  if (/\btransfer\b|\bbalance_of\b|\bmint\b/.test(fnNames)) return 'token';
 
   return 'other';
 }
@@ -198,34 +206,46 @@ export async function inferCategory(contractAddress: string): Promise<ContractCa
 // ── Peer statistics computation ───────────────────────────────────────────────
 
 function computeStats(scores: number[]): Omit<PeerStats, 'topScore' | 'bottomScore'> & {
-  topScore: number; bottomScore: number;
+  topScore: number;
+  bottomScore: number;
 } {
   if (scores.length === 0) {
     return {
-      count: 0, avgOverall: 0, avgSecurity: 0, avgGovernance: 0,
-      avgEconomic: 0, avgCompliance: 0, avgLiquidity: 0,
-      p25Overall: 0, p50Overall: 0, p75Overall: 0,
-      minOverall: 0, maxOverall: 0, topScore: 0, bottomScore: 0,
+      count: 0,
+      avgOverall: 0,
+      avgSecurity: 0,
+      avgGovernance: 0,
+      avgEconomic: 0,
+      avgCompliance: 0,
+      avgLiquidity: 0,
+      p25Overall: 0,
+      p50Overall: 0,
+      p75Overall: 0,
+      minOverall: 0,
+      maxOverall: 0,
+      topScore: 0,
+      bottomScore: 0,
     };
   }
   const sorted = [...scores].sort((a, b) => a - b);
-  const avg    = sorted.reduce((s, v) => s + v, 0) / sorted.length;
-  const pct    = (p: number) => sorted[Math.floor(sorted.length * p / 100)] ?? sorted[sorted.length - 1];
+  const avg = sorted.reduce((s, v) => s + v, 0) / sorted.length;
+  const pct = (p: number) =>
+    sorted[Math.floor((sorted.length * p) / 100)] ?? sorted[sorted.length - 1];
 
   return {
-    count:       sorted.length,
-    avgOverall:  +avg.toFixed(1),
-    avgSecurity:    0,   // filled by caller
-    avgGovernance:  0,
-    avgEconomic:    0,
-    avgCompliance:  0,
-    avgLiquidity:   0,
-    p25Overall:  pct(25),
-    p50Overall:  pct(50),
-    p75Overall:  pct(75),
-    minOverall:  sorted[0],
-    maxOverall:  sorted[sorted.length - 1],
-    topScore:    sorted[sorted.length - 1],
+    count: sorted.length,
+    avgOverall: +avg.toFixed(1),
+    avgSecurity: 0, // filled by caller
+    avgGovernance: 0,
+    avgEconomic: 0,
+    avgCompliance: 0,
+    avgLiquidity: 0,
+    p25Overall: pct(25),
+    p50Overall: pct(50),
+    p75Overall: pct(75),
+    minOverall: sorted[0],
+    maxOverall: sorted[sorted.length - 1],
+    topScore: sorted[sorted.length - 1],
     bottomScore: sorted[0],
   };
 }
@@ -243,10 +263,24 @@ function avg(nums: number[]): number {
 // ── Insight generator ─────────────────────────────────────────────────────────
 
 function generateInsights(
-  subject:    { overall: number; security: number; governance: number; economic: number; compliance: number; liquidity: number },
-  peers:      PeerStats,
-  percentiles: { overall: number; security: number; governance: number; economic: number; compliance: number; liquidity: number },
-  category:   ContractCategory,
+  subject: {
+    overall: number;
+    security: number;
+    governance: number;
+    economic: number;
+    compliance: number;
+    liquidity: number;
+  },
+  peers: PeerStats,
+  percentiles: {
+    overall: number;
+    security: number;
+    governance: number;
+    economic: number;
+    compliance: number;
+    liquidity: number;
+  },
+  category: ContractCategory,
   tvlBucketName: TvlBucket,
 ): string[] {
   const insights: string[] = [];
@@ -267,24 +301,35 @@ function generateInsights(
 
   // Dimension-specific standouts
   const dims: Array<[string, number, number]> = [
-    ['Security',   subject.security,   peers.avgSecurity],
+    ['Security', subject.security, peers.avgSecurity],
     ['Governance', subject.governance, peers.avgGovernance],
-    ['Economic',   subject.economic,   peers.avgEconomic],
+    ['Economic', subject.economic, peers.avgEconomic],
     ['Compliance', subject.compliance, peers.avgCompliance],
-    ['Liquidity',  subject.liquidity,  peers.avgLiquidity],
+    ['Liquidity', subject.liquidity, peers.avgLiquidity],
   ];
 
   for (const [dim, score, peerAvg] of dims) {
     const delta = score - peerAvg;
-    if (delta >= 15) insights.push(`${dim} score is ${delta.toFixed(0)} pts above peer average — standout strength.`);
-    if (delta <= -15) insights.push(`${dim} score is ${Math.abs(delta).toFixed(0)} pts below peer average — focus area.`);
+    if (delta >= 15)
+      insights.push(
+        `${dim} score is ${delta.toFixed(0)} pts above peer average — standout strength.`,
+      );
+    if (delta <= -15)
+      insights.push(
+        `${dim} score is ${Math.abs(delta).toFixed(0)} pts below peer average — focus area.`,
+      );
   }
 
   // TVL-size context
   const tvlLabel: Record<TvlBucket, string> = {
-    micro: 'under $10K', small: '$10K–$100K', mid: '$100K–$1M', large: 'over $1M',
+    micro: 'under $10K',
+    small: '$10K–$100K',
+    mid: '$100K–$1M',
+    large: 'over $1M',
   };
-  insights.push(`Compared against ${peers.count} ${category} contracts with TVL ${tvlLabel[tvlBucketName]}.`);
+  insights.push(
+    `Compared against ${peers.count} ${category} contracts with TVL ${tvlLabel[tvlBucketName]}.`,
+  );
 
   return insights.slice(0, 5); // max 5 insights
 }
@@ -293,16 +338,20 @@ function generateInsights(
 
 export async function benchmarkContract(contractAddress: string): Promise<BenchmarkResult | null> {
   const cacheKey = `audit:benchmark:${contractAddress}`;
-  const cached   = await cacheGet<BenchmarkResult>(cacheKey);
+  const cached = await cacheGet<BenchmarkResult>(cacheKey);
   if (cached) return cached;
 
   // Get subject's cert
   const subjectCert = await prismaRead.auditCertificate.findFirst({
-    where:   { contractAddress, status: 'published' },
+    where: { contractAddress, status: 'published' },
     orderBy: { version: 'desc' },
     select: {
-      overallScore: true, securityScore: true, governanceScore: true,
-      economicScore: true, complianceScore: true, liquidityScore: true,
+      overallScore: true,
+      securityScore: true,
+      governanceScore: true,
+      economicScore: true,
+      complianceScore: true,
+      liquidityScore: true,
     },
   });
   if (!subjectCert) return null;
@@ -322,21 +371,19 @@ export async function benchmarkContract(contractAddress: string): Promise<Benchm
     distinct: ['contractAddress'],
     select: {
       contractAddress: true,
-      overallScore:    true,
-      securityScore:   true,
+      overallScore: true,
+      securityScore: true,
       governanceScore: true,
-      economicScore:   true,
+      economicScore: true,
       complianceScore: true,
-      liquidityScore:  true,
+      liquidityScore: true,
     },
   });
 
   // Filter peers by category (infer per cert — expensive for large sets, so cap)
   // Strategy: load all certs, check category for those with TVL in the same bucket.
   // Cap at 200 certs to keep p99 latency reasonable.
-  const candidates = allCerts
-    .filter((c) => c.contractAddress !== contractAddress)
-    .slice(0, 200);
+  const candidates = allCerts.filter((c) => c.contractAddress !== contractAddress).slice(0, 200);
 
   // Batch-infer categories for candidates (parallelised, 20 at a time)
   const BATCH = 20;
@@ -361,85 +408,106 @@ export async function benchmarkContract(contractAddress: string): Promise<Benchm
   }
 
   // If fewer than 3 peers in the TVL bucket, relax to category-only
-  const effectivePeers = peerCerts.length >= 3
-    ? peerCerts
-    : candidates.filter((c) => {
-        // Reuse already-inferred set from above
-        return peerCerts.find((p) => p.contractAddress === c.contractAddress)
-          || peerCerts.length < 3;
-      }).slice(0, 50);
+  const effectivePeers =
+    peerCerts.length >= 3
+      ? peerCerts
+      : candidates
+          .filter((c) => {
+            // Reuse already-inferred set from above
+            return (
+              peerCerts.find((p) => p.contractAddress === c.contractAddress) || peerCerts.length < 3
+            );
+          })
+          .slice(0, 50);
 
   // Compute per-dimension averages
-  const peerOverall    = effectivePeers.map((p) => p.overallScore);
-  const peerSecurity   = effectivePeers.map((p) => p.securityScore);
+  const peerOverall = effectivePeers.map((p) => p.overallScore);
+  const peerSecurity = effectivePeers.map((p) => p.securityScore);
   const peerGovernance = effectivePeers.map((p) => p.governanceScore);
-  const peerEconomic   = effectivePeers.map((p) => p.economicScore);
+  const peerEconomic = effectivePeers.map((p) => p.economicScore);
   const peerCompliance = effectivePeers.map((p) => p.complianceScore);
-  const peerLiquidity  = effectivePeers.map((p) => p.liquidityScore);
+  const peerLiquidity = effectivePeers.map((p) => p.liquidityScore);
 
   const sortedOverall = [...peerOverall].sort((a, b) => a - b);
-  const baseStats     = computeStats(peerOverall);
+  const baseStats = computeStats(peerOverall);
   const peerStats: PeerStats = {
     ...baseStats,
-    avgSecurity:   avg(peerSecurity),
+    avgSecurity: avg(peerSecurity),
     avgGovernance: avg(peerGovernance),
-    avgEconomic:   avg(peerEconomic),
+    avgEconomic: avg(peerEconomic),
     avgCompliance: avg(peerCompliance),
-    avgLiquidity:  avg(peerLiquidity),
+    avgLiquidity: avg(peerLiquidity),
   };
 
   const subject = {
-    overall:    subjectCert.overallScore,
-    security:   subjectCert.securityScore,
+    overall: subjectCert.overallScore,
+    security: subjectCert.securityScore,
     governance: subjectCert.governanceScore,
-    economic:   subjectCert.economicScore,
+    economic: subjectCert.economicScore,
     compliance: subjectCert.complianceScore,
-    liquidity:  subjectCert.liquidityScore,
+    liquidity: subjectCert.liquidityScore,
   };
 
   const percentileRanks = {
-    overall:    percentileRank(subject.overall,    sortedOverall),
-    security:   percentileRank(subject.security,   [...peerSecurity].sort((a,b)=>a-b)),
-    governance: percentileRank(subject.governance, [...peerGovernance].sort((a,b)=>a-b)),
-    economic:   percentileRank(subject.economic,   [...peerEconomic].sort((a,b)=>a-b)),
-    compliance: percentileRank(subject.compliance, [...peerCompliance].sort((a,b)=>a-b)),
-    liquidity:  percentileRank(subject.liquidity,  [...peerLiquidity].sort((a,b)=>a-b)),
+    overall: percentileRank(subject.overall, sortedOverall),
+    security: percentileRank(
+      subject.security,
+      [...peerSecurity].sort((a, b) => a - b),
+    ),
+    governance: percentileRank(
+      subject.governance,
+      [...peerGovernance].sort((a, b) => a - b),
+    ),
+    economic: percentileRank(
+      subject.economic,
+      [...peerEconomic].sort((a, b) => a - b),
+    ),
+    compliance: percentileRank(
+      subject.compliance,
+      [...peerCompliance].sort((a, b) => a - b),
+    ),
+    liquidity: percentileRank(
+      subject.liquidity,
+      [...peerLiquidity].sort((a, b) => a - b),
+    ),
   };
 
   const deltas = {
-    overall:    +(subject.overall    - peerStats.avgOverall).toFixed(1),
-    security:   +(subject.security   - peerStats.avgSecurity).toFixed(1),
+    overall: +(subject.overall - peerStats.avgOverall).toFixed(1),
+    security: +(subject.security - peerStats.avgSecurity).toFixed(1),
     governance: +(subject.governance - peerStats.avgGovernance).toFixed(1),
-    economic:   +(subject.economic   - peerStats.avgEconomic).toFixed(1),
+    economic: +(subject.economic - peerStats.avgEconomic).toFixed(1),
     compliance: +(subject.compliance - peerStats.avgCompliance).toFixed(1),
-    liquidity:  +(subject.liquidity  - peerStats.avgLiquidity).toFixed(1),
+    liquidity: +(subject.liquidity - peerStats.avgLiquidity).toFixed(1),
   };
 
   const insights = generateInsights(subject, peerStats, percentileRanks, category, bucket);
 
   // Top 5 + bottom 5 peers for display
-  const topPeers    = [...effectivePeers].sort((a, b) => b.overallScore - a.overallScore).slice(0, 5);
-  const bottomPeers = [...effectivePeers].sort((a, b) => a.overallScore - b.overallScore).slice(0, 5);
-  const peerContractsRaw = [...new Map(
-    [...topPeers, ...bottomPeers].map((p) => [p.contractAddress, p]),
-  ).values()];
+  const topPeers = [...effectivePeers].sort((a, b) => b.overallScore - a.overallScore).slice(0, 5);
+  const bottomPeers = [...effectivePeers]
+    .sort((a, b) => a.overallScore - b.overallScore)
+    .slice(0, 5);
+  const peerContractsRaw = [
+    ...new Map([...topPeers, ...bottomPeers].map((p) => [p.contractAddress, p])).values(),
+  ];
 
   // Get TVL for displayed peers
   const peerContracts = await Promise.all(
     peerContractsRaw.map(async (p) => ({
       contractAddress: p.contractAddress,
-      overallScore:    p.overallScore,
-      tvlUsd:          await getContractTvl(p.contractAddress),
-      grade:           grade(p.overallScore),
+      overallScore: p.overallScore,
+      tvlUsd: await getContractTvl(p.contractAddress),
+      grade: grade(p.overallScore),
     })),
   );
 
   const categoryAvgRadar = [
-    { dimension: 'Security',   subjectScore: subject.security,   peerAvg: peerStats.avgSecurity   },
+    { dimension: 'Security', subjectScore: subject.security, peerAvg: peerStats.avgSecurity },
     { dimension: 'Governance', subjectScore: subject.governance, peerAvg: peerStats.avgGovernance },
-    { dimension: 'Economic',   subjectScore: subject.economic,   peerAvg: peerStats.avgEconomic   },
+    { dimension: 'Economic', subjectScore: subject.economic, peerAvg: peerStats.avgEconomic },
     { dimension: 'Compliance', subjectScore: subject.compliance, peerAvg: peerStats.avgCompliance },
-    { dimension: 'Liquidity',  subjectScore: subject.liquidity,  peerAvg: peerStats.avgLiquidity  },
+    { dimension: 'Liquidity', subjectScore: subject.liquidity, peerAvg: peerStats.avgLiquidity },
   ];
 
   const result: BenchmarkResult = {
@@ -448,7 +516,7 @@ export async function benchmarkContract(contractAddress: string): Promise<Benchm
     tvlUsd,
     tvlBucket: bucket,
     scores: subject,
-    peers:  peerStats,
+    peers: peerStats,
     percentileRanks,
     deltas,
     insights,
@@ -463,28 +531,28 @@ export async function benchmarkContract(contractAddress: string): Promise<Benchm
 // ── Category-level benchmark aggregates ──────────────────────────────────────
 
 export interface CategoryBenchmark {
-  category:          ContractCategory;
-  contractCount:     number;
+  category: ContractCategory;
+  contractCount: number;
   avgScores: {
-    overall:    number;
-    security:   number;
+    overall: number;
+    security: number;
     governance: number;
-    economic:   number;
+    economic: number;
     compliance: number;
-    liquidity:  number;
+    liquidity: number;
   };
   scoreDistribution: {
-    excellent: number;  // ≥ 85
-    good:      number;  // 70–84
-    fair:      number;  // 55–69
-    poor:      number;  // 40–54
-    critical:  number;  // < 40
+    excellent: number; // ≥ 85
+    good: number; // 70–84
+    fair: number; // 55–69
+    poor: number; // 40–54
+    critical: number; // < 40
   };
   topContracts: Array<{
     contractAddress: string;
-    overallScore:    number;
-    grade:           string;
-    tvlUsd:          number;
+    overallScore: number;
+    grade: string;
+    tvlUsd: number;
   }>;
   tvlBreakdown: Record<TvlBucket, { count: number; avgScore: number }>;
   findingsBySeverity: { critical: number; high: number; medium: number; low: number };
@@ -494,25 +562,25 @@ export async function getCategoryBenchmark(
   category: ContractCategory,
 ): Promise<CategoryBenchmark | null> {
   const cacheKey = `audit:category-benchmark:${category}`;
-  const cached   = await cacheGet<CategoryBenchmark>(cacheKey);
+  const cached = await cacheGet<CategoryBenchmark>(cacheKey);
   if (cached) return cached;
 
   // Get all published certs
   const allCerts = await prismaRead.auditCertificate.findMany({
-    where:   { status: 'published' },
+    where: { status: 'published' },
     distinct: ['contractAddress'],
     select: {
       contractAddress: true,
-      overallScore:    true,
-      securityScore:   true,
+      overallScore: true,
+      securityScore: true,
       governanceScore: true,
-      economicScore:   true,
+      economicScore: true,
       complianceScore: true,
-      liquidityScore:  true,
+      liquidityScore: true,
       criticalFindings: true,
-      highFindings:     true,
-      mediumFindings:   true,
-      lowFindings:      true,
+      highFindings: true,
+      mediumFindings: true,
+      lowFindings: true,
     },
   });
 
@@ -535,23 +603,23 @@ export async function getCategoryBenchmark(
   if (matching.length === 0) return null;
 
   // Aggregate scores
-  const avgField = (field: keyof typeof matching[0]) =>
+  const avgField = (field: keyof (typeof matching)[0]) =>
     +(matching.reduce((s, c) => s + (c[field] as number), 0) / matching.length).toFixed(1);
 
   const dist = { excellent: 0, good: 0, fair: 0, poor: 0, critical: 0 };
   for (const c of matching) {
-    if      (c.overallScore >= 85) dist.excellent++;
+    if (c.overallScore >= 85) dist.excellent++;
     else if (c.overallScore >= 70) dist.good++;
     else if (c.overallScore >= 55) dist.fair++;
     else if (c.overallScore >= 40) dist.poor++;
-    else                           dist.critical++;
+    else dist.critical++;
   }
 
   // TVL breakdown
   const tvlBreakdown: Record<TvlBucket, { count: number; avgScore: number; scores: number[] }> = {
     micro: { count: 0, avgScore: 0, scores: [] },
     small: { count: 0, avgScore: 0, scores: [] },
-    mid:   { count: 0, avgScore: 0, scores: [] },
+    mid: { count: 0, avgScore: 0, scores: [] },
     large: { count: 0, avgScore: 0, scores: [] },
   };
 
@@ -566,9 +634,8 @@ export async function getCategoryBenchmark(
   }
   for (const bkt of Object.keys(tvlBreakdown) as TvlBucket[]) {
     const scores = tvlBreakdown[bkt].scores;
-    tvlBreakdown[bkt].avgScore = scores.length > 0
-      ? +(scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1)
-      : 0;
+    tvlBreakdown[bkt].avgScore =
+      scores.length > 0 ? +(scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1) : 0;
   }
 
   // Top contracts (exclude scores)
@@ -578,18 +645,18 @@ export async function getCategoryBenchmark(
       .slice(0, 10)
       .map(async (c) => ({
         contractAddress: c.contractAddress,
-        overallScore:    c.overallScore,
-        grade:           grade(c.overallScore),
-        tvlUsd:          await getContractTvl(c.contractAddress),
+        overallScore: c.overallScore,
+        grade: grade(c.overallScore),
+        tvlUsd: await getContractTvl(c.contractAddress),
       })),
   );
 
   // Finding totals
   const findingsBySeverity = {
     critical: matching.reduce((s, c) => s + c.criticalFindings, 0),
-    high:     matching.reduce((s, c) => s + c.highFindings,     0),
-    medium:   matching.reduce((s, c) => s + c.mediumFindings,   0),
-    low:      matching.reduce((s, c) => s + c.lowFindings,      0),
+    high: matching.reduce((s, c) => s + c.highFindings, 0),
+    medium: matching.reduce((s, c) => s + c.mediumFindings, 0),
+    low: matching.reduce((s, c) => s + c.lowFindings, 0),
   };
 
   const tvlBreakdownClean = Object.fromEntries(
@@ -600,12 +667,12 @@ export async function getCategoryBenchmark(
     category,
     contractCount: matching.length,
     avgScores: {
-      overall:    avgField('overallScore'),
-      security:   avgField('securityScore'),
+      overall: avgField('overallScore'),
+      security: avgField('securityScore'),
       governance: avgField('governanceScore'),
-      economic:   avgField('economicScore'),
+      economic: avgField('economicScore'),
       compliance: avgField('complianceScore'),
-      liquidity:  avgField('liquidityScore'),
+      liquidity: avgField('liquidityScore'),
     },
     scoreDistribution: dist,
     topContracts,

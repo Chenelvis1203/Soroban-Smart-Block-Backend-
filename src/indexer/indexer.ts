@@ -185,7 +185,9 @@ export async function processLedgerRange(
     // Queue an initial audit for newly discovered contracts (fires after 5 min)
     enqueueInitialAudit(event.contractId);
 
-    const existingTx = await prisma.transaction.findUnique({ where: { hash: event.transactionHash } });
+    const existingTx = await prisma.transaction.findUnique({
+      where: { hash: event.transactionHash },
+    });
     const existingTx = await prisma.transaction.findUnique({
       where: { hash: event.transactionHash },
     });

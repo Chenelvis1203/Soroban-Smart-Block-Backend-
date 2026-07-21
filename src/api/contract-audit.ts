@@ -31,7 +31,7 @@ import { generateBadgeSvg, type BadgeStyle } from './audit-badge';
 import { generateAuditPdf } from '../lib/audit-pdf-report';
 import { loadAuditReportData } from '../lib/audit-pdf-loader';
 import { contractAnchorRouter } from './audit-anchor';
-import { runFormalVerification, getFormalVerificationResults } from '../lib/formal-verifier';
+import { runFormalVerification } from '../lib/formal-verifier';
 import { benchmarkContract } from '../lib/audit-benchmark';
 import { generateRemediation } from '../lib/audit-remediation';
 
@@ -44,13 +44,15 @@ contractAuditRouter.use('/:version/anchor', contractAnchorRouter);
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 const SEV_ORDER: Record<string, number> = {
-  critical: 0, high: 1, medium: 2, low: 3, info: 4,
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+  info: 4,
 };
 
 function sortFindings<T extends { severity: string }>(findings: T[]): T[] {
-  return [...findings].sort(
-    (a, b) => (SEV_ORDER[a.severity] ?? 5) - (SEV_ORDER[b.severity] ?? 5),
-  );
+  return [...findings].sort((a, b) => (SEV_ORDER[a.severity] ?? 5) - (SEV_ORDER[b.severity] ?? 5));
 }
 
 function scoreGrade(s: number): string {
@@ -71,60 +73,57 @@ function resolveStatus(cert: { status: string; expiresAt: Date | null }): string
  * Shape a certificate + its live findings into the canonical API response
  * matching the spec exactly.
  */
-function formatFull(
-  cert: Record<string, unknown>,
-  findings: Array<Record<string, unknown>>,
-) {
+function formatFull(cert: Record<string, unknown>, findings: Array<Record<string, unknown>>) {
   const score = cert.overallScore as number;
   return {
-    certificateId:   cert.id,
+    certificateId: cert.id,
     contractAddress: cert.contractAddress,
-    version:         cert.version,
-    status:          resolveStatus(cert as { status: string; expiresAt: Date | null }),
-    grade:           scoreGrade(score),
-    riskLevel:       riskLabel(score),
-    generatedAt:     cert.generatedAt,
-    expiresAt:       cert.expiresAt,
-    overallScore:    score,
+    version: cert.version,
+    status: resolveStatus(cert as { status: string; expiresAt: Date | null }),
+    grade: scoreGrade(score),
+    riskLevel: riskLabel(score),
+    generatedAt: cert.generatedAt,
+    expiresAt: cert.expiresAt,
+    overallScore: score,
     scores: {
-      security:   cert.securityScore,
+      security: cert.securityScore,
       governance: cert.governanceScore,
-      economic:   cert.economicScore,
+      economic: cert.economicScore,
       compliance: cert.complianceScore,
-      liquidity:  cert.liquidityScore,
+      liquidity: cert.liquidityScore,
     },
     findingSummary: {
-      total:    cert.totalFindings,
-      open:     cert.openFindings,
+      total: cert.totalFindings,
+      open: cert.openFindings,
       critical: cert.criticalFindings,
-      high:     cert.highFindings,
-      medium:   cert.mediumFindings,
-      low:      cert.lowFindings,
+      high: cert.highFindings,
+      medium: cert.mediumFindings,
+      low: cert.lowFindings,
       resolved: cert.resolvedFindings,
     },
     findings: sortFindings(findings).map((f) => ({
-      id:             f.id,
-      category:       f.category,
-      severity:       f.severity,
-      title:          f.title,
-      detail:         f.detail ?? f.description,
-      description:    f.description,
+      id: f.id,
+      category: f.category,
+      severity: f.severity,
+      title: f.title,
+      detail: f.detail ?? f.description,
+      description: f.description,
       recommendation: f.recommendation,
-      status:         f.status,
-      cweId:          f.cweId,
-      cvssScore:      f.cvssScore,
-      txHash:         f.txHash,
-      resolvedAt:     f.resolvedAt,
-      createdAt:      f.createdAt,
+      status: f.status,
+      cweId: f.cweId,
+      cvssScore: f.cvssScore,
+      txHash: f.txHash,
+      resolvedAt: f.resolvedAt,
+      createdAt: f.createdAt,
     })),
-    signature:       cert.signature,
-    publicKey:       cert.publicKey,
+    signature: cert.signature,
+    publicKey: cert.publicKey,
     signatureAlgorithm: cert.signatureAlgorithm,
-    anchorTxHash:    cert.anchorTxHash,
+    anchorTxHash: cert.anchorTxHash,
     verificationUrl: `/api/v1/audit/verify/${cert.certificateHash}`,
     certificateHash: cert.certificateHash,
-    metadata:        cert.metadata,
-    createdAt:       cert.createdAt,
+    metadata: cert.metadata,
+    createdAt: cert.createdAt,
   };
 }
 
@@ -133,27 +132,27 @@ function formatSummary(cert: Record<string, unknown>) {
   const score = cert.overallScore as number;
   return {
     certificateId: cert.id,
-    version:       cert.version,
-    status:        resolveStatus(cert as { status: string; expiresAt: Date | null }),
-    grade:         scoreGrade(score),
-    riskLevel:     riskLabel(score),
-    generatedAt:   cert.generatedAt,
-    expiresAt:     cert.expiresAt,
-    overallScore:  score,
+    version: cert.version,
+    status: resolveStatus(cert as { status: string; expiresAt: Date | null }),
+    grade: scoreGrade(score),
+    riskLevel: riskLabel(score),
+    generatedAt: cert.generatedAt,
+    expiresAt: cert.expiresAt,
+    overallScore: score,
     scores: {
-      security:   cert.securityScore,
+      security: cert.securityScore,
       governance: cert.governanceScore,
-      economic:   cert.economicScore,
+      economic: cert.economicScore,
       compliance: cert.complianceScore,
-      liquidity:  cert.liquidityScore,
+      liquidity: cert.liquidityScore,
     },
     findingSummary: {
-      total:    cert.totalFindings,
+      total: cert.totalFindings,
       critical: cert.criticalFindings,
-      high:     cert.highFindings,
-      medium:   cert.mediumFindings,
-      low:      cert.lowFindings,
-      open:     cert.openFindings,
+      high: cert.highFindings,
+      medium: cert.mediumFindings,
+      low: cert.lowFindings,
+      open: cert.openFindings,
       resolved: cert.resolvedFindings,
     },
     verificationUrl: `/api/v1/audit/verify/${cert.certificateHash}`,
@@ -190,12 +189,12 @@ contractAuditRouter.get(
 
         return res.status(404).json({
           contractAddress: address,
-          audited:         false,
-          latestStatus:    any?.status    ?? null,
-          latestVersion:   any?.version   ?? null,
-          lastAttempt:     any?.createdAt ?? null,
-          message:         'No published audit certificate found for this contract.',
-          hint:            `POST /api/v1/contracts/${address}/audit/refresh to trigger one.`,
+          audited: false,
+          latestStatus: any?.status ?? null,
+          latestVersion: any?.version ?? null,
+          lastAttempt: any?.createdAt ?? null,
+          message: 'No published audit certificate found for this contract.',
+          hint: `POST /api/v1/contracts/${address}/audit/refresh to trigger one.`,
         });
       }
 
@@ -221,8 +220,8 @@ contractAuditRouter.get(
 // ── GET /:address/audit/history — all versions ────────────────────────────────
 
 const historyQuerySchema = z.object({
-  page:           z.coerce.number().min(1).default(1),
-  limit:          z.coerce.number().min(1).max(50).default(10),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(50).default(10),
   includeRevoked: z.enum(['true', 'false']).default('false'),
 });
 
@@ -235,10 +234,7 @@ contractAuditRouter.get(
       const q = historyQuerySchema.parse(req.query);
       const skip = (q.page - 1) * q.limit;
 
-      const statusFilter =
-        q.includeRevoked === 'true'
-          ? undefined
-          : { not: 'revoked' };
+      const statusFilter = q.includeRevoked === 'true' ? undefined : { not: 'revoked' };
 
       const [certs, total] = await Promise.all([
         prismaRead.auditCertificate.findMany({
@@ -250,14 +246,26 @@ contractAuditRouter.get(
           skip,
           take: q.limit,
           select: {
-            id: true, version: true, status: true,
-            generatedAt: true, expiresAt: true,
-            overallScore: true, securityScore: true, governanceScore: true,
-            economicScore: true, complianceScore: true, liquidityScore: true,
-            totalFindings: true, criticalFindings: true, highFindings: true,
-            mediumFindings: true, lowFindings: true,
-            openFindings: true, resolvedFindings: true,
-            certificateHash: true, anchorTxHash: true,
+            id: true,
+            version: true,
+            status: true,
+            generatedAt: true,
+            expiresAt: true,
+            overallScore: true,
+            securityScore: true,
+            governanceScore: true,
+            economicScore: true,
+            complianceScore: true,
+            liquidityScore: true,
+            totalFindings: true,
+            criticalFindings: true,
+            highFindings: true,
+            mediumFindings: true,
+            lowFindings: true,
+            openFindings: true,
+            resolvedFindings: true,
+            certificateHash: true,
+            anchorTxHash: true,
           },
         }),
         prismaRead.auditCertificate.count({
@@ -271,12 +279,10 @@ contractAuditRouter.get(
       res.json({
         contractAddress: address,
         total,
-        page:    q.page,
-        limit:   q.limit,
-        pages:   Math.ceil(total / q.limit),
-        history: certs.map((c) =>
-          formatSummary(c as unknown as Record<string, unknown>),
-        ),
+        page: q.page,
+        limit: q.limit,
+        pages: Math.ceil(total / q.limit),
+        history: certs.map((c) => formatSummary(c as unknown as Record<string, unknown>)),
       });
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
@@ -289,7 +295,7 @@ contractAuditRouter.get(
 
 const deltaQuerySchema = z.object({
   fromVersion: z.coerce.number().int().min(1),
-  toVersion:   z.coerce.number().int().min(1),
+  toVersion: z.coerce.number().int().min(1),
 });
 
 contractAuditRouter.get(
@@ -328,35 +334,49 @@ contractAuditRouter.get(
 
       // Score deltas
       const scoreDelta = {
-        overall:    toCert.overallScore    - fromCert.overallScore,
-        security:   toCert.securityScore   - fromCert.securityScore,
+        overall: toCert.overallScore - fromCert.overallScore,
+        security: toCert.securityScore - fromCert.securityScore,
         governance: toCert.governanceScore - fromCert.governanceScore,
-        economic:   toCert.economicScore   - fromCert.economicScore,
+        economic: toCert.economicScore - fromCert.economicScore,
         compliance: toCert.complianceScore - fromCert.complianceScore,
-        liquidity:  toCert.liquidityScore  - fromCert.liquidityScore,
+        liquidity: toCert.liquidityScore - fromCert.liquidityScore,
       };
 
       // Findings diff: load findings for both certs
       const [fromFindings, toFindings] = await Promise.all([
         prismaRead.auditFinding.findMany({
           where: { certificateId: fromCert.id },
-          select: { id: true, title: true, severity: true, category: true, status: true, cweId: true },
+          select: {
+            id: true,
+            title: true,
+            severity: true,
+            category: true,
+            status: true,
+            cweId: true,
+          },
         }),
         prismaRead.auditFinding.findMany({
           where: { certificateId: toCert.id },
-          select: { id: true, title: true, severity: true, category: true, status: true, cweId: true },
+          select: {
+            id: true,
+            title: true,
+            severity: true,
+            category: true,
+            status: true,
+            cweId: true,
+          },
         }),
       ]);
 
       // Match by title+category as stable key (id changes per cert version)
       const fromKeys = new Map(fromFindings.map((f) => [`${f.category}::${f.title}`, f]));
-      const toKeys   = new Map(toFindings.map((f)   => [`${f.category}::${f.title}`, f]));
+      const toKeys = new Map(toFindings.map((f) => [`${f.category}::${f.title}`, f]));
 
       const introduced: typeof fromFindings = [];
-      const resolved:   typeof fromFindings = [];
-      const unchanged:  typeof fromFindings = [];
-      const improved:   Array<{ title: string; category: string; from: string; to: string }> = [];
-      const worsened:   Array<{ title: string; category: string; from: string; to: string }> = [];
+      const resolved: typeof fromFindings = [];
+      const unchanged: typeof fromFindings = [];
+      const improved: Array<{ title: string; category: string; from: string; to: string }> = [];
+      const worsened: Array<{ title: string; category: string; from: string; to: string }> = [];
 
       for (const [key, finding] of toKeys) {
         if (!fromKeys.has(key)) {
@@ -365,9 +385,19 @@ contractAuditRouter.get(
           const prev = fromKeys.get(key)!;
           const sevChange = (SEV_ORDER[prev.severity] ?? 5) - (SEV_ORDER[finding.severity] ?? 5);
           if (sevChange > 0) {
-            worsened.push({ title: finding.title, category: finding.category, from: prev.severity, to: finding.severity });
+            worsened.push({
+              title: finding.title,
+              category: finding.category,
+              from: prev.severity,
+              to: finding.severity,
+            });
           } else if (sevChange < 0) {
-            improved.push({ title: finding.title, category: finding.category, from: prev.severity, to: finding.severity });
+            improved.push({
+              title: finding.title,
+              category: finding.category,
+              from: prev.severity,
+              to: finding.severity,
+            });
           } else {
             unchanged.push(finding);
           }
@@ -380,61 +410,60 @@ contractAuditRouter.get(
 
       // Finding count deltas
       const findingCountDelta = {
-        total:    toCert.totalFindings    - fromCert.totalFindings,
+        total: toCert.totalFindings - fromCert.totalFindings,
         critical: toCert.criticalFindings - fromCert.criticalFindings,
-        high:     toCert.highFindings     - fromCert.highFindings,
-        medium:   toCert.mediumFindings   - fromCert.mediumFindings,
-        low:      toCert.lowFindings      - fromCert.lowFindings,
-        open:     toCert.openFindings     - fromCert.openFindings,
+        high: toCert.highFindings - fromCert.highFindings,
+        medium: toCert.mediumFindings - fromCert.mediumFindings,
+        low: toCert.lowFindings - fromCert.lowFindings,
+        open: toCert.openFindings - fromCert.openFindings,
         resolved: toCert.resolvedFindings - fromCert.resolvedFindings,
       };
 
       const overallDirection =
-        scoreDelta.overall > 0 ? 'improved' :
-        scoreDelta.overall < 0 ? 'degraded' : 'unchanged';
+        scoreDelta.overall > 0 ? 'improved' : scoreDelta.overall < 0 ? 'degraded' : 'unchanged';
 
       res.json({
         contractAddress: address,
         fromVersion,
         toVersion,
         fromGeneratedAt: fromCert.generatedAt,
-        toGeneratedAt:   toCert.generatedAt,
+        toGeneratedAt: toCert.generatedAt,
         overallDirection,
         scoreDelta,
         scores: {
           from: {
-            overall:    fromCert.overallScore,
-            security:   fromCert.securityScore,
+            overall: fromCert.overallScore,
+            security: fromCert.securityScore,
             governance: fromCert.governanceScore,
-            economic:   fromCert.economicScore,
+            economic: fromCert.economicScore,
             compliance: fromCert.complianceScore,
-            liquidity:  fromCert.liquidityScore,
+            liquidity: fromCert.liquidityScore,
           },
           to: {
-            overall:    toCert.overallScore,
-            security:   toCert.securityScore,
+            overall: toCert.overallScore,
+            security: toCert.securityScore,
             governance: toCert.governanceScore,
-            economic:   toCert.economicScore,
+            economic: toCert.economicScore,
             compliance: toCert.complianceScore,
-            liquidity:  toCert.liquidityScore,
+            liquidity: toCert.liquidityScore,
           },
         },
         findingCountDelta,
         findingsDiff: {
-          introduced:        sortFindings(introduced),
-          resolved:          sortFindings(resolved),
-          worsenedSeverity:  worsened,
-          improvedSeverity:  improved,
-          unchanged:         unchanged.length, // count only to keep response lean
+          introduced: sortFindings(introduced),
+          resolved: sortFindings(resolved),
+          worsenedSeverity: worsened,
+          improvedSeverity: improved,
+          unchanged: unchanged.length, // count only to keep response lean
         },
         certificates: {
           from: {
-            certificateId:   fromCert.id,
+            certificateId: fromCert.id,
             certificateHash: fromCert.certificateHash,
             verificationUrl: `/api/v1/audit/verify/${fromCert.certificateHash}`,
           },
           to: {
-            certificateId:   toCert.id,
+            certificateId: toCert.id,
             certificateHash: toCert.certificateHash,
             verificationUrl: `/api/v1/audit/verify/${toCert.certificateHash}`,
           },
@@ -455,7 +484,7 @@ contractAuditRouter.get(
 
 const pdfQuerySchema = z.object({
   version: z.coerce.number().int().min(1).optional(),
-  lang:    z.enum(['en', 'es', 'ko']).default('en'),
+  lang: z.enum(['en', 'es', 'ko']).default('en'),
 });
 
 contractAuditRouter.get(
@@ -463,7 +492,7 @@ contractAuditRouter.get(
   validateAddressParam('address'),
   async (req: Request, res: Response) => {
     try {
-      const { address }    = req.params;
+      const { address } = req.params;
       const { version, lang } = pdfQuerySchema.parse(req.query);
 
       // Load all report data from DB
@@ -471,8 +500,8 @@ contractAuditRouter.get(
 
       if (!reportData) {
         return res.status(404).json({
-          error:   'No published audit certificate found for this contract.',
-          hint:    `POST /api/v1/contracts/${address}/audit/refresh to trigger one.`,
+          error: 'No published audit certificate found for this contract.',
+          hint: `POST /api/v1/contracts/${address}/audit/refresh to trigger one.`,
         });
       }
 
@@ -481,18 +510,18 @@ contractAuditRouter.get(
 
       const filename = `audit-${address.slice(0, 12)}-v${reportData.version}-${lang}.pdf`;
 
-      res.setHeader('Content-Type',        'application/pdf');
+      res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Length',      pdfBytes.length);
-      res.setHeader('Cache-Control',       'private, max-age=300');
-      res.setHeader('X-Audit-Version',     String(reportData.version));
-      res.setHeader('X-Certificate-Hash',  reportData.certificateHash);
+      res.setHeader('Content-Length', pdfBytes.length);
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.setHeader('X-Audit-Version', String(reportData.version));
+      res.setHeader('X-Certificate-Hash', reportData.certificateHash);
 
       logger.info('Audit PDF generated', {
         contractAddress: address,
-        version:         reportData.version,
+        version: reportData.version,
         lang,
-        sizeBytes:       pdfBytes.length,
+        sizeBytes: pdfBytes.length,
       });
 
       res.send(pdfBytes);
@@ -550,7 +579,7 @@ contractAuditRouter.get(
 // ── POST /:address/audit/refresh — manual re-audit trigger ────────────────────
 
 const refreshSchema = z.object({
-  mode:   z.enum(['full', 'incremental']).default('full'),
+  mode: z.enum(['full', 'incremental']).default('full'),
   anchor: z.boolean().default(false),
   reason: z.string().max(500).optional(),
 });
@@ -587,15 +616,15 @@ contractAuditRouter.post(
 
       // Return 202 before firing — never block the caller
       res.status(202).json({
-        message:         'Audit refresh queued.',
+        message: 'Audit refresh queued.',
         contractAddress: address,
         mode,
         anchor,
-        reason:          reason ?? null,
+        reason: reason ?? null,
         expectedVersion: nextVersion,
-        statusUrl:       `/api/v1/contracts/${address}/audit`,
-        historyUrl:      `/api/v1/contracts/${address}/audit/history`,
-        eventsUrl:       `/api/v1/audit/contracts/${address}/events`,
+        statusUrl: `/api/v1/contracts/${address}/audit`,
+        historyUrl: `/api/v1/contracts/${address}/audit/history`,
+        eventsUrl: `/api/v1/audit/contracts/${address}/events`,
       });
 
       // Fire the pipeline in the background
@@ -603,13 +632,10 @@ contractAuditRouter.post(
         .then(({ runAuditPipeline }) =>
           runAuditPipeline({
             contractAddress: address,
-            trigger:  'manual',
+            trigger: 'manual',
             mode,
             anchor,
-            calledBy:
-              (req.headers['x-api-key'] as string) ??
-              req.ip ??
-              'anonymous',
+            calledBy: (req.headers['x-api-key'] as string) ?? req.ip ?? 'anonymous',
           }),
         )
         .catch((e) =>
@@ -638,7 +664,7 @@ contractAuditRouter.post(
 //   ![Audit](https://explorer.soroban.network/api/v1/contracts/C.../audit/badge.svg)
 
 const badgeStyleSchema = z.object({
-  style:   z.enum(['flat', 'flat-square', 'plastic']).default('flat'),
+  style: z.enum(['flat', 'flat-square', 'plastic']).default('flat'),
   compact: z.enum(['true', 'false']).default('false'),
 });
 
@@ -663,15 +689,22 @@ contractAuditRouter.get(
         where: { contractAddress: address, status: 'published' },
         orderBy: { version: 'desc' },
         select: {
-          id: true, contractAddress: true,
-          overallScore: true, securityScore: true, governanceScore: true,
-          economicScore: true, complianceScore: true, liquidityScore: true,
-          generatedAt: true, expiresAt: true, certificateHash: true,
+          id: true,
+          contractAddress: true,
+          overallScore: true,
+          securityScore: true,
+          governanceScore: true,
+          economicScore: true,
+          complianceScore: true,
+          liquidityScore: true,
+          generatedAt: true,
+          expiresAt: true,
+          certificateHash: true,
         },
       });
 
       const svg = generateBadgeSvg(cert, address, {
-        style:   style as BadgeStyle,
+        style: style as BadgeStyle,
         compact: compact === 'true',
       });
 
@@ -705,7 +738,7 @@ contractAuditRouter.get(
 //   summary            — first/latest/best/worst overall scores + direction
 
 const scoreHistorySchema = z.object({
-  days:  z.coerce.number().int().min(1).max(365).default(90),
+  days: z.coerce.number().int().min(1).max(365).default(90),
   grain: z.enum(['day', 'version']).default('version'),
 });
 
@@ -725,13 +758,22 @@ contractAuditRouter.get(
 
       // All certificates in the window (all statuses — want full history)
       const certs = await prismaRead.auditCertificate.findMany({
-        where:   { contractAddress: address, generatedAt: { gte: since } },
+        where: { contractAddress: address, generatedAt: { gte: since } },
         orderBy: { generatedAt: 'asc' },
         select: {
-          id: true, version: true, status: true, generatedAt: true,
-          overallScore: true, securityScore: true, governanceScore: true,
-          economicScore: true, complianceScore: true, liquidityScore: true,
-          totalFindings: true, criticalFindings: true, highFindings: true,
+          id: true,
+          version: true,
+          status: true,
+          generatedAt: true,
+          overallScore: true,
+          securityScore: true,
+          governanceScore: true,
+          economicScore: true,
+          complianceScore: true,
+          liquidityScore: true,
+          totalFindings: true,
+          criticalFindings: true,
+          highFindings: true,
           openFindings: true,
         },
       });
@@ -745,8 +787,13 @@ contractAuditRouter.get(
         },
         orderBy: { timestamp: 'asc' },
         select: {
-          id: true, eventType: true, previousScore: true,
-          newScore: true, triggerSource: true, timestamp: true, details: true,
+          id: true,
+          eventType: true,
+          previousScore: true,
+          newScore: true,
+          triggerSource: true,
+          timestamp: true,
+          details: true,
         },
       });
 
@@ -762,22 +809,22 @@ contractAuditRouter.get(
       // grain=version → one point per certificate version
       // grain=day     → deduplicate to latest cert per calendar day
       let trendPoints = certs.map((c) => ({
-        date:       c.generatedAt.toISOString(),
-        version:    c.version,
-        status:     resolveStatus(c),
-        overall:    c.overallScore,
-        security:   c.securityScore,
+        date: c.generatedAt.toISOString(),
+        version: c.version,
+        status: resolveStatus(c),
+        overall: c.overallScore,
+        security: c.securityScore,
         governance: c.governanceScore,
-        economic:   c.economicScore,
+        economic: c.economicScore,
         compliance: c.complianceScore,
-        liquidity:  c.liquidityScore,
+        liquidity: c.liquidityScore,
         openFindings: c.openFindings,
         criticalFindings: c.criticalFindings,
       }));
 
       if (grain === 'day') {
         // Keep only the last cert per UTC day
-        const byDay = new Map<string, typeof trendPoints[0]>();
+        const byDay = new Map<string, (typeof trendPoints)[0]>();
         for (const pt of trendPoints) {
           const day = pt.date.slice(0, 10);
           byDay.set(day, pt); // later version overwrites earlier for same day
@@ -788,51 +835,60 @@ contractAuditRouter.get(
       // ── Radar chart (latest cert) ──────────────────────────────────────────
       const latest = certs[certs.length - 1];
       const radarChart = [
-        { dimension: 'Security',   score: latest.securityScore,   fullMark: 100, weight: 30 },
+        { dimension: 'Security', score: latest.securityScore, fullMark: 100, weight: 30 },
         { dimension: 'Governance', score: latest.governanceScore, fullMark: 100, weight: 25 },
-        { dimension: 'Economic',   score: latest.economicScore,   fullMark: 100, weight: 20 },
+        { dimension: 'Economic', score: latest.economicScore, fullMark: 100, weight: 20 },
         { dimension: 'Compliance', score: latest.complianceScore, fullMark: 100, weight: 15 },
-        { dimension: 'Liquidity',  score: latest.liquidityScore,  fullMark: 100, weight: 10 },
+        { dimension: 'Liquidity', score: latest.liquidityScore, fullMark: 100, weight: 10 },
       ];
 
       // ── Category breakdown ─────────────────────────────────────────────────
-      const dims = ['securityScore', 'governanceScore', 'economicScore', 'complianceScore', 'liquidityScore'] as const;
+      const dims = [
+        'securityScore',
+        'governanceScore',
+        'economicScore',
+        'complianceScore',
+        'liquidityScore',
+      ] as const;
       const dimLabels: Record<string, string> = {
-        securityScore: 'Security', governanceScore: 'Governance',
-        economicScore: 'Economic', complianceScore: 'Compliance', liquidityScore: 'Liquidity',
+        securityScore: 'Security',
+        governanceScore: 'Governance',
+        economicScore: 'Economic',
+        complianceScore: 'Compliance',
+        liquidityScore: 'Liquidity',
       };
 
       const categoryBreakdown = dims.map((dim) => {
         const scores = certs.map((c) => c[dim]);
-        const curr   = scores[scores.length - 1];
-        const prev   = scores.length >= 2 ? scores[scores.length - 2] : curr;
-        const min    = Math.min(...scores);
-        const max    = Math.max(...scores);
-        const avg    = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
-        const trend  = curr > prev ? 'improving' : curr < prev ? 'degrading' : 'stable';
+        const curr = scores[scores.length - 1];
+        const prev = scores.length >= 2 ? scores[scores.length - 2] : curr;
+        const min = Math.min(...scores);
+        const max = Math.max(...scores);
+        const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+        const trend = curr > prev ? 'improving' : curr < prev ? 'degrading' : 'stable';
 
         return {
           dimension: dimLabels[dim],
-          current:   curr,
-          previous:  prev,
+          current: curr,
+          previous: prev,
           min,
           max,
           avg,
           trend,
-          delta:     curr - prev,
-          grade:     scoreGrade(curr),
+          delta: curr - prev,
+          grade: scoreGrade(curr),
           riskLevel: riskLabel(curr),
         };
       });
 
       // ── Summary ────────────────────────────────────────────────────────────
-      const overallScores  = certs.map((c) => c.overallScore);
-      const firstScore     = overallScores[0];
-      const latestScore    = overallScores[overallScores.length - 1];
-      const bestScore      = Math.max(...overallScores);
-      const worstScore     = Math.min(...overallScores);
-      const periodDelta    = latestScore - firstScore;
-      const direction      = periodDelta > 0 ? 'improving' : periodDelta < 0 ? 'degrading' : 'stable';
+      const overallScores = certs.map((c) => c.overallScore);
+      const firstScore = overallScores[0];
+      const latestScore = overallScores[overallScores.length - 1];
+      const bestScore = Math.max(...overallScores);
+      const worstScore = Math.min(...overallScores);
+      const periodDelta = latestScore - firstScore;
+      const direction = periodDelta > 0 ? 'improving' : periodDelta < 0 ? 'degrading' : 'stable';
 
       const result = {
         contractAddress: address,
@@ -840,30 +896,30 @@ contractAuditRouter.get(
         grain,
         certificateCount: certs.length,
         summary: {
-          first:     firstScore,
-          latest:    latestScore,
-          best:      bestScore,
-          worst:     worstScore,
-          delta:     periodDelta,
+          first: firstScore,
+          latest: latestScore,
+          best: bestScore,
+          worst: worstScore,
+          delta: periodDelta,
           direction,
-          grade:     scoreGrade(latestScore),
+          grade: scoreGrade(latestScore),
           riskLevel: riskLabel(latestScore),
-          firstAuditAt:  certs[0].generatedAt,
+          firstAuditAt: certs[0].generatedAt,
           latestAuditAt: latest.generatedAt,
         },
-        trendLine:         trendPoints,
+        trendLine: trendPoints,
         radarChart,
         categoryBreakdown,
         scoreEvents: scoreEvents.map((e) => ({
-          id:           e.id,
-          type:         e.eventType,
+          id: e.id,
+          type: e.eventType,
           previousScore: e.previousScore,
-          newScore:     e.newScore,
-          delta:        e.newScore !== null && e.previousScore !== null
-                          ? e.newScore - e.previousScore : null,
+          newScore: e.newScore,
+          delta:
+            e.newScore !== null && e.previousScore !== null ? e.newScore - e.previousScore : null,
           triggerSource: e.triggerSource,
-          timestamp:    e.timestamp,
-          details:      e.details,
+          timestamp: e.timestamp,
+          details: e.details,
         })),
       };
 
@@ -889,7 +945,7 @@ contractAuditRouter.get(
       const subs = await prismaRead.auditSubscription.findMany({
         where: {
           contractAddress: address,
-          isActive:        true,
+          isActive: true,
           ...(userId ? { userId } : {}),
         },
         orderBy: { createdAt: 'desc' },
@@ -897,8 +953,8 @@ contractAuditRouter.get(
 
       res.json({
         contractAddress: address,
-        count:           subs.length,
-        subscriptions:   subs,
+        count: subs.length,
+        subscriptions: subs,
       });
     } catch (e) {
       res.status(500).json({ error: String(e) });
@@ -909,11 +965,18 @@ contractAuditRouter.get(
 // ── POST /:address/audit/alerts — create alert subscription ──────────────────
 
 const alertCreateSchema = z.object({
-  userId:     z.string().optional(),
-  alertTypes: z.array(
-    z.enum(['score_drop', 'new_finding', 'upgrade', 'certificate_update', 'certificate_expiry']),
-  ).min(1),
-  threshold: z.coerce.number().int().min(1).max(100).default(10)
+  userId: z.string().optional(),
+  alertTypes: z
+    .array(
+      z.enum(['score_drop', 'new_finding', 'upgrade', 'certificate_update', 'certificate_expiry']),
+    )
+    .min(1),
+  threshold: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(10)
     .describe('Minimum score drop (points) required to fire score_drop alert'),
 });
 
@@ -927,7 +990,7 @@ contractAuditRouter.post(
 
       // Ensure the contract exists
       const contract = await prismaRead.contract.findUnique({
-        where:  { address },
+        where: { address },
         select: { address: true },
       });
       if (!contract) {
@@ -937,20 +1000,20 @@ contractAuditRouter.post(
       const sub = await prismaWrite.auditSubscription.create({
         data: {
           contractAddress: address,
-          alertTypes:      data.alertTypes,
-          threshold:       data.threshold,
-          userId:          data.userId,
-          isActive:        true,
+          alertTypes: data.alertTypes,
+          threshold: data.threshold,
+          userId: data.userId,
+          isActive: true,
         },
       });
 
       res.status(201).json({
-        subscriptionId:  sub.id,
+        subscriptionId: sub.id,
         contractAddress: address,
-        alertTypes:      sub.alertTypes,
-        threshold:       sub.threshold,
-        wsEndpoint:      `/ws/audit?contract=${address}&minDrop=${sub.threshold}`,
-        message:         'Subscription created. Connect to the WS endpoint for real-time alerts.',
+        alertTypes: sub.alertTypes,
+        threshold: sub.threshold,
+        wsEndpoint: `/ws/audit?contract=${address}&minDrop=${sub.threshold}`,
+        message: 'Subscription created. Connect to the WS endpoint for real-time alerts.',
       });
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
@@ -969,7 +1032,7 @@ contractAuditRouter.delete(
       const { address, subscriptionId } = req.params;
 
       const sub = await prismaRead.auditSubscription.findUnique({
-        where:  { id: subscriptionId },
+        where: { id: subscriptionId },
         select: { id: true, contractAddress: true },
       });
       if (!sub || sub.contractAddress !== address) {
@@ -978,7 +1041,7 @@ contractAuditRouter.delete(
 
       await prismaWrite.auditSubscription.update({
         where: { id: subscriptionId },
-        data:  { isActive: false },
+        data: { isActive: false },
       });
 
       res.json({ success: true, subscriptionId });
@@ -1012,25 +1075,30 @@ import { submitExternalAudit } from '../lib/auditor-service';
 // Unregistered auditors are always queued for manual review.
 
 const externalSubmitSchema = z.object({
-  auditorName:      z.string().min(2).max(200),
-  reportUrl:        z.string().url().optional(),
-  reportHash:       z.string().optional(),
-  reportSignature:  z.string().optional(),
-  reportType:       z.enum(['security_audit', 'formal_verification', 'economic_audit'])
-                     .default('security_audit'),
-  findings:         z.array(z.object({
-    severity:       z.enum(['critical', 'high', 'medium', 'low', 'info']),
-    title:          z.string().min(1).max(300),
-    description:    z.string().min(1),
-    recommendation: z.string().optional(),
-    cweId:          z.string().optional(),
-    cvssScore:      z.number().min(0).max(10).optional(),
-    location:       z.string().optional(),
-  })).default([]),
-  overallGrade:     z.enum(['pass', 'conditional_pass', 'fail']).optional(),
-  summary:          z.string().max(2000).optional(),
-  verificationKey:  z.string().optional(),
-  isPublic:         z.boolean().default(true),
+  auditorName: z.string().min(2).max(200),
+  reportUrl: z.string().url().optional(),
+  reportHash: z.string().optional(),
+  reportSignature: z.string().optional(),
+  reportType: z
+    .enum(['security_audit', 'formal_verification', 'economic_audit'])
+    .default('security_audit'),
+  findings: z
+    .array(
+      z.object({
+        severity: z.enum(['critical', 'high', 'medium', 'low', 'info']),
+        title: z.string().min(1).max(300),
+        description: z.string().min(1),
+        recommendation: z.string().optional(),
+        cweId: z.string().optional(),
+        cvssScore: z.number().min(0).max(10).optional(),
+        location: z.string().optional(),
+      }),
+    )
+    .default([]),
+  overallGrade: z.enum(['pass', 'conditional_pass', 'fail']).optional(),
+  summary: z.string().max(2000).optional(),
+  verificationKey: z.string().optional(),
+  isPublic: z.boolean().default(true),
 });
 
 contractAuditRouter.post(
@@ -1043,7 +1111,7 @@ contractAuditRouter.post(
 
       // Contract must exist
       const contract = await prismaRead.contract.findUnique({
-        where:  { address },
+        where: { address },
         select: { address: true },
       });
       if (!contract) {
@@ -1051,50 +1119,50 @@ contractAuditRouter.post(
       }
 
       const result = await submitExternalAudit({
-        contractAddress:  address,
-        auditorName:      data.auditorName,
-        verificationKey:  data.verificationKey,
-        reportType:       data.reportType,
-        reportUrl:        data.reportUrl,
-        reportHash:       data.reportHash,
-        reportSignature:  data.reportSignature,
-        findings:         data.findings,
-        overallGrade:     data.overallGrade,
-        summary:          data.summary,
-        submittedAt:      new Date(),
-        isPublic:         data.isPublic,
+        contractAddress: address,
+        auditorName: data.auditorName,
+        verificationKey: data.verificationKey,
+        reportType: data.reportType,
+        reportUrl: data.reportUrl,
+        reportHash: data.reportHash,
+        reportSignature: data.reportSignature,
+        findings: data.findings,
+        overallGrade: data.overallGrade,
+        summary: data.summary,
+        submittedAt: new Date(),
+        isPublic: data.isPublic,
       });
 
       // Log audit event
       await prismaWrite.auditEvent.create({
         data: {
           contractAddress: address,
-          eventType:       'external_audit_submitted',
-          triggerSource:   'external',
-          timestamp:       new Date(),
+          eventType: 'external_audit_submitted',
+          triggerSource: 'external',
+          timestamp: new Date(),
           details: {
-            submissionId:       result.id,
-            auditorName:        data.auditorName,
+            submissionId: result.id,
+            auditorName: data.auditorName,
             verificationStatus: result.verificationStatus,
-            signatureVerified:  result.signatureVerified,
-            overallGrade:       data.overallGrade ?? null,
-            findingCount:       data.findings.length,
+            signatureVerified: result.signatureVerified,
+            overallGrade: data.overallGrade ?? null,
+            findingCount: data.findings.length,
           } as import('@prisma/client').Prisma.InputJsonValue,
         },
       });
 
       const statusCode = result.verificationStatus === 'verified' ? 201 : 202;
       res.status(statusCode).json({
-        submissionId:       result.id,
-        contractAddress:    address,
-        auditorName:        data.auditorName,
+        submissionId: result.id,
+        contractAddress: address,
+        auditorName: data.auditorName,
         verificationStatus: result.verificationStatus,
-        signatureVerified:  result.signatureVerified,
-        hashValid:          result.hashValid,
-        auditorId:          result.auditorId,
-        auditorVerified:    result.auditorVerified,
-        message:            result.message,
-        viewUrl:            `/api/v1/contracts/${address}/audit/external`,
+        signatureVerified: result.signatureVerified,
+        hashValid: result.hashValid,
+        auditorId: result.auditorId,
+        auditorVerified: result.auditorVerified,
+        message: result.message,
+        viewUrl: `/api/v1/contracts/${address}/audit/external`,
       });
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
@@ -1106,10 +1174,10 @@ contractAuditRouter.post(
 // ── GET /:address/audit/external — list external audits for contract ──────────
 
 const externalListSchema = z.object({
-  status:         z.enum(['pending', 'verified', 'rejected', 'all']).default('verified'),
+  status: z.enum(['pending', 'verified', 'rejected', 'all']).default('verified'),
   includePrivate: z.enum(['true', 'false']).default('false'),
-  page:           z.coerce.number().min(1).default(1),
-  limit:          z.coerce.number().min(1).max(50).default(10),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(50).default(10),
 });
 
 contractAuditRouter.get(
@@ -1122,7 +1190,7 @@ contractAuditRouter.get(
       const skip = (q.page - 1) * q.limit;
 
       const where: Record<string, unknown> = { contractAddress: address };
-      if (q.status !== 'all')          where.verificationStatus = q.status;
+      if (q.status !== 'all') where.verificationStatus = q.status;
       if (q.includePrivate === 'false') where.isPublic = true;
 
       const [audits, total] = await Promise.all([
@@ -1130,12 +1198,18 @@ contractAuditRouter.get(
           where,
           orderBy: { submittedAt: 'desc' },
           skip,
-          take:    q.limit,
+          take: q.limit,
           include: {
             auditor: {
               select: {
-                id: true, name: true, slug: true, website: true, logoUrl: true,
-                isVerified: true, trustScore: true, badgeTier: true,
+                id: true,
+                name: true,
+                slug: true,
+                website: true,
+                logoUrl: true,
+                isVerified: true,
+                trustScore: true,
+                badgeTier: true,
                 specializations: true,
               },
             },
@@ -1146,42 +1220,42 @@ contractAuditRouter.get(
 
       // Shape for response — merge auditor badge info
       const shaped = audits.map((a) => ({
-        id:                 a.id,
-        contractAddress:    a.contractAddress,
-        auditorName:        a.auditorName,
-        auditor:            a.auditor
+        id: a.id,
+        contractAddress: a.contractAddress,
+        auditorName: a.auditorName,
+        auditor: a.auditor
           ? {
-              id:              a.auditor.id,
-              name:            a.auditor.name,
-              slug:            a.auditor.slug,
-              website:         a.auditor.website,
-              logoUrl:         a.auditor.logoUrl,
-              isVerified:      a.auditor.isVerified,
-              trustScore:      a.auditor.trustScore,
-              badgeTier:       a.auditor.badgeTier,
+              id: a.auditor.id,
+              name: a.auditor.name,
+              slug: a.auditor.slug,
+              website: a.auditor.website,
+              logoUrl: a.auditor.logoUrl,
+              isVerified: a.auditor.isVerified,
+              trustScore: a.auditor.trustScore,
+              badgeTier: a.auditor.badgeTier,
               specializations: a.auditor.specializations,
-              badgeUrl:        `/api/v1/audit/auditors/${a.auditor.slug}/badge.svg`,
+              badgeUrl: `/api/v1/audit/auditors/${a.auditor.slug}/badge.svg`,
             }
           : null,
-        reportType:         a.reportType,
-        reportUrl:          a.reportUrl,
-        reportHash:         a.reportHash,
-        overallGrade:       a.overallGrade,
-        summary:            a.summary,
-        findingCount:       Array.isArray(a.findings) ? (a.findings as unknown[]).length : 0,
-        findings:           a.findings,
+        reportType: a.reportType,
+        reportUrl: a.reportUrl,
+        reportHash: a.reportHash,
+        overallGrade: a.overallGrade,
+        summary: a.summary,
+        findingCount: Array.isArray(a.findings) ? (a.findings as unknown[]).length : 0,
+        findings: a.findings,
         verificationStatus: a.verificationStatus,
-        submittedAt:        a.submittedAt,
-        verifiedAt:         a.verifiedAt,
+        submittedAt: a.submittedAt,
+        verifiedAt: a.verifiedAt,
       }));
 
       res.json({
         contractAddress: address,
         total,
-        page:            q.page,
-        limit:           q.limit,
-        pages:           Math.ceil(total / q.limit),
-        audits:          shaped,
+        page: q.page,
+        limit: q.limit,
+        pages: Math.ceil(total / q.limit),
+        audits: shaped,
       });
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
@@ -1208,12 +1282,12 @@ contractAuditRouter.get(
 // Returns 202 immediately with jobId. Poll GET .../formal-verification/:jobId.
 
 const fvTriggerSchema = z.object({
-  tool:         z.enum(['certora', 'scribble', 'halo2', 'smtchecker', 'manual']),
-  specContent:  z.string().max(100_000).optional(),
+  tool: z.enum(['certora', 'scribble', 'halo2', 'smtchecker', 'manual']),
+  specContent: z.string().max(100_000).optional(),
   specFileName: z.string().max(200).optional(),
-  toolOptions:  z.record(z.unknown()).optional(),
+  toolOptions: z.record(z.unknown()).optional(),
   linkToCertId: z.string().optional(),
-  triggeredBy:  z.string().default('manual'),
+  triggeredBy: z.string().default('manual'),
 });
 
 contractAuditRouter.post(
@@ -1226,7 +1300,8 @@ contractAuditRouter.post(
 
       // Contract must exist
       const contract = await prismaRead.contract.findUnique({
-        where: { address }, select: { address: true },
+        where: { address },
+        select: { address: true },
       });
       if (!contract) {
         return res.status(404).json({ error: 'Contract not found in explorer index.' });
@@ -1235,14 +1310,15 @@ contractAuditRouter.post(
       // For non-manual tools: check a verified source job exists
       if (data.tool !== 'manual') {
         const srcJob = await prismaRead.verificationJob.findFirst({
-          where:   { contractAddress: address, status: 'verified' },
-          select:  { id: true },
+          where: { contractAddress: address, status: 'verified' },
+          select: { id: true },
         });
         if (!srcJob) {
           return res.status(422).json({
-            error:  'No verified source code found for this contract.',
-            hint:   'Upload and verify source code first via POST /api/v1/verify',
-            detail: 'Formal verification requires a reproducible build match. Manual tool can bypass this.',
+            error: 'No verified source code found for this contract.',
+            hint: 'Upload and verify source code first via POST /api/v1/verify',
+            detail:
+              'Formal verification requires a reproducible build match. Manual tool can bypass this.',
           });
         }
       }
@@ -1251,9 +1327,9 @@ contractAuditRouter.post(
       let certId = data.linkToCertId ?? null;
       if (!certId) {
         const latestCert = await prismaRead.auditCertificate.findFirst({
-          where:   { contractAddress: address, status: 'published' },
+          where: { contractAddress: address, status: 'published' },
           orderBy: { version: 'desc' },
-          select:  { id: true },
+          select: { id: true },
         });
         certId = latestCert?.id ?? null;
       }
@@ -1271,20 +1347,21 @@ contractAuditRouter.post(
       res.status(202).json({
         jobId,
         contractAddress: address,
-        tool:            data.tool,
-        status:          'running',
-        linkedCertId:    certId,
-        statusUrl:       `/api/v1/contracts/${address}/audit/formal-verification/${jobId}`,
-        listUrl:         `/api/v1/contracts/${address}/audit/formal-verification`,
-        note: data.tool === 'manual'
-          ? 'Manual results accepted immediately.'
-          : `${data.tool} verification running. Results available in 30–120 seconds.`,
+        tool: data.tool,
+        status: 'running',
+        linkedCertId: certId,
+        statusUrl: `/api/v1/contracts/${address}/audit/formal-verification/${jobId}`,
+        listUrl: `/api/v1/contracts/${address}/audit/formal-verification`,
+        note:
+          data.tool === 'manual'
+            ? 'Manual results accepted immediately.'
+            : `${data.tool} verification running. Results available in 30–120 seconds.`,
         toolAvailability: {
-          certora:    !!process.env.CERTORA_KEY,
-          scribble:   'requires scribble CLI in PATH',
-          halo2:      'requires cargo + halo2 crate',
+          certora: !!process.env.CERTORA_KEY,
+          scribble: 'requires scribble CLI in PATH',
+          halo2: 'requires cargo + halo2 crate',
           smtchecker: 'requires cargo in PATH',
-          manual:     'always available',
+          manual: 'always available',
         },
       });
     } catch (e) {
@@ -1302,17 +1379,19 @@ contractAuditRouter.get(
   async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const tool   = req.query.tool as string | undefined;
+      const tool = req.query.tool as string | undefined;
       const status = req.query.status as string | undefined;
-      const limit  = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
       const where: Record<string, unknown> = { contractAddress: address };
-      if (tool)   where.tool   = tool;
+      if (tool) where.tool = tool;
       if (status) where.status = status;
 
       const [jobs, total] = await Promise.all([
         prismaRead.formalVerificationJob.findMany({
-          where, orderBy: { createdAt: 'desc' }, take: limit,
+          where,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
         }),
         prismaRead.formalVerificationJob.count({ where }),
       ]);
@@ -1323,11 +1402,11 @@ contractAuditRouter.get(
         if (!byTool[j.tool]) {
           byTool[j.tool] = {
             latestStatus: j.status,
-            passed:       j.passed,
-            provenCount:  j.provenCount,
+            passed: j.passed,
+            provenCount: j.provenCount,
             violatedCount: j.violatedCount,
-            completedAt:  j.completedAt,
-            jobId:        j.id,
+            completedAt: j.completedAt,
+            jobId: j.id,
           };
         }
       }
@@ -1337,21 +1416,21 @@ contractAuditRouter.get(
         total,
         byTool,
         jobs: jobs.map((j) => ({
-          id:              j.id,
-          tool:            j.tool,
-          status:          j.status,
-          passed:          j.passed,
-          propertyCount:   j.propertyCount,
-          provenCount:     j.provenCount,
-          violatedCount:   j.violatedCount,
-          unknownCount:    j.unknownCount,
+          id: j.id,
+          tool: j.tool,
+          status: j.status,
+          passed: j.passed,
+          propertyCount: j.propertyCount,
+          provenCount: j.provenCount,
+          violatedCount: j.violatedCount,
+          unknownCount: j.unknownCount,
           coveragePercent: j.coveragePercent,
-          reportUrl:       j.reportUrl,
+          reportUrl: j.reportUrl,
           durationSeconds: j.durationSeconds,
-          triggeredBy:     j.triggeredBy,
-          startedAt:       j.startedAt,
-          completedAt:     j.completedAt,
-          createdAt:       j.createdAt,
+          triggeredBy: j.triggeredBy,
+          startedAt: j.startedAt,
+          completedAt: j.completedAt,
+          createdAt: j.createdAt,
         })),
       });
     } catch (e) {
@@ -1378,28 +1457,28 @@ contractAuditRouter.get(
       const isRunning = job.status === 'running' || job.status === 'pending';
 
       res.json({
-        id:              job.id,
+        id: job.id,
         contractAddress: job.contractAddress,
-        tool:            job.tool,
-        status:          job.status,
-        passed:          job.passed,
-        propertyCount:   job.propertyCount,
-        provenCount:     job.provenCount,
-        violatedCount:   job.violatedCount,
-        unknownCount:    job.unknownCount,
+        tool: job.tool,
+        status: job.status,
+        passed: job.passed,
+        propertyCount: job.propertyCount,
+        provenCount: job.provenCount,
+        violatedCount: job.violatedCount,
+        unknownCount: job.unknownCount,
         coveragePercent: job.coveragePercent,
         counterExamples: job.counterExamples,
-        toolOutput:      isRunning ? null : job.toolOutput,
-        reportUrl:       job.reportUrl,
-        toolVersion:     job.toolVersion,
+        toolOutput: isRunning ? null : job.toolOutput,
+        reportUrl: job.reportUrl,
+        toolVersion: job.toolVersion,
         durationSeconds: job.durationSeconds,
-        triggeredBy:     job.triggeredBy,
-        linkedCertId:    job.certId,
-        startedAt:       job.startedAt,
-        completedAt:     job.completedAt,
-        createdAt:       job.createdAt,
+        triggeredBy: job.triggeredBy,
+        linkedCertId: job.certId,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        createdAt: job.createdAt,
         ...(isRunning && {
-          pollUrl:     `/api/v1/contracts/${job.contractAddress}/audit/formal-verification/${job.id}`,
+          pollUrl: `/api/v1/contracts/${job.contractAddress}/audit/formal-verification/${job.id}`,
           pollAfterMs: 5000,
         }),
       });
@@ -1424,14 +1503,14 @@ contractAuditRouter.get(
 
       // Must have at least one published cert
       const cert = await prismaRead.auditCertificate.findFirst({
-        where:   { contractAddress: address, status: 'published' },
+        where: { contractAddress: address, status: 'published' },
         orderBy: { version: 'desc' },
-        select:  { id: true, overallScore: true, certificateHash: true },
+        select: { id: true, overallScore: true, certificateHash: true },
       });
       if (!cert) {
         return res.status(404).json({
           error: 'No published audit certificate found.',
-          hint:  `POST /api/v1/contracts/${address}/audit/refresh to trigger one first.`,
+          hint: `POST /api/v1/contracts/${address}/audit/refresh to trigger one first.`,
         });
       }
 
@@ -1444,8 +1523,8 @@ contractAuditRouter.get(
         ...result,
         // Convenience links
         categoryBenchmarkUrl: `/api/v1/audit/benchmarks/${result.category}`,
-        verifyUrl:            `/api/v1/audit/verify/${cert.certificateHash}`,
-        updatedAt:            new Date().toISOString(),
+        verifyUrl: `/api/v1/audit/verify/${cert.certificateHash}`,
+        updatedAt: new Date().toISOString(),
       });
     } catch (e) {
       res.status(500).json({ error: String(e) });
@@ -1475,7 +1554,7 @@ contractAuditRouter.get(
 
 const remediateSchema = z.object({
   applyPatch: z.boolean().default(false),
-  funcName:   z.string().optional(),
+  funcName: z.string().optional(),
 });
 
 contractAuditRouter.post(
@@ -1502,21 +1581,21 @@ contractAuditRouter.post(
       }
       if (finding.status !== 'open') {
         return res.status(409).json({
-          error:  `Finding is already ${finding.status}. Only open findings can be remediated.`,
+          error: `Finding is already ${finding.status}. Only open findings can be remediated.`,
           status: finding.status,
         });
       }
 
       // Generate the remediation
       const result = generateRemediation({
-        id:              finding.id,
-        title:           finding.title,
-        severity:        finding.severity,
-        category:        finding.category,
-        description:     finding.description,
-        detail:          finding.detail,
-        cweId:           finding.cweId,
-        txHash:          finding.txHash,
+        id: finding.id,
+        title: finding.title,
+        severity: finding.severity,
+        category: finding.category,
+        description: finding.description,
+        detail: finding.detail,
+        cweId: finding.cweId,
+        txHash: finding.txHash,
         contractAddress: address,
         // Override function name if caller specified one
         ...(funcName ? { title: `${finding.title} [${funcName}]` } : {}),
@@ -1527,8 +1606,8 @@ contractAuditRouter.post(
         await prismaWrite.auditFinding.update({
           where: { id: findingId },
           data: {
-            status:         'resolved',
-            resolvedAt:     new Date(),
+            status: 'resolved',
+            resolvedAt: new Date(),
             resolutionNote: `Automated remediation applied: ${result.remediationType}`,
           },
         });
@@ -1537,7 +1616,7 @@ contractAuditRouter.post(
         await prismaWrite.auditCertificate.update({
           where: { id: finding.certificateId },
           data: {
-            openFindings:     { decrement: 1 },
+            openFindings: { decrement: 1 },
             resolvedFindings: { increment: 1 },
           },
         });
@@ -1546,15 +1625,15 @@ contractAuditRouter.post(
         await prismaWrite.auditEvent.create({
           data: {
             contractAddress: address,
-            certificateId:   finding.certificateId,
-            eventType:       'vulnerability_discovered',
-            triggerSource:   'manual',
-            timestamp:       new Date(),
+            certificateId: finding.certificateId,
+            eventType: 'vulnerability_discovered',
+            triggerSource: 'manual',
+            timestamp: new Date(),
             details: {
-              action:          'remediation_applied',
+              action: 'remediation_applied',
               findingId,
               remediationType: result.remediationType,
-              patchedFiles:    result.patchFiles.map((p) => p.path),
+              patchedFiles: result.patchFiles.map((p) => p.path),
             } as import('@prisma/client').Prisma.InputJsonValue,
           },
         });
@@ -1562,13 +1641,13 @@ contractAuditRouter.post(
 
       res.status(applyPatch && result.isAutoFixable ? 200 : 200).json({
         ...result,
-        applied:      applyPatch && result.isAutoFixable,
+        applied: applyPatch && result.isAutoFixable,
         findingStatus: applyPatch && result.isAutoFixable ? 'resolved' : finding.status,
         note: !result.isAutoFixable
           ? 'This finding has no automated patch. Follow the manual steps provided.'
           : applyPatch
-          ? 'Patch applied — finding marked as resolved. Re-audit to confirm.'
-          : 'Patch generated. Review carefully before applying. POST with applyPatch=true to mark resolved.',
+            ? 'Patch applied — finding marked as resolved. Re-audit to confirm.'
+            : 'Patch generated. Review carefully before applying. POST with applyPatch=true to mark resolved.',
       });
     } catch (e) {
       if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });

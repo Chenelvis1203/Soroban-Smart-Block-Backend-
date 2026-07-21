@@ -16,7 +16,11 @@
 import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import { prismaRead, prismaWrite } from '../db';
-import { verifyCertificateSignature, hashCertificate, CertificatePayload } from '../indexer/audit-engine';
+import {
+  verifyCertificateSignature,
+  hashCertificate,
+  CertificatePayload,
+} from '../indexer/audit-engine';
 import { cacheGet, cacheSet } from '../cache';
 import { incidentSignatureFailure } from '../lib/incident-dispatcher';
 
@@ -34,9 +38,9 @@ function riskLabel(s: number): string {
 type VerificationResult = 'valid' | 'invalid' | 'expired' | 'revoked' | 'not_found';
 
 interface VerificationStep {
-  step:    string;
-  passed:  boolean;
-  detail:  string;
+  step: string;
+  passed: boolean;
+  detail: string;
 }
 
 /**
@@ -59,17 +63,17 @@ function recomputeHash(cert: {
 }): string {
   const payload: CertificatePayload = {
     contractAddress: cert.contractAddress,
-    version:         cert.version,
-    overallScore:    cert.overallScore,
-    securityScore:   cert.securityScore,
+    version: cert.version,
+    overallScore: cert.overallScore,
+    securityScore: cert.securityScore,
     governanceScore: cert.governanceScore,
-    economicScore:   cert.economicScore,
+    economicScore: cert.economicScore,
     complianceScore: cert.complianceScore,
-    liquidityScore:  cert.liquidityScore,
-    totalFindings:   cert.totalFindings,
+    liquidityScore: cert.liquidityScore,
+    totalFindings: cert.totalFindings,
     criticalFindings: cert.criticalFindings,
-    generatedAt:     cert.generatedAt.toISOString(),
-    platform:        'soroban-explorer-audit-v1',
+    generatedAt: cert.generatedAt.toISOString(),
+    platform: 'soroban-explorer-audit-v1',
   };
   return hashCertificate(payload);
 }
@@ -83,10 +87,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
     // Accept both the opaque cuid (certificateId) and raw SHA-256 hash
     const cert = await prismaRead.auditCertificate.findFirst({
       where: {
-        OR: [
-          { id: certificateId },
-          { certificateHash: certificateId },
-        ],
+        OR: [{ id: certificateId }, { certificateHash: certificateId }],
       },
       orderBy: { version: 'desc' },
     });
@@ -96,7 +97,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
 
     if (!cert) {
       steps.push({
-        step:   'registry_lookup',
+        step: 'registry_lookup',
         passed: false,
         detail: 'Certificate ID / hash not found in the audit registry.',
       });
@@ -105,15 +106,15 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
       await prismaWrite.auditVerificationRecord.create({
         data: {
           certificateHash: certificateId,
-          verifierIp:  req.ip ?? null,
+          verifierIp: req.ip ?? null,
           verifierKey: (req.headers['x-api-key'] as string) ?? null,
-          result:      'invalid',
+          result: 'invalid',
         },
       });
 
       return res.status(404).json({
         certificateId,
-        result:     overallResult,
+        result: overallResult,
         verifiedAt: new Date().toISOString(),
         steps,
       });
@@ -121,7 +122,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
 
     // ── Step 1: Registry lookup ──────────────────────────────────────────────
     steps.push({
-      step:   'registry_lookup',
+      step: 'registry_lookup',
       passed: true,
       detail: `Certificate found — contract ${cert.contractAddress}, version ${cert.version}.`,
     });
@@ -129,9 +130,9 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
     // ── Step 2: Hash integrity check ─────────────────────────────────────────
     // Recompute the SHA-256 from stored columns and compare against stored hash
     const recomputed = recomputeHash(cert);
-    const hashMatch  = recomputed === cert.certificateHash;
+    const hashMatch = recomputed === cert.certificateHash;
     steps.push({
-      step:   'hash_integrity',
+      step: 'hash_integrity',
       passed: hashMatch,
       detail: hashMatch
         ? 'Recomputed SHA-256 matches stored certificateHash — content unmodified.'
@@ -141,7 +142,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
     // ── Step 3: Signature verification ───────────────────────────────────────
     const sigValid = verifyCertificateSignature(cert.certificateHash, cert.signature);
     steps.push({
-      step:   'signature_verification',
+      step: 'signature_verification',
       passed: sigValid,
       detail: sigValid
         ? `HMAC-SHA256 signature verified against public key "${cert.publicKey}".`
@@ -150,33 +151,31 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
 
     // Fire PagerDuty/Opsgenie P2 incident when a published cert's signature fails
     if (!sigValid) {
-      incidentSignatureFailure(
-        cert.contractAddress,
-        cert.id,
-        cert.certificateHash,
-      ).catch(() => { /* non-fatal — incident dispatch errors are logged inside */ });
+      incidentSignatureFailure(cert.contractAddress, cert.id, cert.certificateHash).catch(() => {
+        /* non-fatal — incident dispatch errors are logged inside */
+      });
     }
 
     // ── Step 4: Expiry check ──────────────────────────────────────────────────
-    const now       = new Date();
+    const now = new Date();
     const isExpired = !!cert.expiresAt && cert.expiresAt < now;
-    const daysLeft  = cert.expiresAt
+    const daysLeft = cert.expiresAt
       ? Math.max(0, Math.ceil((cert.expiresAt.getTime() - now.getTime()) / 86400000))
       : null;
     steps.push({
-      step:   'expiry_check',
+      step: 'expiry_check',
       passed: !isExpired,
       detail: isExpired
         ? `Certificate expired on ${cert.expiresAt?.toISOString()}.`
         : cert.expiresAt
-        ? `Valid — expires in ${daysLeft} day(s) on ${cert.expiresAt.toISOString()}.`
-        : 'No expiry set — certificate does not expire.',
+          ? `Valid — expires in ${daysLeft} day(s) on ${cert.expiresAt.toISOString()}.`
+          : 'No expiry set — certificate does not expire.',
     });
 
     // ── Step 5: Revocation check ──────────────────────────────────────────────
     const isRevoked = cert.status === 'revoked';
     steps.push({
-      step:   'revocation_check',
+      step: 'revocation_check',
       passed: !isRevoked,
       detail: isRevoked ? 'Certificate has been revoked.' : 'Not revoked.',
     });
@@ -191,7 +190,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
         .digest('hex');
       const anchorMatch = cert.anchorTxHash === expectedAnchor;
       onChainStep = {
-        step:   'on_chain_anchor',
+        step: 'on_chain_anchor',
         passed: anchorMatch,
         detail: anchorMatch
           ? `On-chain anchor verified — tx: ${cert.anchorTxHash}.`
@@ -200,7 +199,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
       steps.push(onChainStep);
     } else {
       steps.push({
-        step:   'on_chain_anchor',
+        step: 'on_chain_anchor',
         passed: true, // not required, so not a failure
         detail: 'Certificate has not been anchored on-chain (optional step).',
       });
@@ -221,9 +220,9 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
     await prismaWrite.auditVerificationRecord.create({
       data: {
         certificateHash: cert.certificateHash,
-        verifierIp:  req.ip ?? null,
+        verifierIp: req.ip ?? null,
         verifierKey: (req.headers['x-api-key'] as string) ?? null,
-        result:      overallResult,
+        result: overallResult,
       },
     });
 
@@ -241,49 +240,49 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
     ]);
 
     res.json({
-      certificateId:   cert.id,
+      certificateId: cert.id,
       certificateHash: cert.certificateHash,
-      result:          overallResult,
-      verifiedAt:      now.toISOString(),
+      result: overallResult,
+      verifiedAt: now.toISOString(),
 
       // Full certificate content
       certificate: {
-        contractAddress:    cert.contractAddress,
-        version:            cert.version,
-        status:             cert.status,
-        overallScore:       cert.overallScore,
-        grade:              scoreGrade(cert.overallScore),
-        riskLevel:          riskLabel(cert.overallScore),
+        contractAddress: cert.contractAddress,
+        version: cert.version,
+        status: cert.status,
+        overallScore: cert.overallScore,
+        grade: scoreGrade(cert.overallScore),
+        riskLevel: riskLabel(cert.overallScore),
         scores: {
-          security:   cert.securityScore,
+          security: cert.securityScore,
           governance: cert.governanceScore,
-          economic:   cert.economicScore,
+          economic: cert.economicScore,
           compliance: cert.complianceScore,
-          liquidity:  cert.liquidityScore,
+          liquidity: cert.liquidityScore,
         },
         findings: {
-          total:    cert.totalFindings,
+          total: cert.totalFindings,
           critical: cert.criticalFindings,
-          high:     cert.highFindings,
-          medium:   cert.mediumFindings,
-          low:      cert.lowFindings,
-          open:     cert.openFindings,
+          high: cert.highFindings,
+          medium: cert.mediumFindings,
+          low: cert.lowFindings,
+          open: cert.openFindings,
         },
-        generatedAt:  cert.generatedAt,
-        expiresAt:    cert.expiresAt,
+        generatedAt: cert.generatedAt,
+        expiresAt: cert.expiresAt,
         daysRemaining: daysLeft,
       },
 
       // Cryptographic details
       cryptography: {
-        algorithm:          cert.signatureAlgorithm,
-        publicKey:          cert.publicKey,
-        signature:          cert.signature,
-        certificateHash:    cert.certificateHash,
-        hashIntegrity:      hashMatch,
-        signatureValid:     sigValid,
-        anchored:           !!cert.anchorTxHash,
-        anchorTxHash:       cert.anchorTxHash,
+        algorithm: cert.signatureAlgorithm,
+        publicKey: cert.publicKey,
+        signature: cert.signature,
+        certificateHash: cert.certificateHash,
+        hashIntegrity: hashMatch,
+        signatureValid: sigValid,
+        anchored: !!cert.anchorTxHash,
+        anchorTxHash: cert.anchorTxHash,
       },
 
       // Step-by-step audit trail
@@ -296,7 +295,7 @@ auditVerifyRouter.get('/:certificateId', async (req: Request, res: Response) => 
       },
 
       proofUrl: `/api/v1/audit/verify/${cert.id}/proof`,
-      qrUrl:    `/api/v1/audit/verify/${cert.id}/qr`,
+      qrUrl: `/api/v1/audit/verify/${cert.id}/qr`,
     });
   } catch (e) {
     res.status(500).json({ error: String(e) });
@@ -334,7 +333,7 @@ function merkleParent(left: string, right: string): string {
 }
 
 function buildMerkleTree(leaves: string[]): {
-  root:   string;
+  root: string;
   layers: string[][];
 } {
   const layers: string[][] = [leaves];
@@ -343,7 +342,7 @@ function buildMerkleTree(leaves: string[]): {
   while (current.length > 1) {
     const next: string[] = [];
     for (let i = 0; i < current.length; i += 2) {
-      const left  = current[i];
+      const left = current[i];
       const right = current[i + 1] ?? current[i]; // duplicate last leaf if odd
       next.push(merkleParent(left, right));
     }
@@ -370,7 +369,7 @@ function getMerkleProof(
 
     proof.push({
       direction: isRight ? 'left' : 'right',
-      hash:      sibling,
+      hash: sibling,
     });
     idx = Math.floor(idx / 2);
   }
@@ -390,10 +389,15 @@ auditVerifyRouter.get('/:certificateId/proof', async (req: Request, res: Respons
         OR: [{ id: certificateId }, { certificateHash: certificateId }],
       },
       select: {
-        id: true, contractAddress: true, version: true,
-        certificateHash: true, generatedAt: true,
-        overallScore: true, signature: true,
-        anchorTxHash: true, status: true,
+        id: true,
+        contractAddress: true,
+        version: true,
+        certificateHash: true,
+        generatedAt: true,
+        overallScore: true,
+        signature: true,
+        anchorTxHash: true,
+        status: true,
       },
     });
 
@@ -414,31 +418,31 @@ auditVerifyRouter.get('/:certificateId/proof', async (req: Request, res: Respons
     // Generate proof for each leaf (all 4 — let the caller pick the leaf
     // they want to verify by index)
     const proofs = leaves.map((leaf, i) => ({
-      leafIndex:   i,
-      leafLabel:   ['contractAddress', 'version', 'certificateHash', 'generatedAt'][i],
-      leafHash:    leaf,
-      proof:       getMerkleProof(leaves, i, layers),
+      leafIndex: i,
+      leafLabel: ['contractAddress', 'version', 'certificateHash', 'generatedAt'][i],
+      leafHash: leaf,
+      proof: getMerkleProof(leaves, i, layers),
     }));
 
     // Verify the root against the stored certificate hash for completeness
     const rootMatchesCertHash = root === sha256hex(cert.certificateHash);
 
     const result = {
-      certificateId:     cert.id,
-      contractAddress:   cert.contractAddress,
-      version:           cert.version,
-      merkleRoot:        root,
-      treeDepth:         layers.length - 1,
-      leafCount:         leaves.length,
-      leaves:            proofs,
+      certificateId: cert.id,
+      contractAddress: cert.contractAddress,
+      version: cert.version,
+      merkleRoot: root,
+      treeDepth: layers.length - 1,
+      leafCount: leaves.length,
+      leaves: proofs,
       // Full layered tree for independent verification
-      layers:            layers,
+      layers: layers,
       // Cross-check: root hashed against certificateHash to bind the two
       rootMatchesCertHash,
       // On-chain anchor (if present) should embed this merkleRoot
-      anchored:          !!cert.anchorTxHash,
-      anchorTxHash:      cert.anchorTxHash,
-      algorithm:         'SHA-256 with canonical sibling sort',
+      anchored: !!cert.anchorTxHash,
+      anchorTxHash: cert.anchorTxHash,
+      algorithm: 'SHA-256 with canonical sibling sort',
       verifyInstructions: [
         '1. Take the leaf hash for the field you want to verify.',
         '2. Walk up the tree using the sibling hashes in proof[].',
@@ -461,20 +465,20 @@ auditVerifyRouter.get('/:certificateId/proof', async (req: Request, res: Respons
 /** GF(256) arithmetic for QR Reed-Solomon error correction */
 const GF256 = (() => {
   const EXP = new Uint8Array(512);
-  const LOG  = new Uint8Array(256);
+  const LOG = new Uint8Array(256);
   let x = 1;
   for (let i = 0; i < 255; i++) {
     EXP[i] = x;
-    LOG[x]  = i;
+    LOG[x] = i;
     x = x * 2;
     if (x > 255) x ^= 0x11d; // GF(256) primitive polynomial
   }
   for (let i = 255; i < 512; i++) EXP[i] = EXP[i - 255];
 
   return {
-    mul: (a: number, b: number): number =>
-      a === 0 || b === 0 ? 0 : EXP[(LOG[a] + LOG[b]) % 255],
-    EXP, LOG,
+    mul: (a: number, b: number): number => (a === 0 || b === 0 ? 0 : EXP[(LOG[a] + LOG[b]) % 255]),
+    EXP,
+    LOG,
   };
 })();
 
@@ -485,8 +489,7 @@ function rsEncode(data: number[], ecCount: number): number[] {
     const factor = [1, GF256.EXP[i]];
     const result = new Array(generator.length + factor.length - 1).fill(0);
     for (let j = 0; j < generator.length; j++)
-      for (let k = 0; k < factor.length; k++)
-        result[j + k] ^= GF256.mul(generator[j], factor[k]);
+      for (let k = 0; k < factor.length; k++) result[j + k] ^= GF256.mul(generator[j], factor[k]);
     generator = result;
   }
 
@@ -507,7 +510,7 @@ function encodeQR(text: string): boolean[][] {
   const bytes = Array.from(Buffer.from(text, 'utf8'));
   // Version 3-M supports up to 47 bytes in byte mode
   const VERSION = 3;
-  const SIZE    = 17 + VERSION * 4; // 29 for version 3
+  const SIZE = 17 + VERSION * 4; // 29 for version 3
   const EC_CODEWORDS = 26; // version 3-M EC codewords
 
   // Build data codewords: mode indicator (0100) + char count (8 bits) + data + terminator
@@ -515,14 +518,14 @@ function encodeQR(text: string): boolean[][] {
   const pushBits = (val: number, len: number) => {
     for (let i = len - 1; i >= 0; i--) dataBits.push((val >> i) & 1);
   };
-  pushBits(0b0100, 4);      // byte mode
+  pushBits(0b0100, 4); // byte mode
   pushBits(bytes.length, 8); // character count
   for (const b of bytes) pushBits(b, 8);
   // Terminator + padding to fill 44 data codewords
   const targetDataBits = 44 * 8;
   while (dataBits.length < Math.min(targetDataBits, dataBits.length + 4)) dataBits.push(0);
   while (dataBits.length % 8 !== 0) dataBits.push(0);
-  const padBytes = [0xEC, 0x11];
+  const padBytes = [0xec, 0x11];
   while (dataBits.length < targetDataBits) {
     const pad = padBytes[(dataBits.length / 8) % 2];
     pushBits(pad, 8);
@@ -535,7 +538,7 @@ function encodeQR(text: string): boolean[][] {
     dataCws.push(byte);
   }
 
-  const ecCws  = rsEncode(dataCws, EC_CODEWORDS);
+  const ecCws = rsEncode(dataCws, EC_CODEWORDS);
   const allCws = [...dataCws, ...ecCws];
 
   // Interleave all bits into the matrix
@@ -559,17 +562,23 @@ function encodeQR(text: string): boolean[][] {
 
   // Finder patterns (top-left, top-right, bottom-left)
   const addFinder = (row: number, col: number) => {
-    for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++) {
-      const dr = r + row, dc = c + col;
-      if (dr < 0 || dc < 0 || dr >= SIZE || dc >= SIZE) continue;
-      const isLight = (r === -1 || r === 7 || c === -1 || c === 7) ? false :
-                      (r >= 1 && r <= 5 && c >= 1 && c <= 5)
-                        ? (r >= 2 && r <= 4 && c >= 2 && c <= 4)
-                        : false;
-      setModule(dr, dc, isLight ? 0 : 1, true);
-    }
+    for (let r = -1; r <= 7; r++)
+      for (let c = -1; c <= 7; c++) {
+        const dr = r + row,
+          dc = c + col;
+        if (dr < 0 || dc < 0 || dr >= SIZE || dc >= SIZE) continue;
+        const isLight =
+          r === -1 || r === 7 || c === -1 || c === 7
+            ? false
+            : r >= 1 && r <= 5 && c >= 1 && c <= 5
+              ? r >= 2 && r <= 4 && c >= 2 && c <= 4
+              : false;
+        setModule(dr, dc, isLight ? 0 : 1, true);
+      }
   };
-  addFinder(0, 0); addFinder(0, SIZE - 7); addFinder(SIZE - 7, 0);
+  addFinder(0, 0);
+  addFinder(0, SIZE - 7);
+  addFinder(SIZE - 7, 0);
 
   // Timing patterns
   for (let i = 8; i < SIZE - 8; i++) {
@@ -582,17 +591,27 @@ function encodeQR(text: string): boolean[][] {
 
   // Alignment pattern (version 3: centre at [22,22] = SIZE-7,SIZE-7)
   const ap = SIZE - 7;
-  for (let r = ap - 2; r <= ap + 2; r++) for (let c = ap - 2; c <= ap + 2; c++) {
-    const isLight = (r !== ap - 2 && r !== ap + 2 && c !== ap - 2 && c !== ap + 2) &&
-                    (r !== ap || c !== ap);
-    setModule(r, c, isLight ? 0 : 1, true);
-  }
+  for (let r = ap - 2; r <= ap + 2; r++)
+    for (let c = ap - 2; c <= ap + 2; c++) {
+      const isLight =
+        r !== ap - 2 && r !== ap + 2 && c !== ap - 2 && c !== ap + 2 && (r !== ap || c !== ap);
+      setModule(r, c, isLight ? 0 : 1, true);
+    }
 
   // Format information area (reserve, fill later)
   const formatPositions: Array<[number, number]> = [];
-  for (let i = 0; i <= 8; i++) { formatPositions.push([8, i]); formatPositions.push([i, 8]); }
-  for (let i = SIZE - 8; i < SIZE; i++) { formatPositions.push([8, i]); formatPositions.push([i, 8]); }
-  for (const [r, c] of formatPositions) { reserved[r][c] = true; matrix[r][c] = 0; }
+  for (let i = 0; i <= 8; i++) {
+    formatPositions.push([8, i]);
+    formatPositions.push([i, 8]);
+  }
+  for (let i = SIZE - 8; i < SIZE; i++) {
+    formatPositions.push([8, i]);
+    formatPositions.push([i, 8]);
+  }
+  for (const [r, c] of formatPositions) {
+    reserved[r][c] = true;
+    matrix[r][c] = 0;
+  }
 
   // Data placement (zigzag column pairs right to left, alternating up/down)
   let bitIdx = 0;
@@ -612,21 +631,54 @@ function encodeQR(text: string): boolean[][] {
   }
 
   // Apply mask pattern 0: (row+col) % 2 === 0
-  for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
-    if (!reserved[r][c] && matrix[r][c] !== null) {
-      if ((r + c) % 2 === 0) matrix[r][c] = (matrix[r][c] === 0 ? 1 : 0) as 0 | 1;
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++) {
+      if (!reserved[r][c] && matrix[r][c] !== null) {
+        if ((r + c) % 2 === 0) matrix[r][c] = (matrix[r][c] === 0 ? 1 : 0) as 0 | 1;
+      }
     }
-  }
 
   // Format bits for ECC-M + mask 0 = 0b101010000010010 XOR 0b101010000010010 = constant
   // Pre-computed format string for ECC Level M, Mask Pattern 0
   const fmtBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
-  const fmtPos1 = [[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
-  const fmtPos2 = [[SIZE-1,8],[SIZE-2,8],[SIZE-3,8],[SIZE-4,8],[SIZE-5,8],[SIZE-6,8],[SIZE-7,8],[8,SIZE-8],[8,SIZE-7],[8,SIZE-6],[8,SIZE-5],[8,SIZE-4],[8,SIZE-3],[8,SIZE-2],[8,SIZE-1]];
+  const fmtPos1 = [
+    [8, 0],
+    [8, 1],
+    [8, 2],
+    [8, 3],
+    [8, 4],
+    [8, 5],
+    [8, 7],
+    [8, 8],
+    [7, 8],
+    [5, 8],
+    [4, 8],
+    [3, 8],
+    [2, 8],
+    [1, 8],
+    [0, 8],
+  ];
+  const fmtPos2 = [
+    [SIZE - 1, 8],
+    [SIZE - 2, 8],
+    [SIZE - 3, 8],
+    [SIZE - 4, 8],
+    [SIZE - 5, 8],
+    [SIZE - 6, 8],
+    [SIZE - 7, 8],
+    [8, SIZE - 8],
+    [8, SIZE - 7],
+    [8, SIZE - 6],
+    [8, SIZE - 5],
+    [8, SIZE - 4],
+    [8, SIZE - 3],
+    [8, SIZE - 2],
+    [8, SIZE - 1],
+  ];
   for (let i = 0; i < 15; i++) {
     const v = fmtBits[i] as 0 | 1;
-    const [r1,c1] = fmtPos1[i];
-    const [r2,c2] = fmtPos2[i];
+    const [r1, c1] = fmtPos1[i];
+    const [r2, c2] = fmtPos2[i];
     matrix[r1][c1] = v;
     matrix[r2][c2] = v;
   }
@@ -635,12 +687,15 @@ function encodeQR(text: string): boolean[][] {
 }
 
 /** Render a boolean matrix as an inline SVG string. */
-function matrixToSvg(matrix: boolean[][], opts: {
-  size:       number;
-  lightColor: string;
-  darkColor:  string;
-  margin:     number;
-}): string {
+function matrixToSvg(
+  matrix: boolean[][],
+  opts: {
+    size: number;
+    lightColor: string;
+    darkColor: string;
+    margin: number;
+  },
+): string {
   const { size, lightColor, darkColor, margin } = opts;
   const cells = matrix.length;
   const cellPx = (size - margin * 2) / cells;
@@ -670,8 +725,8 @@ function matrixToSvg(matrix: boolean[][], opts: {
 auditVerifyRouter.get('/:certificateId/qr', async (req: Request, res: Response) => {
   try {
     const { certificateId } = req.params;
-    const size      = Math.min(600, Math.max(100, parseInt(req.query.size  as string) || 300));
-    const darkColor  = (req.query.dark  as string) || '#000000';
+    const size = Math.min(600, Math.max(100, parseInt(req.query.size as string) || 300));
+    const darkColor = (req.query.dark as string) || '#000000';
     const lightColor = (req.query.light as string) || '#ffffff';
 
     const cacheKey = `audit:qr:${certificateId}:${size}`;
@@ -699,9 +754,8 @@ auditVerifyRouter.get('/:certificateId/qr', async (req: Request, res: Response) 
     const verifyUrl = `${baseUrl}/api/v1/audit/verify/${cert.id}`;
 
     // Truncate URL if too long for version 3 (max 47 bytes)
-    const encodable = verifyUrl.length <= 47
-      ? verifyUrl
-      : `${baseUrl}/verify/${cert.id.slice(0, 20)}`;
+    const encodable =
+      verifyUrl.length <= 47 ? verifyUrl : `${baseUrl}/verify/${cert.id.slice(0, 20)}`;
 
     let svg: string;
     try {
@@ -711,7 +765,7 @@ auditVerifyRouter.get('/:certificateId/qr', async (req: Request, res: Response) 
       // QR encoding can fail for very long strings on version 3 — fall back
       // to a minimal URL using just the certificate hash prefix
       const fallback = `${baseUrl}/v/${cert.certificateHash.slice(0, 20)}`;
-      const matrix   = encodeQR(fallback);
+      const matrix = encodeQR(fallback);
       svg = matrixToSvg(matrix, { size, lightColor, darkColor, margin: 16 });
     }
 

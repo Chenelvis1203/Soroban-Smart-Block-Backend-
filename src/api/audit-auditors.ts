@@ -32,25 +32,29 @@ export const auditAuditorsRouter = Router();
 
 const TIER_COLORS: Record<string, { bg: string; text: string; label: string }> = {
   platinum: { bg: '#e2e8f0', text: '#1e293b', label: 'Platinum' },
-  gold:     { bg: '#fef3c7', text: '#92400e', label: 'Gold'     },
-  silver:   { bg: '#f1f5f9', text: '#475569', label: 'Silver'   },
-  bronze:   { bg: '#fef0e7', text: '#9a3412', label: 'Bronze'   },
+  gold: { bg: '#fef3c7', text: '#92400e', label: 'Gold' },
+  silver: { bg: '#f1f5f9', text: '#475569', label: 'Silver' },
+  bronze: { bg: '#fef0e7', text: '#9a3412', label: 'Bronze' },
 };
 
 function renderAuditorBadge(
-  name:       string,
-  tier:       string | null,
+  name: string,
+  tier: string | null,
   isVerified: boolean,
   trustScore: number,
-  slug:       string,
-  baseUrl:    string,
+  slug: string,
+  baseUrl: string,
 ): string {
   const tierInfo = tier ? TIER_COLORS[tier] : null;
-  const bg    = tierInfo?.bg   ?? '#f3f4f6';
-  const tc    = tierInfo?.text ?? '#6b7280';
-  const label = tierInfo ? `${tierInfo.label} Auditor` : isVerified ? 'Verified Auditor' : 'Auditor';
-  const w     = Math.max(160, name.length * 6.5 + 90);
-  const h     = 24;
+  const bg = tierInfo?.bg ?? '#f3f4f6';
+  const tc = tierInfo?.text ?? '#6b7280';
+  const label = tierInfo
+    ? `${tierInfo.label} Auditor`
+    : isVerified
+      ? 'Verified Auditor'
+      : 'Auditor';
+  const w = Math.max(160, name.length * 6.5 + 90);
+  const h = 24;
   const verifyMark = isVerified ? '✓ ' : '';
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -85,17 +89,17 @@ function renderAuditorBadge(
 // ── GET / — list verified auditors ────────────────────────────────────────────
 
 const listSchema = z.object({
-  verified:    z.enum(['true', 'false', 'all']).default('true'),
-  tier:        z.enum(['platinum', 'gold', 'silver', 'bronze', 'all']).default('all'),
-  sort:        z.enum(['trustScore', 'totalAudits', 'name']).default('trustScore'),
-  page:        z.coerce.number().min(1).default(1),
-  limit:       z.coerce.number().min(1).max(100).default(20),
+  verified: z.enum(['true', 'false', 'all']).default('true'),
+  tier: z.enum(['platinum', 'gold', 'silver', 'bronze', 'all']).default('all'),
+  sort: z.enum(['trustScore', 'totalAudits', 'name']).default('trustScore'),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
   specialization: z.string().optional(),
 });
 
 auditAuditorsRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const q    = listSchema.parse(req.query);
+    const q = listSchema.parse(req.query);
     const skip = (q.page - 1) * q.limit;
     const cacheKey = `audit:auditors:${JSON.stringify(q)}`;
 
@@ -103,18 +107,19 @@ auditAuditorsRouter.get('/', async (req: Request, res: Response) => {
     if (cached) return res.json(cached);
 
     const where: Record<string, unknown> = { isActive: true };
-    if (q.verified === 'true')  where.isVerified = true;
+    if (q.verified === 'true') where.isVerified = true;
     if (q.verified === 'false') where.isVerified = false;
-    if (q.tier !== 'all')       where.badgeTier  = q.tier;
+    if (q.tier !== 'all') where.badgeTier = q.tier;
     if (q.specialization) {
       where.specializations = { has: q.specialization };
     }
 
-    const orderBy = q.sort === 'name'
-      ? { name: 'asc' as const }
-      : q.sort === 'totalAudits'
-      ? { totalAudits: 'desc' as const }
-      : { trustScore: 'desc' as const };
+    const orderBy =
+      q.sort === 'name'
+        ? { name: 'asc' as const }
+        : q.sort === 'totalAudits'
+          ? { totalAudits: 'desc' as const }
+          : { trustScore: 'desc' as const };
 
     const [auditors, total] = await Promise.all([
       prismaRead.auditorRegistry.findMany({
@@ -123,11 +128,22 @@ auditAuditorsRouter.get('/', async (req: Request, res: Response) => {
         skip,
         take: q.limit,
         select: {
-          id: true, name: true, slug: true, website: true, logoUrl: true,
-          description: true, isVerified: true, trustScore: true,
-          badgeTier: true, specializations: true, twitterHandle: true,
-          githubOrg: true, totalAudits: true, acceptedAudits: true,
-          verifiedAt: true, createdAt: true,
+          id: true,
+          name: true,
+          slug: true,
+          website: true,
+          logoUrl: true,
+          description: true,
+          isVerified: true,
+          trustScore: true,
+          badgeTier: true,
+          specializations: true,
+          twitterHandle: true,
+          githubOrg: true,
+          totalAudits: true,
+          acceptedAudits: true,
+          verifiedAt: true,
+          createdAt: true,
         },
       }),
       prismaRead.auditorRegistry.count({ where }),
@@ -137,12 +153,12 @@ auditAuditorsRouter.get('/', async (req: Request, res: Response) => {
 
     const result = {
       total,
-      page:  q.page,
+      page: q.page,
       limit: q.limit,
       pages: Math.ceil(total / q.limit),
       auditors: auditors.map((a) => ({
         ...a,
-        badgeUrl:   `/api/v1/audit/auditors/${a.slug}/badge.svg`,
+        badgeUrl: `/api/v1/audit/auditors/${a.slug}/badge.svg`,
         profileUrl: `/api/v1/audit/auditors/${a.slug}`,
       })),
     };
@@ -167,45 +183,51 @@ auditAuditorsRouter.get('/:slug', async (req: Request, res: Response) => {
 
     // Recent verified audits
     const recentAudits = await prismaRead.externalAudit.findMany({
-      where:   { auditorId: auditor.id, verificationStatus: 'verified', isPublic: true },
+      where: { auditorId: auditor.id, verificationStatus: 'verified', isPublic: true },
       orderBy: { submittedAt: 'desc' },
-      take:    10,
+      take: 10,
       select: {
-        id: true, contractAddress: true, reportType: true,
-        overallGrade: true, submittedAt: true, verifiedAt: true,
-        summary: true, reportUrl: true,
+        id: true,
+        contractAddress: true,
+        reportType: true,
+        overallGrade: true,
+        submittedAt: true,
+        verifiedAt: true,
+        summary: true,
+        reportUrl: true,
       },
     });
 
     const baseUrl = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
 
     res.json({
-      id:              auditor.id,
-      name:            auditor.name,
-      slug:            auditor.slug,
-      website:         auditor.website,
-      logoUrl:         auditor.logoUrl,
-      description:     auditor.description,
-      contactEmail:    auditor.contactEmail,
-      twitterHandle:   auditor.twitterHandle,
-      githubOrg:       auditor.githubOrg,
-      isVerified:      auditor.isVerified,
-      verifiedAt:      auditor.verifiedAt,
-      trustScore:      auditor.trustScore,
-      badgeTier:       auditor.badgeTier,
+      id: auditor.id,
+      name: auditor.name,
+      slug: auditor.slug,
+      website: auditor.website,
+      logoUrl: auditor.logoUrl,
+      description: auditor.description,
+      contactEmail: auditor.contactEmail,
+      twitterHandle: auditor.twitterHandle,
+      githubOrg: auditor.githubOrg,
+      isVerified: auditor.isVerified,
+      verifiedAt: auditor.verifiedAt,
+      trustScore: auditor.trustScore,
+      badgeTier: auditor.badgeTier,
       specializations: auditor.specializations,
       metrics: {
-        totalAudits:    auditor.totalAudits,
+        totalAudits: auditor.totalAudits,
         acceptedAudits: auditor.acceptedAudits,
         rejectedAudits: auditor.rejectedAudits,
-        acceptanceRate: auditor.totalAudits > 0
-          ? ((auditor.acceptedAudits / auditor.totalAudits) * 100).toFixed(1) + '%'
-          : 'N/A',
+        acceptanceRate:
+          auditor.totalAudits > 0
+            ? ((auditor.acceptedAudits / auditor.totalAudits) * 100).toFixed(1) + '%'
+            : 'N/A',
       },
       recentAudits,
-      badgeUrl:   `/api/v1/audit/auditors/${auditor.slug}/badge.svg`,
-      embedHtml:  `<img src="${baseUrl}/api/v1/audit/auditors/${auditor.slug}/badge.svg" alt="${auditor.name} Verified Auditor"/>`,
-      createdAt:  auditor.createdAt,
+      badgeUrl: `/api/v1/audit/auditors/${auditor.slug}/badge.svg`,
+      embedHtml: `<img src="${baseUrl}/api/v1/audit/auditors/${auditor.slug}/badge.svg" alt="${auditor.name} Verified Auditor"/>`,
+      createdAt: auditor.createdAt,
     });
   } catch (e) {
     res.status(500).json({ error: String(e) });
@@ -227,10 +249,14 @@ auditAuditorsRouter.get('/:slug/badge.svg', async (req: Request, res: Response) 
     }
 
     const auditor = await prismaRead.auditorRegistry.findUnique({
-      where:  { slug },
+      where: { slug },
       select: {
-        name: true, slug: true, badgeTier: true,
-        isVerified: true, trustScore: true, isActive: true,
+        name: true,
+        slug: true,
+        badgeTier: true,
+        isVerified: true,
+        trustScore: true,
+        isActive: true,
       },
     });
 
@@ -260,16 +286,16 @@ auditAuditorsRouter.get('/:slug/badge.svg', async (req: Request, res: Response) 
 // ── POST /register ────────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
-  name:                z.string().min(2).max(200),
-  website:             z.string().url().optional(),
-  logoUrl:             z.string().url().optional(),
-  description:         z.string().max(1000).optional(),
-  contactEmail:        z.string().email().optional(),
-  twitterHandle:       z.string().optional(),
-  githubOrg:           z.string().optional(),
-  verificationKey:     z.string().min(20).optional(),
+  name: z.string().min(2).max(200),
+  website: z.string().url().optional(),
+  logoUrl: z.string().url().optional(),
+  description: z.string().max(1000).optional(),
+  contactEmail: z.string().email().optional(),
+  twitterHandle: z.string().optional(),
+  githubOrg: z.string().optional(),
+  verificationKey: z.string().min(20).optional(),
   verificationKeyAlgo: z.enum(['hmac-sha256', 'ed25519', 'ecdsa-p256']).default('hmac-sha256'),
-  specializations:     z.array(z.string()).default([]),
+  specializations: z.array(z.string()).default([]),
 });
 
 auditAuditorsRouter.post('/register', async (req: Request, res: Response) => {
@@ -296,7 +322,7 @@ auditAuditorsRouter.post('/register', async (req: Request, res: Response) => {
 
 const verifySchema = z.object({
   verifiedBy: z.string().min(1),
-  adminKey:   z.string().optional(),
+  adminKey: z.string().optional(),
 });
 
 auditAuditorsRouter.post('/:id/verify', async (req: Request, res: Response) => {
@@ -314,7 +340,8 @@ auditAuditorsRouter.post('/:id/verify', async (req: Request, res: Response) => {
 
     // Invalidate badge cache
     const auditor = await prismaRead.auditorRegistry.findUnique({
-      where: { id: req.params.id }, select: { slug: true },
+      where: { id: req.params.id },
+      select: { slug: true },
     });
     if (auditor) {
       const { cacheDelete } = await import('../cache');
@@ -331,7 +358,7 @@ auditAuditorsRouter.post('/:id/verify', async (req: Request, res: Response) => {
 // ── POST /:id/suspend — admin suspend ─────────────────────────────────────────
 
 const suspendSchema = z.object({
-  reason:   z.string().min(1),
+  reason: z.string().min(1),
   adminKey: z.string().optional(),
 });
 
@@ -356,9 +383,9 @@ auditAuditorsRouter.post('/:id/suspend', async (req: Request, res: Response) => 
 // ── PUT /:id/key — update verification key ────────────────────────────────────
 
 const keyUpdateSchema = z.object({
-  verificationKey:     z.string().min(20),
+  verificationKey: z.string().min(20),
   verificationKeyAlgo: z.enum(['hmac-sha256', 'ed25519', 'ecdsa-p256']).default('hmac-sha256'),
-  adminKey:            z.string().optional(),
+  adminKey: z.string().optional(),
 });
 
 auditAuditorsRouter.put('/:id/key', async (req: Request, res: Response) => {
@@ -371,14 +398,15 @@ auditAuditorsRouter.put('/:id/key', async (req: Request, res: Response) => {
     }
 
     const auditor = await prismaRead.auditorRegistry.findUnique({
-      where: { id: req.params.id }, select: { id: true },
+      where: { id: req.params.id },
+      select: { id: true },
     });
     if (!auditor) return res.status(404).json({ error: 'Auditor not found.' });
 
     await prismaWrite.auditorRegistry.update({
       where: { id: req.params.id },
       data: {
-        verificationKey:     data.verificationKey,
+        verificationKey: data.verificationKey,
         verificationKeyAlgo: data.verificationKeyAlgo,
       },
     });
@@ -393,10 +421,10 @@ auditAuditorsRouter.put('/:id/key', async (req: Request, res: Response) => {
 // ── PUT /submissions/:id/review — admin review pending submission ──────────────
 
 const reviewSchema = z.object({
-  decision:        z.enum(['verified', 'rejected']),
-  reviewedBy:      z.string().min(1),
+  decision: z.enum(['verified', 'rejected']),
+  reviewedBy: z.string().min(1),
   rejectionReason: z.string().optional(),
-  adminKey:        z.string().optional(),
+  adminKey: z.string().optional(),
 });
 
 auditAuditorsRouter.put('/submissions/:id/review', async (req: Request, res: Response) => {
@@ -409,7 +437,7 @@ auditAuditorsRouter.put('/submissions/:id/review', async (req: Request, res: Res
     }
 
     const submission = await prismaRead.externalAudit.findUnique({
-      where:  { id: req.params.id },
+      where: { id: req.params.id },
       select: { id: true, verificationStatus: true, auditorId: true, contractAddress: true },
     });
     if (!submission) return res.status(404).json({ error: 'Submission not found.' });
@@ -425,8 +453,8 @@ auditAuditorsRouter.put('/submissions/:id/review', async (req: Request, res: Res
       where: { id: req.params.id },
       data: {
         verificationStatus: data.decision,
-        verifiedAt:         accepted ? new Date() : null,
-        rejectionReason:    accepted ? null : data.rejectionReason,
+        verifiedAt: accepted ? new Date() : null,
+        rejectionReason: accepted ? null : data.rejectionReason,
       },
     });
 
@@ -439,22 +467,22 @@ auditAuditorsRouter.put('/submissions/:id/review', async (req: Request, res: Res
     await prismaWrite.auditEvent.create({
       data: {
         contractAddress: submission.contractAddress,
-        eventType:       'external_audit_submitted',
-        triggerSource:   'manual',
-        timestamp:       new Date(),
+        eventType: 'external_audit_submitted',
+        triggerSource: 'manual',
+        timestamp: new Date(),
         details: {
           submissionId: submission.id,
-          decision:     data.decision,
-          reviewedBy:   data.reviewedBy,
-          reason:       data.rejectionReason ?? null,
+          decision: data.decision,
+          reviewedBy: data.reviewedBy,
+          reason: data.rejectionReason ?? null,
         } as import('@prisma/client').Prisma.InputJsonValue,
       },
     });
 
     res.json({
-      id:                 req.params.id,
+      id: req.params.id,
       verificationStatus: data.decision,
-      reviewedBy:         data.reviewedBy,
+      reviewedBy: data.reviewedBy,
       auditorTrustUpdated: !!submission.auditorId,
     });
   } catch (e) {

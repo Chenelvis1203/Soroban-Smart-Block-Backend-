@@ -20,10 +20,10 @@ import { runAuditPipeline } from './audit-pipeline';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const TVL_ACTIVE_THRESHOLD_USD = 100_000; // $100 K
-const STAGGER_MS               = 5_000;   // 5 s between each contract in a batch
-const DAILY_INTERVAL_MS        = 24 * 60 * 60 * 1000;
-const WEEKLY_INTERVAL_MS       = 7  * 24 * 60 * 60 * 1000;
-const STARTUP_DELAY_MS         = 60 * 1000; // wait 60 s after process start
+const STAGGER_MS = 5_000; // 5 s between each contract in a batch
+const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const WEEKLY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+const STARTUP_DELAY_MS = 60 * 1000; // wait 60 s after process start
 
 // ── TVL helper ────────────────────────────────────────────────────────────────
 
@@ -50,13 +50,10 @@ async function getContractTvl(contractAddress: string): Promise<number> {
 
 // ── Batch runner ──────────────────────────────────────────────────────────────
 
-async function runBatch(
-  addresses: string[],
-  cadence: 'daily' | 'weekly',
-): Promise<void> {
-  const trigger  = cadence === 'daily' ? 'daily'  : 'weekly';
-  const mode     = cadence === 'daily' ? 'incremental' : 'full';
-  const anchor   = process.env.AUDIT_ANCHOR_ENABLED === 'true';
+async function runBatch(addresses: string[], cadence: 'daily' | 'weekly'): Promise<void> {
+  const trigger = cadence === 'daily' ? 'daily' : 'weekly';
+  const mode = cadence === 'daily' ? 'incremental' : 'full';
+  const anchor = process.env.AUDIT_ANCHOR_ENABLED === 'true';
 
   logger.info('Audit scheduler batch starting', {
     cadence,
@@ -65,8 +62,8 @@ async function runBatch(
   });
 
   let processed = 0;
-  let skipped   = 0;
-  let failed    = 0;
+  const skipped = 0;
+  let failed = 0;
 
   for (const addr of addresses) {
     try {
@@ -82,7 +79,11 @@ async function runBatch(
   }
 
   logger.info('Audit scheduler batch complete', {
-    cadence, processed, skipped, failed, total: addresses.length,
+    cadence,
+    processed,
+    skipped,
+    failed,
+    total: addresses.length,
   });
 }
 
@@ -179,12 +180,11 @@ export function startAuditScheduler(): void {
         logger.error('Weekly audit schedule error', { error: String(e) }),
       );
     }, WEEKLY_INTERVAL_MS);
-
   }, STARTUP_DELAY_MS);
 
   logger.info('Audit scheduler started', {
-    dailyIntervalHours:  DAILY_INTERVAL_MS  / 3600000,
-    weeklyIntervalDays:  WEEKLY_INTERVAL_MS / 86400000,
+    dailyIntervalHours: DAILY_INTERVAL_MS / 3600000,
+    weeklyIntervalDays: WEEKLY_INTERVAL_MS / 86400000,
     tvlThreshold: `$${TVL_ACTIVE_THRESHOLD_USD.toLocaleString()}`,
     startupDelayS: STARTUP_DELAY_MS / 1000,
   });

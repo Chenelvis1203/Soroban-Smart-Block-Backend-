@@ -1,8 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { AdaptivePollingService } from '../src/indexer/adaptive-polling';
 import { PredictiveModelService } from '../src/indexer/predictive-model';
-import { GracefulDegradationService, LoadLevel, LoadMetrics } from '../src/indexer/graceful-degradation';
-import { NATSQueueService, RawLedgerMessage } from '../src/indexer/nats-queue';
+import {
+  GracefulDegradationService,
+  LoadLevel,
+  LoadMetrics,
+} from '../src/indexer/graceful-degradation';
 
 /**
  * Integration tests for Adaptive Indexer components
@@ -26,12 +29,12 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 0,
         processingQueueDepth: 0,
         availableWorkers: 4,
-        processingRate: 100
+        processingRate: 100,
       };
 
       const interval = await pollingService.calculateNextInterval({
         ...metrics,
-        currentInterval: 1000
+        currentInterval: 1000,
       });
 
       // Should increase interval when caught up
@@ -44,12 +47,12 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 150,
         processingQueueDepth: 5000,
         availableWorkers: 4,
-        processingRate: 50
+        processingRate: 50,
       };
 
       const interval = await pollingService.calculateNextInterval({
         ...metrics,
-        currentInterval: 5000
+        currentInterval: 5000,
       });
 
       // Should decrease interval when behind
@@ -63,7 +66,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 5,
         processingQueueDepth: 100,
         availableWorkers: 4,
-        processingRate: 100
+        processingRate: 100,
       });
       expect(batchSize).toBe(1);
 
@@ -72,7 +75,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 50,
         processingQueueDepth: 2000,
         availableWorkers: 4,
-        processingRate: 50
+        processingRate: 50,
       });
       expect(batchSize).toBeGreaterThanOrEqual(5);
       expect(batchSize).toBeLessThanOrEqual(10);
@@ -82,7 +85,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 200,
         processingQueueDepth: 10000,
         availableWorkers: 4,
-        processingRate: 20
+        processingRate: 20,
       });
       expect(batchSize).toBeGreaterThanOrEqual(20);
       expect(batchSize).toBeLessThanOrEqual(50);
@@ -93,7 +96,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 5,
         processingQueueDepth: 100,
         availableWorkers: 4,
-        processingRate: 100
+        processingRate: 100,
       });
       expect(realtimeMode).toBe('realtime');
 
@@ -101,7 +104,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 50,
         processingQueueDepth: 2000,
         availableWorkers: 4,
-        processingRate: 50
+        processingRate: 50,
       });
       expect(batchMode).toBe('batch');
 
@@ -109,7 +112,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 200,
         processingQueueDepth: 10000,
         availableWorkers: 4,
-        processingRate: 20
+        processingRate: 20,
       });
       expect(catchupMode).toBe('catchup');
     });
@@ -119,7 +122,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 50,
         processingQueueDepth: 2000,
         availableWorkers: 4,
-        processingRate: 50
+        processingRate: 50,
       });
       expect(shouldSkip1).toBe(false);
 
@@ -127,7 +130,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 150,
         processingQueueDepth: 5000,
         availableWorkers: 4,
-        processingRate: 20
+        processingRate: 20,
       });
       expect(shouldSkip2).toBe(true);
     });
@@ -140,7 +143,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 5,
         memoryUsagePercent: 50,
         cpuUsagePercent: 40,
-        activeWorkers: 8
+        activeWorkers: 8,
       };
       expect(degradationService.evaluateLoadLevel(normalMetrics)).toBe(LoadLevel.NORMAL);
 
@@ -149,7 +152,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 15,
         memoryUsagePercent: 75,
         cpuUsagePercent: 60,
-        activeWorkers: 8
+        activeWorkers: 8,
       };
       expect(degradationService.evaluateLoadLevel(moderateMetrics)).toBe(LoadLevel.MODERATE);
 
@@ -158,7 +161,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 100,
         memoryUsagePercent: 85,
         cpuUsagePercent: 85,
-        activeWorkers: 8
+        activeWorkers: 8,
       };
       expect(degradationService.evaluateLoadLevel(highMetrics)).toBe(LoadLevel.HIGH);
 
@@ -167,7 +170,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 600,
         memoryUsagePercent: 96,
         cpuUsagePercent: 96,
-        activeWorkers: 8
+        activeWorkers: 8,
       };
       expect(degradationService.evaluateLoadLevel(criticalMetrics)).toBe(LoadLevel.CRITICAL);
     });
@@ -207,7 +210,7 @@ describe('Adaptive Indexer Integration', () => {
 
       // Sample 100 events and check that roughly 80% pass
       const processed = Array.from({ length: 100 }).filter(() =>
-        degradationService.shouldProcessEvent('P1')
+        degradationService.shouldProcessEvent('P1'),
       ).length;
 
       // Allow some variance (70-90% should pass for 80% sample rate)
@@ -244,11 +247,13 @@ describe('Adaptive Indexer Integration', () => {
       const predictions = [
         await modelService.predict(5),
         await modelService.predict(15),
-        await modelService.predict(30)
+        await modelService.predict(30),
       ];
 
       // Should have at least one scaling action
-      const hasScalingAction = predictions.some(p => p.scalingAction && p.scalingAction !== 'maintain');
+      const hasScalingAction = predictions.some(
+        (p) => p.scalingAction && p.scalingAction !== 'maintain',
+      );
       expect(predictions.length).toBeGreaterThan(0);
     });
   });
@@ -259,7 +264,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 5,
         processingQueueDepth: 500,
         availableWorkers: 4,
-        processingRate: 200
+        processingRate: 200,
       };
 
       // Phase 1: Normal state
@@ -271,7 +276,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 150,
         processingQueueDepth: 25000,
         availableWorkers: 2,
-        processingRate: 50
+        processingRate: 50,
       };
 
       const spikeInterval = await pollingService.calculateNextInterval(spikeMetrics);
@@ -283,7 +288,7 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: spikeMetrics.ledgersBehind,
         memoryUsagePercent: 90,
         cpuUsagePercent: 90,
-        activeWorkers: 2
+        activeWorkers: 2,
       });
       expect(loadLevel).toBe(LoadLevel.HIGH);
 
@@ -299,11 +304,11 @@ describe('Adaptive Indexer Integration', () => {
         ledgersBehind: 10,
         processingQueueDepth: 5000,
         availableWorkers: 10,
-        processingRate: 500
+        processingRate: 500,
       };
 
       const interval = await pollingService.calculateNextInterval(highActivityMetrics);
-      
+
       // At 500 tx/s rate with 10 workers, 10 ledger backlog = ~1.2 seconds lag
       // Should maintain adaptive interval to stay caught up
       expect(interval).toBeLessThan(1000);
@@ -346,7 +351,7 @@ describe('Adaptive Indexer Integration', () => {
 
       pollingService.updateConfig({
         minInterval: 200,
-        maxInterval: 3000
+        maxInterval: 3000,
       });
 
       const updatedConfig = pollingService.getConfig();

@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: ModelConfig = {
   lstmUnits: 128,
   dropoutRate: 0.2,
   batchSize: 32,
-  epochs: 100
+  epochs: 100,
 };
 
 // Mock data for demonstration (in production, use real training data)
@@ -63,7 +63,7 @@ const MOCK_THROUGHPUT_PATTERNS = {
     4: 0.7,
     5: 0.6,
     6: 0.7,
-    7: 0.8
+    7: 0.8,
   },
   dayOfWeek: {
     // Higher mid-week, lower on weekends
@@ -73,8 +73,8 @@ const MOCK_THROUGHPUT_PATTERNS = {
     3: 1.0, // Thursday
     4: 0.95, // Friday
     5: 0.8, // Saturday
-    6: 0.75 // Sunday
-  }
+    6: 0.75, // Sunday
+  },
 };
 
 export class PredictiveModelService {
@@ -119,14 +119,14 @@ export class PredictiveModelService {
           tf.layers.lstm({
             units: this.config.lstmUnits,
             returnSequences: true,
-            inputShape: [this.config.sequenceLength, 8] // 8 features
+            inputShape: [this.config.sequenceLength, 8], // 8 features
           }),
           tf.layers.dropout({ rate: this.config.dropoutRate }),
 
           // Second LSTM layer
           tf.layers.lstm({
             units: this.config.lstmUnits,
-            returnSequences: false
+            returnSequences: false,
           }),
           tf.layers.dropout({ rate: this.config.dropoutRate }),
 
@@ -135,14 +135,14 @@ export class PredictiveModelService {
           tf.layers.dense({ units: 32, activation: 'relu' }),
 
           // Output: 4 predictions (5, 15, 30, 60 min horizons)
-          tf.layers.dense({ units: this.config.predictionHorizons.length, activation: 'linear' })
-        ]
+          tf.layers.dense({ units: this.config.predictionHorizons.length, activation: 'linear' }),
+        ],
       });
 
       this.model.compile({
         optimizer: tf.train.adam(0.001),
         loss: 'meanAbsoluteError',
-        metrics: ['mae']
+        metrics: ['mae'],
       });
 
       logger.info('Created new LSTM model', { config: this.config });
@@ -173,7 +173,7 @@ export class PredictiveModelService {
       contractDeploymentCount,
       protocolUpgradeFlag,
       externalSignalScore,
-      holidayFlag: holidayFlag ? 1 : 0
+      holidayFlag: holidayFlag ? 1 : 0,
     };
   }
 
@@ -199,8 +199,8 @@ export class PredictiveModelService {
         predictedThroughput: predicted.mean,
         confidenceInterval: [predicted.lower, predicted.upper],
         confidence: predicted.confidence,
-        scalingAction: this.determineSca lingAction(predicted.mean),
-        requiredWorkers: Math.ceil(predicted.mean / 250) // ~250 tx/s per worker
+        scalingAction: this.determineScalingAction(predicted.mean),
+        requiredWorkers: Math.ceil(predicted.mean / 250), // ~250 tx/s per worker
       };
 
       // Cache prediction
@@ -239,7 +239,7 @@ export class PredictiveModelService {
         epochs: this.config.epochs,
         batchSize: this.config.batchSize,
         shuffle: true,
-        verboseFrequency: 10
+        verboseFrequency: 10,
       });
 
       xTensor.dispose();
@@ -284,7 +284,7 @@ export class PredictiveModelService {
           COUNT(*) as total
         FROM predictions
         WHERE created_at > NOW() - INTERVAL '7 days'
-        `
+        `,
       );
 
       const metrics = result.rows[0] || {};
@@ -293,7 +293,7 @@ export class PredictiveModelService {
         rmse: parseFloat(metrics.rmse || 0),
         accuracy: parseFloat(metrics.accuracy || 0),
         lastTraining: this.lastTrainingTime,
-        predictionsCount: parseInt(metrics.total || 0)
+        predictionsCount: parseInt(metrics.total || 0),
       };
     } catch (error) {
       logger.warn('Failed to calculate model metrics', { error });
@@ -313,7 +313,7 @@ export class PredictiveModelService {
       features.contractDeploymentCount / 100,
       features.protocolUpgradeFlag ? 1 : 0,
       features.externalSignalScore,
-      features.holidayFlag
+      features.holidayFlag,
     ];
   }
 
@@ -321,8 +321,14 @@ export class PredictiveModelService {
    * Helper: Get baseline throughput based on time-of-day and day-of-week
    */
   private getBaselineThroughput(features: PredictionFeatures): number {
-    const timeMultiplier = MOCK_THROUGHPUT_PATTERNS.timeOfDay[features.hourOfDay as keyof typeof MOCK_THROUGHPUT_PATTERNS.timeOfDay] || 1.0;
-    const dayMultiplier = MOCK_THROUGHPUT_PATTERNS.dayOfWeek[features.dayOfWeek as keyof typeof MOCK_THROUGHPUT_PATTERNS.dayOfWeek] || 1.0;
+    const timeMultiplier =
+      MOCK_THROUGHPUT_PATTERNS.timeOfDay[
+        features.hourOfDay as keyof typeof MOCK_THROUGHPUT_PATTERNS.timeOfDay
+      ] || 1.0;
+    const dayMultiplier =
+      MOCK_THROUGHPUT_PATTERNS.dayOfWeek[
+        features.dayOfWeek as keyof typeof MOCK_THROUGHPUT_PATTERNS.dayOfWeek
+      ] || 1.0;
 
     const baseThroughput = 200; // average baseline: 200 tx/s
     return baseThroughput * timeMultiplier * dayMultiplier;
@@ -344,14 +350,16 @@ export class PredictiveModelService {
       mean: Math.max(50, predicted + signalBoost),
       lower: Math.max(50, predicted + signalBoost - 50),
       upper: predicted + signalBoost + 50,
-      confidence: 0.85 + Math.random() * 0.1 // 85-95% confidence
+      confidence: 0.85 + Math.random() * 0.1, // 85-95% confidence
     };
   }
 
   /**
    * Helper: Determine scaling action
    */
-  private determineSca lingAction(predictedThroughput: number): 'scale_up' | 'scale_down' | 'maintain' {
+  private determineScalingAction(
+    predictedThroughput: number,
+  ): 'scale_up' | 'scale_down' | 'maintain' {
     const currentThroughput = 200; // mock
     const threshold = 300; // scale up if predicted > 300 tx/s
 
@@ -420,7 +428,13 @@ export class PredictiveModelService {
           (model_id, timestamp, horizon_minutes, predicted_throughput, confidence, created_at)
         VALUES ($1, $2, $3, $4, $5, NOW())
         `,
-        [1, new Date(prediction.timestamp), prediction.horizon, prediction.predictedThroughput, prediction.confidence]
+        [
+          1,
+          new Date(prediction.timestamp),
+          prediction.horizon,
+          prediction.predictedThroughput,
+          prediction.confidence,
+        ],
       );
     } catch (error) {
       logger.warn('Failed to persist prediction', { error });

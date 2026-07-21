@@ -44,8 +44,8 @@ const BASE_URL = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.ne
 auditBotRouter.post('/slack', async (req: Request, res: Response) => {
   try {
     const signingSecret = process.env.SLACK_SIGNING_SECRET ?? '';
-    const timestamp     = req.headers['x-slack-request-timestamp'] as string ?? '';
-    const signature     = req.headers['x-slack-signature'] as string ?? '';
+    const timestamp = (req.headers['x-slack-request-timestamp'] as string) ?? '';
+    const signature = (req.headers['x-slack-signature'] as string) ?? '';
 
     // Reconstruct the raw body string for signature verification
     const rawBody = new URLSearchParams(req.body as Record<string, string>).toString();
@@ -56,17 +56,17 @@ auditBotRouter.post('/slack', async (req: Request, res: Response) => {
 
     // Parse Slack slash command payload
     const body = req.body as {
-      command?:      string;
-      text?:         string;
-      channel_id?:   string;
+      command?: string;
+      text?: string;
+      channel_id?: string;
       channel_name?: string;
       response_url?: string;
-      user_id?:      string;
-      team_id?:      string;
+      user_id?: string;
+      team_id?: string;
     };
 
-    const text        = (body.text        ?? '').trim();
-    const channelId   = body.channel_id   ?? '';
+    const text = (body.text ?? '').trim();
+    const channelId = body.channel_id ?? '';
     const channelName = body.channel_name ? `#${body.channel_name}` : channelId;
     const responseUrl = body.response_url ?? '';
 
@@ -80,13 +80,12 @@ auditBotRouter.post('/slack', async (req: Request, res: Response) => {
         if (!responseUrl) return;
         const payload: Record<string, unknown> = {
           response_type: result.responseType,
-          text:          result.text ?? '',
+          text: result.text ?? '',
         };
         if (result.blocks) payload.blocks = result.blocks;
         await postToSlackChannel(responseUrl, result.blocks ?? [], result.text ?? '', undefined);
       })
       .catch((e) => logger.warn('Slack command processing failed', { error: String(e) }));
-
   } catch (e) {
     logger.error('Slack endpoint error', { error: String(e) });
     res.status(500).json({ error: 'Internal error' });
@@ -101,23 +100,23 @@ auditBotRouter.post('/slack', async (req: Request, res: Response) => {
 auditBotRouter.post('/discord', async (req: Request, res: Response) => {
   try {
     const publicKey = process.env.DISCORD_PUBLIC_KEY ?? '';
-    const signature = req.headers['x-signature-ed25519'] as string ?? '';
-    const timestamp = req.headers['x-signature-timestamp'] as string ?? '';
-    const rawBody   = JSON.stringify(req.body);
+    const signature = (req.headers['x-signature-ed25519'] as string) ?? '';
+    const timestamp = (req.headers['x-signature-timestamp'] as string) ?? '';
+    const rawBody = JSON.stringify(req.body);
 
     if (publicKey && !verifyDiscordSignature(publicKey, timestamp, rawBody, signature)) {
       return res.status(401).send('Invalid request signature');
     }
 
     const interaction = req.body as {
-      type:  number;
-      id?:   string;
+      type: number;
+      id?: string;
       token?: string;
       data?: {
-        name?:    string;
+        name?: string;
         options?: Array<{ name: string; value: string }>;
       };
-      guild_id?:   string;
+      guild_id?: string;
       channel_id?: string;
     };
 
@@ -129,10 +128,11 @@ auditBotRouter.post('/discord', async (req: Request, res: Response) => {
     // APPLICATION_COMMAND (slash command)
     if (interaction.type === 2) {
       const subOption = interaction.data?.options?.[0];
-      const text      = subOption?.value ?? interaction.data?.options?.map((o) => o.value).join(' ') ?? '';
+      const text =
+        subOption?.value ?? interaction.data?.options?.map((o) => o.value).join(' ') ?? '';
       const channelId = interaction.channel_id ?? '';
-      const guildId   = interaction.guild_id   ?? '';
-      const token     = interaction.token      ?? '';
+      const guildId = interaction.guild_id ?? '';
+      const token = interaction.token ?? '';
 
       // Deferred response — allows up to 15 minutes for follow-up
       res.json({ type: 5 }); // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
@@ -167,7 +167,7 @@ auditBotRouter.post('/discord', async (req: Request, res: Response) => {
 // ── POST /digest/trigger — manual digest trigger (admin) ─────────────────────
 
 const digestTriggerSchema = z.object({
-  adminKey:  z.string().optional(),
+  adminKey: z.string().optional(),
   channelId: z.string().optional(), // only post to a specific channel
 });
 
@@ -199,7 +199,7 @@ auditBotRouter.get('/digest/preview', async (_req: Request, res: Response) => {
   try {
     const digest = await buildWeeklyDigest(BASE_URL);
     res.json({
-      text:   digest.text,
+      text: digest.text,
       blocks: digest.blocks,
       embeds: digest.embeds,
     });
@@ -242,14 +242,14 @@ auditBotRouter.get('/channels', async (req: Request, res: Response) => {
     });
 
     const channels = subs.map((s) => ({
-      id:              s.id,
-      platform:        s.userId?.split(':')[0] ?? 'unknown',
-      channelId:       s.userId?.split(':').slice(1).join(':') ?? '',
-      channelName:     s.slackChannel ?? null,
+      id: s.id,
+      platform: s.userId?.split(':')[0] ?? 'unknown',
+      channelId: s.userId?.split(':').slice(1).join(':') ?? '',
+      channelName: s.slackChannel ?? null,
       contractAddress: s.contractAddress,
-      alertTypes:      s.alertTypes,
+      alertTypes: s.alertTypes,
       cooldownMinutes: s.cooldownMinutes,
-      createdAt:       s.createdAt,
+      createdAt: s.createdAt,
     }));
 
     res.json({ count: channels.length, channels });
@@ -269,14 +269,15 @@ auditBotRouter.post('/channels/:id/unsubscribe', async (req: Request, res: Respo
     }
 
     const sub = await prismaRead.auditSubscription.findUnique({
-      where: { id: req.params.id }, select: { id: true },
+      where: { id: req.params.id },
+      select: { id: true },
     });
     if (!sub) return res.status(404).json({ error: 'Subscription not found.' });
 
     const { prismaWrite } = await import('../db');
     await prismaWrite.auditSubscription.update({
       where: { id: req.params.id },
-      data:  { isActive: false },
+      data: { isActive: false },
     });
 
     res.json({ success: true, id: req.params.id });

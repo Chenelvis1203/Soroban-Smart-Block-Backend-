@@ -28,23 +28,21 @@
  */
 
 import crypto from 'crypto';
-import axios  from 'axios';
+import axios from 'axios';
 import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-const PD_ROUTING_KEY      = () => process.env.PAGERDUTY_ROUTING_KEY ?? '';
-const OG_API_KEY          = () => process.env.OPSGENIE_API_KEY ?? '';
-const OG_REGION           = () => process.env.OPSGENIE_REGION ?? 'us';
-const TVL_THRESHOLD       = parseFloat(process.env.INCIDENT_TVL_THRESHOLD    ?? '1000000');
-const SCORE_THRESHOLD     = parseInt(process.env.CRITICAL_SCORE_THRESHOLD     ?? '30');
+const PD_ROUTING_KEY = () => process.env.PAGERDUTY_ROUTING_KEY ?? '';
+const OG_API_KEY = () => process.env.OPSGENIE_API_KEY ?? '';
+const OG_REGION = () => process.env.OPSGENIE_REGION ?? 'us';
+const TVL_THRESHOLD = parseFloat(process.env.INCIDENT_TVL_THRESHOLD ?? '1000000');
+const SCORE_THRESHOLD = parseInt(process.env.CRITICAL_SCORE_THRESHOLD ?? '30');
 
 const PD_EVENTS_URL = 'https://events.pagerduty.com/v2/enqueue';
-const OG_ALERT_URL  = (region: string) =>
-  region === 'eu'
-    ? 'https://api.eu.opsgenie.com/v2/alerts'
-    : 'https://api.opsgenie.com/v2/alerts';
+const OG_ALERT_URL = (region: string) =>
+  region === 'eu' ? 'https://api.eu.opsgenie.com/v2/alerts' : 'https://api.opsgenie.com/v2/alerts';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,32 +52,32 @@ export type IncidentTrigger =
   | 'CERT_SIGNATURE_FAILURE';
 
 export interface IncidentContext {
-  trigger:         IncidentTrigger;
+  trigger: IncidentTrigger;
   contractAddress: string;
-  certId?:         string;
-  certHash?:       string;
-  overallScore?:   number;
-  tvlUsd?:         number;
-  findingId?:      string;
-  findingTitle?:   string;
+  certId?: string;
+  certHash?: string;
+  overallScore?: number;
+  tvlUsd?: number;
+  findingId?: string;
+  findingTitle?: string;
   findingSeverity?: string;
-  detail?:         string;
+  detail?: string;
 }
 
 export interface DispatchResult {
-  trigger:           IncidentTrigger;
-  contractAddress:   string;
-  pagerduty:         ChannelResult;
-  opsgenie:          ChannelResult;
-  dedupKey:          string;
-  alreadyOpen:       boolean;
+  trigger: IncidentTrigger;
+  contractAddress: string;
+  pagerduty: ChannelResult;
+  opsgenie: ChannelResult;
+  dedupKey: string;
+  alreadyOpen: boolean;
 }
 
 interface ChannelResult {
-  sent:    boolean;
-  skipped: boolean;   // true when not configured
+  sent: boolean;
+  skipped: boolean; // true when not configured
   dedupId: string | null;
-  error:   string | null;
+  error: string | null;
 }
 
 // ── Dedup key generation ──────────────────────────────────────────────────────
@@ -94,10 +92,14 @@ function buildDedupKey(ctx: IncidentContext): string {
 async function getContractTvlUsd(contractAddress: string): Promise<number> {
   const [yield_, portfolio] = await Promise.all([
     prismaRead.yieldOpportunity.findFirst({
-      where: { contractAddress }, orderBy: { updatedAt: 'desc' }, select: { tvl: true },
+      where: { contractAddress },
+      orderBy: { updatedAt: 'desc' },
+      select: { tvl: true },
     }),
     prismaRead.portfolioSnapshot.findFirst({
-      where: { contractAddress }, orderBy: { snapshotAt: 'desc' }, select: { valueUsd: true },
+      where: { contractAddress },
+      orderBy: { snapshotAt: 'desc' },
+      select: { valueUsd: true },
     }),
   ]);
   if (yield_?.tvl) {
@@ -124,28 +126,25 @@ function buildSummary(ctx: IncidentContext): string {
 function buildDetails(ctx: IncidentContext): Record<string, unknown> {
   const baseUrl = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
   return {
-    trigger:         ctx.trigger,
+    trigger: ctx.trigger,
     contractAddress: ctx.contractAddress,
-    certId:          ctx.certId ?? null,
-    certHash:        ctx.certHash ?? null,
-    overallScore:    ctx.overallScore ?? null,
-    tvlUsd:          ctx.tvlUsd ?? null,
-    findingId:       ctx.findingId ?? null,
-    findingTitle:    ctx.findingTitle ?? null,
+    certId: ctx.certId ?? null,
+    certHash: ctx.certHash ?? null,
+    overallScore: ctx.overallScore ?? null,
+    tvlUsd: ctx.tvlUsd ?? null,
+    findingId: ctx.findingId ?? null,
+    findingTitle: ctx.findingTitle ?? null,
     findingSeverity: ctx.findingSeverity ?? null,
-    detail:          ctx.detail ?? null,
-    auditUrl:        `${baseUrl}/api/v1/contracts/${ctx.contractAddress}/audit`,
-    verifyUrl:       ctx.certId ? `${baseUrl}/api/v1/audit/verify/${ctx.certId}` : null,
-    platform:        'Soroban Audit Platform',
+    detail: ctx.detail ?? null,
+    auditUrl: `${baseUrl}/api/v1/contracts/${ctx.contractAddress}/audit`,
+    verifyUrl: ctx.certId ? `${baseUrl}/api/v1/audit/verify/${ctx.certId}` : null,
+    platform: 'Soroban Audit Platform',
   };
 }
 
 // ── PagerDuty Events API v2 ───────────────────────────────────────────────────
 
-async function firePagerDuty(
-  ctx:      IncidentContext,
-  dedupKey: string,
-): Promise<ChannelResult> {
+async function firePagerDuty(ctx: IncidentContext, dedupKey: string): Promise<ChannelResult> {
   const routingKey = PD_ROUTING_KEY();
   if (!routingKey) {
     return { sent: false, skipped: true, dedupId: null, error: null };
@@ -156,22 +155,22 @@ async function firePagerDuty(
   const component = `soroban-audit:${ctx.contractAddress.slice(0, 16)}`;
 
   const payload = {
-    routing_key:  routingKey,
+    routing_key: routingKey,
     event_action: 'trigger',
-    dedup_key:    dedupKey,
+    dedup_key: dedupKey,
     payload: {
-      summary:       buildSummary(ctx),
+      summary: buildSummary(ctx),
       severity,
-      source:        'soroban-explorer-audit-platform',
+      source: 'soroban-explorer-audit-platform',
       component,
-      group:         'smart-contract-audit',
-      class:         ctx.trigger,
+      group: 'smart-contract-audit',
+      class: ctx.trigger,
       custom_details: buildDetails(ctx),
     },
     links: [
       {
-        href:  `${process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network'}/api/v1/contracts/${ctx.contractAddress}/audit`,
-        text:  'Audit Report',
+        href: `${process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network'}/api/v1/contracts/${ctx.contractAddress}/audit`,
+        text: 'Audit Report',
       },
     ],
   };
@@ -194,10 +193,7 @@ async function firePagerDuty(
 
 // ── Opsgenie Alert API ────────────────────────────────────────────────────────
 
-async function fireOpsgenie(
-  ctx:      IncidentContext,
-  dedupKey: string,
-): Promise<ChannelResult> {
+async function fireOpsgenie(ctx: IncidentContext, dedupKey: string): Promise<ChannelResult> {
   const apiKey = OG_API_KEY();
   if (!apiKey) {
     return { sent: false, skipped: true, dedupId: null, error: null };
@@ -208,21 +204,19 @@ async function fireOpsgenie(
 
   const tagMap: Record<IncidentTrigger, string[]> = {
     CRITICAL_FINDING_HIGH_TVL: ['critical', 'high-tvl', 'security', 'soroban-audit'],
-    SCORE_BELOW_THRESHOLD:     ['critical', 'score-drop', 'soroban-audit'],
-    CERT_SIGNATURE_FAILURE:    ['error', 'certificate', 'tamper', 'soroban-audit'],
+    SCORE_BELOW_THRESHOLD: ['critical', 'score-drop', 'soroban-audit'],
+    CERT_SIGNATURE_FAILURE: ['error', 'certificate', 'tamper', 'soroban-audit'],
   };
 
   const details = buildDetails(ctx);
 
   const payload = {
-    message:     buildSummary(ctx),
-    alias:       dedupKey,           // dedup key — Opsgenie deduplicates by alias
+    message: buildSummary(ctx),
+    alias: dedupKey, // dedup key — Opsgenie deduplicates by alias
     description: ctx.detail ?? buildSummary(ctx),
     priority,
-    tags:        tagMap[ctx.trigger],
-    details: Object.fromEntries(
-      Object.entries(details).map(([k, v]) => [k, String(v ?? '')]),
-    ),
+    tags: tagMap[ctx.trigger],
+    details: Object.fromEntries(Object.entries(details).map(([k, v]) => [k, String(v ?? '')])),
     source: 'soroban-explorer-audit-platform',
     entity: ctx.contractAddress,
   };
@@ -230,8 +224,8 @@ async function fireOpsgenie(
   try {
     const resp = await axios.post(OG_ALERT_URL(OG_REGION()), payload, {
       headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `GenieKey ${apiKey}`,
+        'Content-Type': 'application/json',
+        Authorization: `GenieKey ${apiKey}`,
       },
       timeout: 10_000,
     });
@@ -252,17 +246,14 @@ async function fireOpsgenie(
  * Returns true if an incident for this dedupKey was already fired within
  * the past 6 hours (avoids re-paging on repeated score polls).
  */
-async function isAlreadyOpen(
-  contractAddress: string,
-  dedupKey:        string,
-): Promise<boolean> {
+async function isAlreadyOpen(contractAddress: string, dedupKey: string): Promise<boolean> {
   const since = new Date(Date.now() - 6 * 3600000);
   const existing = await prismaRead.auditEvent.findFirst({
     where: {
       contractAddress,
       eventType: 'vulnerability_discovered',
       details: {
-        path:   ['dedupKey'],
+        path: ['dedupKey'],
         equals: dedupKey,
       },
       timestamp: { gte: since },
@@ -273,31 +264,33 @@ async function isAlreadyOpen(
 }
 
 async function persistIncidentEvent(
-  ctx:      IncidentContext,
+  ctx: IncidentContext,
   dedupKey: string,
   pdResult: ChannelResult,
   ogResult: ChannelResult,
 ): Promise<void> {
-  await prismaWrite.auditEvent.create({
-    data: {
-      contractAddress: ctx.contractAddress,
-      certificateId:   ctx.certId ?? null,
-      eventType:       'vulnerability_discovered',
-      triggerSource:   'automatic',
-      timestamp:       new Date(),
-      details: {
-        action:          'incident_dispatched',
-        trigger:         ctx.trigger,
-        dedupKey,
-        overallScore:    ctx.overallScore ?? null,
-        tvlUsd:          ctx.tvlUsd ?? null,
-        findingId:       ctx.findingId ?? null,
-        findingTitle:    ctx.findingTitle ?? null,
-        pagerduty:       { sent: pdResult.sent, dedupId: pdResult.dedupId, error: pdResult.error },
-        opsgenie:        { sent: ogResult.sent, dedupId: ogResult.dedupId, error: ogResult.error },
-      } as import('@prisma/client').Prisma.InputJsonValue,
-    },
-  }).catch((e) => logger.warn('Failed to persist incident event', { error: String(e) }));
+  await prismaWrite.auditEvent
+    .create({
+      data: {
+        contractAddress: ctx.contractAddress,
+        certificateId: ctx.certId ?? null,
+        eventType: 'vulnerability_discovered',
+        triggerSource: 'automatic',
+        timestamp: new Date(),
+        details: {
+          action: 'incident_dispatched',
+          trigger: ctx.trigger,
+          dedupKey,
+          overallScore: ctx.overallScore ?? null,
+          tvlUsd: ctx.tvlUsd ?? null,
+          findingId: ctx.findingId ?? null,
+          findingTitle: ctx.findingTitle ?? null,
+          pagerduty: { sent: pdResult.sent, dedupId: pdResult.dedupId, error: pdResult.error },
+          opsgenie: { sent: ogResult.sent, dedupId: ogResult.dedupId, error: ogResult.error },
+        } as import('@prisma/client').Prisma.InputJsonValue,
+      },
+    })
+    .catch((e) => logger.warn('Failed to persist incident event', { error: String(e) }));
 }
 
 // ── Main dispatcher ───────────────────────────────────────────────────────────
@@ -314,15 +307,16 @@ export async function dispatchIncident(ctx: IncidentContext): Promise<DispatchRe
   const alreadyOpen = await isAlreadyOpen(ctx.contractAddress, dedupKey);
   if (alreadyOpen) {
     logger.info('Incident already open — skipping dispatch', {
-      trigger: ctx.trigger, contractAddress: ctx.contractAddress,
+      trigger: ctx.trigger,
+      contractAddress: ctx.contractAddress,
     });
     return {
-      trigger:         ctx.trigger,
+      trigger: ctx.trigger,
       contractAddress: ctx.contractAddress,
-      pagerduty:       { sent: false, skipped: true, dedupId: null, error: 'duplicate' },
-      opsgenie:        { sent: false, skipped: true, dedupId: null, error: 'duplicate' },
+      pagerduty: { sent: false, skipped: true, dedupId: null, error: 'duplicate' },
+      opsgenie: { sent: false, skipped: true, dedupId: null, error: 'duplicate' },
       dedupKey,
-      alreadyOpen:     true,
+      alreadyOpen: true,
     };
   }
 
@@ -335,12 +329,12 @@ export async function dispatchIncident(ctx: IncidentContext): Promise<DispatchRe
   await persistIncidentEvent(ctx, dedupKey, pdResult, ogResult);
 
   return {
-    trigger:         ctx.trigger,
+    trigger: ctx.trigger,
     contractAddress: ctx.contractAddress,
-    pagerduty:       pdResult,
-    opsgenie:        ogResult,
+    pagerduty: pdResult,
+    opsgenie: ogResult,
     dedupKey,
-    alreadyOpen:     false,
+    alreadyOpen: false,
   };
 }
 
@@ -352,15 +346,15 @@ export async function dispatchIncident(ctx: IncidentContext): Promise<DispatchRe
  */
 export async function incidentCriticalFinding(
   contractAddress: string,
-  certId:          string,
-  findingId:       string,
-  findingTitle:    string,
+  certId: string,
+  findingId: string,
+  findingTitle: string,
 ): Promise<void> {
   const tvlUsd = await getContractTvlUsd(contractAddress);
   if (tvlUsd < TVL_THRESHOLD) return; // only page for high-TVL contracts
 
   await dispatchIncident({
-    trigger:         'CRITICAL_FINDING_HIGH_TVL',
+    trigger: 'CRITICAL_FINDING_HIGH_TVL',
     contractAddress,
     certId,
     findingId,
@@ -377,21 +371,23 @@ export async function incidentCriticalFinding(
  */
 export async function incidentScoreDropBelowThreshold(
   contractAddress: string,
-  certId:          string,
-  overallScore:    number,
+  certId: string,
+  overallScore: number,
 ): Promise<void> {
   if (overallScore >= SCORE_THRESHOLD) return;
 
   const tvlUsd = await getContractTvlUsd(contractAddress);
 
   await dispatchIncident({
-    trigger:         'SCORE_BELOW_THRESHOLD',
+    trigger: 'SCORE_BELOW_THRESHOLD',
     contractAddress,
     certId,
     overallScore,
     tvlUsd,
     detail: `Audit score is ${overallScore}/100 — below critical threshold of ${SCORE_THRESHOLD}. TVL: $${tvlUsd.toLocaleString()}`,
-  }).catch((e) => logger.warn('incidentScoreDropBelowThreshold dispatch error', { error: String(e) }));
+  }).catch((e) =>
+    logger.warn('incidentScoreDropBelowThreshold dispatch error', { error: String(e) }),
+  );
 }
 
 /**
@@ -400,11 +396,11 @@ export async function incidentScoreDropBelowThreshold(
  */
 export async function incidentSignatureFailure(
   contractAddress: string,
-  certId:          string,
-  certHash:        string,
+  certId: string,
+  certHash: string,
 ): Promise<void> {
   await dispatchIncident({
-    trigger:         'CERT_SIGNATURE_FAILURE',
+    trigger: 'CERT_SIGNATURE_FAILURE',
     contractAddress,
     certId,
     certHash,

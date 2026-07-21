@@ -57,20 +57,30 @@ auditEmbedRouter.get('/data/:address', async (req: Request, res: Response) => {
     }
 
     const cert = await prismaRead.auditCertificate.findFirst({
-      where:   { contractAddress: address, status: 'published' },
+      where: { contractAddress: address, status: 'published' },
       orderBy: { version: 'desc' },
       select: {
-        id: true, version: true, overallScore: true,
-        securityScore: true, governanceScore: true,
-        economicScore: true, complianceScore: true, liquidityScore: true,
-        totalFindings: true, criticalFindings: true, highFindings: true,
-        openFindings: true, generatedAt: true, expiresAt: true,
-        certificateHash: true, anchorTxHash: true,
+        id: true,
+        version: true,
+        overallScore: true,
+        securityScore: true,
+        governanceScore: true,
+        economicScore: true,
+        complianceScore: true,
+        liquidityScore: true,
+        totalFindings: true,
+        criticalFindings: true,
+        highFindings: true,
+        openFindings: true,
+        generatedAt: true,
+        expiresAt: true,
+        certificateHash: true,
+        anchorTxHash: true,
       },
     });
 
     const contract = await prismaRead.contract.findUnique({
-      where:  { address },
+      where: { address },
       select: { name: true, tokenSymbol: true, isToken: true },
     });
 
@@ -83,34 +93,34 @@ auditEmbedRouter.get('/data/:address', async (req: Request, res: Response) => {
     }
 
     const result = {
-      audited:         true,
+      audited: true,
       contractAddress: address,
-      contractName:    contract?.name ?? contract?.tokenSymbol ?? null,
-      version:         cert.version,
-      overallScore:    cert.overallScore,
-      grade:           scoreGrade(cert.overallScore),
-      riskLevel:       riskLabel(cert.overallScore),
-      riskColor:       riskColor(cert.overallScore),
+      contractName: contract?.name ?? contract?.tokenSymbol ?? null,
+      version: cert.version,
+      overallScore: cert.overallScore,
+      grade: scoreGrade(cert.overallScore),
+      riskLevel: riskLabel(cert.overallScore),
+      riskColor: riskColor(cert.overallScore),
       scores: {
-        security:   cert.securityScore,
+        security: cert.securityScore,
         governance: cert.governanceScore,
-        economic:   cert.economicScore,
+        economic: cert.economicScore,
         compliance: cert.complianceScore,
-        liquidity:  cert.liquidityScore,
+        liquidity: cert.liquidityScore,
       },
       findings: {
-        total:    cert.totalFindings,
+        total: cert.totalFindings,
         critical: cert.criticalFindings,
-        high:     cert.highFindings,
-        open:     cert.openFindings,
+        high: cert.highFindings,
+        open: cert.openFindings,
       },
-      anchored:        !!cert.anchorTxHash,
-      generatedAt:     cert.generatedAt,
-      expiresAt:       cert.expiresAt,
-      certId:          cert.id,
-      verifyUrl:       `${BASE_URL()}/api/v1/audit/verify/${cert.id}`,
-      reportUrl:       `${BASE_URL()}/api/v1/contracts/${address}/audit`,
-      badgeUrl:        `${BASE_URL()}/api/v1/contracts/${address}/audit/badge.svg`,
+      anchored: !!cert.anchorTxHash,
+      generatedAt: cert.generatedAt,
+      expiresAt: cert.expiresAt,
+      certId: cert.id,
+      verifyUrl: `${BASE_URL()}/api/v1/audit/verify/${cert.id}`,
+      reportUrl: `${BASE_URL()}/api/v1/contracts/${address}/audit`,
+      badgeUrl: `${BASE_URL()}/api/v1/contracts/${address}/audit/badge.svg`,
     };
 
     await cacheSet(cacheKey, result, 300);
@@ -344,14 +354,14 @@ auditEmbedRouter.get('/widget.js', (_req: Request, res: Response) => {
 auditEmbedRouter.get('/snippet/:address', async (req: Request, res: Response) => {
   try {
     const { address } = req.params;
-    const base        = BASE_URL();
-    const format      = (req.query.format as string) ?? 'all';
+    const base = BASE_URL();
+    const format = (req.query.format as string) ?? 'all';
 
     // Verify contract has an audit
     const cert = await prismaRead.auditCertificate.findFirst({
-      where:   { contractAddress: address, status: 'published' },
+      where: { contractAddress: address, status: 'published' },
       orderBy: { version: 'desc' },
-      select:  { overallScore: true, id: true },
+      select: { overallScore: true, id: true },
     });
 
     const score = cert?.overallScore ?? null;
@@ -416,12 +426,12 @@ export function AuditWidget({ address }) {
 
     res.json({
       contractAddress: address,
-      auditScore:      score,
+      auditScore: score,
       grade,
       snippets,
       widgetScriptUrl: `${base}/api/v1/audit/embed/widget.js`,
-      badgeUrl:        `${base}/api/v1/contracts/${address}/audit/badge.svg`,
-      dataApiUrl:      `${base}/api/v1/audit/embed/data/${address}`,
+      badgeUrl: `${base}/api/v1/contracts/${address}/audit/badge.svg`,
+      dataApiUrl: `${base}/api/v1/audit/embed/data/${address}`,
     });
   } catch (e) {
     res.status(500).json({ error: String(e) });
@@ -441,14 +451,14 @@ auditEmbedRouter.get('/wordpress-plugin.zip', (_req: Request, res: Response) => 
 
   // Build a minimal ZIP archive in memory (PKZIP format)
   const zip = buildZip([
-    { path: 'soroban-audit/soroban-audit.php',    data: phpPlugin },
-    { path: 'soroban-audit/readme.txt',           data: readmeTxt },
+    { path: 'soroban-audit/soroban-audit.php', data: phpPlugin },
+    { path: 'soroban-audit/readme.txt', data: readmeTxt },
   ]);
 
-  res.setHeader('Content-Type',        'application/zip');
+  res.setHeader('Content-Type', 'application/zip');
   res.setHeader('Content-Disposition', 'attachment; filename="soroban-audit-plugin.zip"');
-  res.setHeader('Content-Length',       zip.length);
-  res.setHeader('Cache-Control',        'public, max-age=3600');
+  res.setHeader('Content-Length', zip.length);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(zip);
 });
 
@@ -632,65 +642,65 @@ function buildZip(files: Array<{ path: string; data: string }>): Buffer {
   let offset = 0;
 
   for (const file of files) {
-    const fileData    = Buffer.from(file.data, 'utf8');
-    const fileName    = Buffer.from(file.path, 'utf8');
-    const crc         = crc32(fileData);
-    const dosDate     = 0x5346; // 2024-10-06 placeholder
-    const dosTime     = 0x0000;
+    const fileData = Buffer.from(file.data, 'utf8');
+    const fileName = Buffer.from(file.path, 'utf8');
+    const crc = crc32(fileData);
+    const dosDate = 0x5346; // 2024-10-06 placeholder
+    const dosTime = 0x0000;
 
     // Local file header
     const localHeader = Buffer.alloc(30 + fileName.length);
-    localHeader.writeUInt32LE(0x04034b50, 0);  // signature
-    localHeader.writeUInt16LE(20, 4);            // version needed
-    localHeader.writeUInt16LE(0, 6);             // flags
-    localHeader.writeUInt16LE(0, 8);             // compression (store)
+    localHeader.writeUInt32LE(0x04034b50, 0); // signature
+    localHeader.writeUInt16LE(20, 4); // version needed
+    localHeader.writeUInt16LE(0, 6); // flags
+    localHeader.writeUInt16LE(0, 8); // compression (store)
     localHeader.writeUInt16LE(dosTime, 10);
     localHeader.writeUInt16LE(dosDate, 12);
     localHeader.writeUInt32LE(crc, 14);
     localHeader.writeUInt32LE(fileData.length, 18); // compressed size
     localHeader.writeUInt32LE(fileData.length, 22); // uncompressed size
     localHeader.writeUInt16LE(fileName.length, 26);
-    localHeader.writeUInt16LE(0, 28);               // extra field length
+    localHeader.writeUInt16LE(0, 28); // extra field length
     fileName.copy(localHeader, 30);
 
     parts.push(localHeader, fileData);
 
     // Central directory entry
     const cdEntry = Buffer.alloc(46 + fileName.length);
-    cdEntry.writeUInt32LE(0x02014b50, 0);       // signature
-    cdEntry.writeUInt16LE(20, 4);                // version made by
-    cdEntry.writeUInt16LE(20, 6);                // version needed
-    cdEntry.writeUInt16LE(0, 8);                 // flags
-    cdEntry.writeUInt16LE(0, 10);                // compression
+    cdEntry.writeUInt32LE(0x02014b50, 0); // signature
+    cdEntry.writeUInt16LE(20, 4); // version made by
+    cdEntry.writeUInt16LE(20, 6); // version needed
+    cdEntry.writeUInt16LE(0, 8); // flags
+    cdEntry.writeUInt16LE(0, 10); // compression
     cdEntry.writeUInt16LE(dosTime, 12);
     cdEntry.writeUInt16LE(dosDate, 14);
     cdEntry.writeUInt32LE(crc, 16);
     cdEntry.writeUInt32LE(fileData.length, 20);
     cdEntry.writeUInt32LE(fileData.length, 24);
     cdEntry.writeUInt16LE(fileName.length, 28);
-    cdEntry.writeUInt16LE(0, 30);                // extra
-    cdEntry.writeUInt16LE(0, 32);                // comment
-    cdEntry.writeUInt16LE(0, 34);                // disk start
-    cdEntry.writeUInt16LE(0, 36);                // int attributes
-    cdEntry.writeUInt32LE(0, 38);                // ext attributes
-    cdEntry.writeUInt32LE(offset, 42);           // local header offset
+    cdEntry.writeUInt16LE(0, 30); // extra
+    cdEntry.writeUInt16LE(0, 32); // comment
+    cdEntry.writeUInt16LE(0, 34); // disk start
+    cdEntry.writeUInt16LE(0, 36); // int attributes
+    cdEntry.writeUInt32LE(0, 38); // ext attributes
+    cdEntry.writeUInt32LE(offset, 42); // local header offset
     fileName.copy(cdEntry, 46);
 
     centralDir.push(cdEntry);
     offset += localHeader.length + fileData.length;
   }
 
-  const cdStart  = offset;
-  const cdBuf    = Buffer.concat(centralDir);
-  const eocd     = Buffer.alloc(22);
-  eocd.writeUInt32LE(0x06054b50, 0);            // EOCD signature
-  eocd.writeUInt16LE(0, 4);                      // disk number
-  eocd.writeUInt16LE(0, 6);                      // disk with CD
+  const cdStart = offset;
+  const cdBuf = Buffer.concat(centralDir);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0); // EOCD signature
+  eocd.writeUInt16LE(0, 4); // disk number
+  eocd.writeUInt16LE(0, 6); // disk with CD
   eocd.writeUInt16LE(files.length, 8);
   eocd.writeUInt16LE(files.length, 10);
   eocd.writeUInt32LE(cdBuf.length, 12);
   eocd.writeUInt32LE(cdStart, 16);
-  eocd.writeUInt16LE(0, 20);                     // comment length
+  eocd.writeUInt16LE(0, 20); // comment length
 
   return Buffer.concat([...parts, cdBuf, eocd]);
 }
@@ -708,7 +718,7 @@ function crc32Table(): Uint32Array {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
     let c = n;
-    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
     t[n] = c;
   }
   return t;

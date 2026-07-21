@@ -17,7 +17,7 @@
  * Delivery results are persisted in AuditNotificationDelivery for audit trail.
  */
 
-import crypto  from 'crypto';
+import crypto from 'crypto';
 import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
 
@@ -31,26 +31,26 @@ export type AlertType =
   | 'certificate_expiry';
 
 export interface NotificationPayload {
-  alertType:       AlertType;
+  alertType: AlertType;
   contractAddress: string;
-  certId?:         string;
-  version?:        number;
-  overallScore?:   number;
-  previousScore?:  number;
-  scoreDrop?:      number;
-  riskLevel?:      string;
-  grade?:          string;
+  certId?: string;
+  version?: number;
+  overallScore?: number;
+  previousScore?: number;
+  scoreDrop?: number;
+  riskLevel?: string;
+  grade?: string;
   findingSeverity?: string;
-  findingTitle?:   string;
-  findingCount?:   number;
-  certHash?:       string;
-  verifyUrl?:      string;
+  findingTitle?: string;
+  findingCount?: number;
+  certHash?: string;
+  verifyUrl?: string;
   // Expiry-specific fields
-  expiresAt?:      string;
-  daysRemaining?:  number;
-  urgency?:        'warning' | 'urgent' | 'critical';
-  timestamp:       string;
-  platform:        string;
+  expiresAt?: string;
+  daysRemaining?: number;
+  urgency?: 'warning' | 'urgent' | 'critical';
+  timestamp: string;
+  platform: string;
 }
 
 // ── HMAC signature for webhooks ───────────────────────────────────────────────
@@ -62,12 +62,12 @@ function signWebhookPayload(body: string, secret: string): string {
 // ── HTTP delivery helper (Axios from existing deps) ───────────────────────────
 
 async function httpPost(
-  url:       string,
-  body:      Record<string, unknown>,
-  headers:   Record<string, string> = {},
+  url: string,
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
 ): Promise<{ status: number; body: string }> {
-  const axios  = (await import('axios')).default;
-  const json   = JSON.stringify(body);
+  const axios = (await import('axios')).default;
+  const json = JSON.stringify(body);
 
   const response = await axios.post(url, json, {
     headers: { 'Content-Type': 'application/json', ...headers },
@@ -77,59 +77,68 @@ async function httpPost(
 
   return {
     status: response.status,
-    body:   String(response.data).slice(0, 500),
+    body: String(response.data).slice(0, 500),
   };
 }
 
 // ── Channel dispatchers ───────────────────────────────────────────────────────
 
 async function deliverWebhook(
-  payload:     NotificationPayload,
-  webhookUrl:  string,
-  secret?:     string | null,
+  payload: NotificationPayload,
+  webhookUrl: string,
+  secret?: string | null,
 ): Promise<{ status: number; body: string }> {
-  const body    = JSON.stringify(payload);
+  const body = JSON.stringify(payload);
   const headers: Record<string, string> = {};
   if (secret) {
-    headers['X-Audit-Signature']   = signWebhookPayload(body, secret);
-    headers['X-Audit-Alert-Type']  = payload.alertType;
-    headers['X-Audit-Contract']    = payload.contractAddress;
-    headers['X-Audit-Timestamp']   = payload.timestamp;
+    headers['X-Audit-Signature'] = signWebhookPayload(body, secret);
+    headers['X-Audit-Alert-Type'] = payload.alertType;
+    headers['X-Audit-Contract'] = payload.contractAddress;
+    headers['X-Audit-Timestamp'] = payload.timestamp;
   }
   return httpPost(webhookUrl, payload as unknown as Record<string, unknown>, headers);
 }
 
 async function deliverSlack(
-  payload:        NotificationPayload,
+  payload: NotificationPayload,
   slackWebhookUrl: string,
-  channel?:       string | null,
+  channel?: string | null,
 ): Promise<{ status: number; body: string }> {
   const riskEmoji: Record<string, string> = {
-    low: '🟢', medium: '🟡', high: '🟠', critical: '🔴',
+    low: '🟢',
+    medium: '🟡',
+    high: '🟠',
+    critical: '🔴',
   };
   const alertEmoji: Record<AlertType, string> = {
-    score_drop:         '📉',
-    new_finding:        '🚨',
-    upgrade:            '⬆️',
+    score_drop: '📉',
+    new_finding: '🚨',
+    upgrade: '⬆️',
     certificate_update: '📋',
     certificate_expiry: '⏰',
   };
 
-  const emoji   = alertEmoji[payload.alertType] ?? '🔔';
-  const risk    = riskEmoji[payload.riskLevel ?? 'medium'] ?? '⚪';
+  const emoji = alertEmoji[payload.alertType] ?? '🔔';
+  const risk = riskEmoji[payload.riskLevel ?? 'medium'] ?? '⚪';
   const baseUrl = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
 
   // Build Slack Block Kit message
   const blocks: unknown[] = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: `${emoji} Audit Alert — ${payload.alertType.replace(/_/g, ' ').toUpperCase()}` },
+      text: {
+        type: 'plain_text',
+        text: `${emoji} Audit Alert — ${payload.alertType.replace(/_/g, ' ').toUpperCase()}`,
+      },
     },
     {
       type: 'section',
       fields: [
         { type: 'mrkdwn', text: `*Contract*\n\`${payload.contractAddress.slice(0, 20)}...\`` },
-        { type: 'mrkdwn', text: `*Risk Level*\n${risk} ${(payload.riskLevel ?? 'unknown').toUpperCase()}` },
+        {
+          type: 'mrkdwn',
+          text: `*Risk Level*\n${risk} ${(payload.riskLevel ?? 'unknown').toUpperCase()}`,
+        },
       ],
     },
   ];
@@ -139,7 +148,10 @@ async function deliverSlack(
       type: 'section',
       fields: [
         { type: 'mrkdwn', text: `*Previous Score*\n${payload.previousScore ?? '?'}` },
-        { type: 'mrkdwn', text: `*New Score*\n${payload.overallScore ?? '?'} (−${payload.scoreDrop ?? '?'} pts)` },
+        {
+          type: 'mrkdwn',
+          text: `*New Score*\n${payload.overallScore ?? '?'} (−${payload.scoreDrop ?? '?'} pts)`,
+        },
       ],
     });
   }
@@ -155,7 +167,8 @@ async function deliverSlack(
   }
 
   if (payload.alertType === 'certificate_expiry' && payload.daysRemaining !== undefined) {
-    const urgEmoji = payload.urgency === 'critical' ? '🔴' : payload.urgency === 'urgent' ? '🟠' : '🟡';
+    const urgEmoji =
+      payload.urgency === 'critical' ? '🔴' : payload.urgency === 'urgent' ? '🟠' : '🟡';
     blocks.push({
       type: 'section',
       fields: [
@@ -168,12 +181,14 @@ async function deliverSlack(
   if (payload.certHash) {
     blocks.push({
       type: 'actions',
-      elements: [{
-        type: 'button',
-        text: { type: 'plain_text', text: 'Verify Certificate' },
-        url:  `${baseUrl}/api/v1/audit/verify/${payload.certHash}`,
-        style: 'primary',
-      }],
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Verify Certificate' },
+          url: `${baseUrl}/api/v1/audit/verify/${payload.certHash}`,
+          style: 'primary',
+        },
+      ],
     });
   }
 
@@ -189,7 +204,7 @@ async function deliverSlack(
 }
 
 async function deliverEmail(
-  payload:     NotificationPayload,
+  payload: NotificationPayload,
   emailAddress: string,
 ): Promise<{ status: number; body: string }> {
   // If nodemailer is configured (SMTP_HOST env), use it.
@@ -198,47 +213,49 @@ async function deliverEmail(
 
   if (!smtpHost) {
     logger.info('Email delivery (SMTP not configured — logged only)', {
-      to:        emailAddress,
+      to: emailAddress,
       alertType: payload.alertType,
-      contract:  payload.contractAddress,
-      score:     payload.overallScore,
+      contract: payload.contractAddress,
+      score: payload.overallScore,
     });
     return { status: 200, body: 'logged' };
   }
 
   try {
     // Dynamic import — nodemailer is optional
-    const nodemailer = await import('nodemailer' as never) as {
+    const nodemailer = (await import('nodemailer' as never)) as {
       createTransport: (opts: unknown) => {
         sendMail: (opts: unknown) => Promise<{ messageId: string }>;
       };
     };
 
     const transporter = nodemailer.createTransport({
-      host:   smtpHost,
-      port:   parseInt(process.env.SMTP_PORT ?? '587'),
+      host: smtpHost,
+      port: parseInt(process.env.SMTP_PORT ?? '587'),
       secure: process.env.SMTP_SECURE === 'true',
-      auth: process.env.SMTP_USER ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      } : undefined,
+      auth: process.env.SMTP_USER
+        ? {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          }
+        : undefined,
     });
 
-    const baseUrl    = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
-    const certLink   = payload.certHash
+    const baseUrl = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
+    const certLink = payload.certHash
       ? `${baseUrl}/api/v1/audit/verify/${payload.certHash}`
       : `${baseUrl}/api/v1/contracts/${payload.contractAddress}/audit`;
 
-    const subject    = buildEmailSubject(payload);
-    const htmlBody   = buildEmailHtml(payload, certLink);
-    const textBody   = buildEmailText(payload, certLink);
+    const subject = buildEmailSubject(payload);
+    const htmlBody = buildEmailHtml(payload, certLink);
+    const textBody = buildEmailText(payload, certLink);
 
     await transporter.sendMail({
-      from:    process.env.SMTP_FROM ?? 'audit@soroban.network',
-      to:      emailAddress,
+      from: process.env.SMTP_FROM ?? 'audit@soroban.network',
+      to: emailAddress,
       subject,
-      text:    textBody,
-      html:    htmlBody,
+      text: textBody,
+      html: htmlBody,
     });
 
     return { status: 200, body: 'sent' };
@@ -255,8 +272,7 @@ function buildEmailSubject(p: NotificationPayload): string {
     return `[Audit Alert] Score dropped ${p.scoreDrop ?? '?'} pts — ${addr}...`;
   if (p.alertType === 'new_finding')
     return `[Audit Alert] New ${p.findingSeverity ?? 'security'} finding — ${addr}...`;
-  if (p.alertType === 'upgrade')
-    return `[Audit Alert] Contract upgrade detected — ${addr}...`;
+  if (p.alertType === 'upgrade') return `[Audit Alert] Contract upgrade detected — ${addr}...`;
   if (p.alertType === 'certificate_expiry')
     return `[Audit Alert] Certificate expires in ${p.daysRemaining ?? '?'} day(s) — ${addr}...`;
   return `[Audit Alert] Certificate updated — ${addr}... (v${p.version ?? '?'})`;
@@ -269,42 +285,54 @@ function buildEmailText(p: NotificationPayload, certLink: string): string {
     `Alert Type   : ${p.alertType.replace(/_/g, ' ').toUpperCase()}`,
     `Contract     : ${p.contractAddress}`,
     `Risk Level   : ${(p.riskLevel ?? 'unknown').toUpperCase()}`,
-    p.overallScore  !== undefined ? `Score        : ${p.overallScore}/100 (${p.grade ?? ''})` : '',
+    p.overallScore !== undefined ? `Score        : ${p.overallScore}/100 (${p.grade ?? ''})` : '',
     p.previousScore !== undefined ? `Previous     : ${p.previousScore}/100` : '',
-    p.scoreDrop     !== undefined ? `Drop         : −${p.scoreDrop} points` : '',
-    p.findingSeverity ? `Finding      : [${p.findingSeverity.toUpperCase()}] ${p.findingTitle ?? ''}` : '',
-    p.daysRemaining !== undefined ? `Expires In   : ${p.daysRemaining} day(s) (${p.expiresAt ?? ''})` : '',
+    p.scoreDrop !== undefined ? `Drop         : −${p.scoreDrop} points` : '',
+    p.findingSeverity
+      ? `Finding      : [${p.findingSeverity.toUpperCase()}] ${p.findingTitle ?? ''}`
+      : '',
+    p.daysRemaining !== undefined
+      ? `Expires In   : ${p.daysRemaining} day(s) (${p.expiresAt ?? ''})`
+      : '',
     p.urgency ? `Urgency      : ${p.urgency.toUpperCase()}` : '',
     `Time         : ${p.timestamp}`,
     ``,
     `View Certificate: ${certLink}`,
     ``,
     `-- Soroban Audit Platform`,
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function buildEmailHtml(p: NotificationPayload, certLink: string): string {
   const riskColors: Record<string, string> = {
-    low: '#22c55e', medium: '#eab308', high: '#ef4444', critical: '#7f1d1d',
+    low: '#22c55e',
+    medium: '#eab308',
+    high: '#ef4444',
+    critical: '#7f1d1d',
   };
   const urgencyColors: Record<string, string> = {
-    warning: '#eab308', urgent: '#ef4444', critical: '#7f1d1d',
+    warning: '#eab308',
+    urgent: '#ef4444',
+    critical: '#7f1d1d',
   };
-  const alertColor = p.alertType === 'certificate_expiry'
-    ? (urgencyColors[p.urgency ?? 'warning'] ?? '#eab308')
-    : (riskColors[p.riskLevel ?? 'medium'] ?? '#6b7280');
-  const addrShort  = `${p.contractAddress.slice(0, 16)}...`;
+  const alertColor =
+    p.alertType === 'certificate_expiry'
+      ? (urgencyColors[p.urgency ?? 'warning'] ?? '#eab308')
+      : (riskColors[p.riskLevel ?? 'medium'] ?? '#6b7280');
+  const addrShort = `${p.contractAddress.slice(0, 16)}...`;
 
   return `<!DOCTYPE html><html><body style="font-family:Helvetica,sans-serif;background:#f9fafb;padding:24px">
 <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;padding:32px;border-left:4px solid ${alertColor}">
   <h2 style="margin:0 0 8px;color:#111">🔔 Audit Alert</h2>
-  <p style="color:#6b7280;font-size:13px;margin:0 0 24px">${p.alertType.replace(/_/g,' ').toUpperCase()} · ${p.timestamp}</p>
+  <p style="color:#6b7280;font-size:13px;margin:0 0 24px">${p.alertType.replace(/_/g, ' ').toUpperCase()} · ${p.timestamp}</p>
   <table style="width:100%;border-collapse:collapse;font-size:14px">
     <tr><td style="padding:6px 0;color:#6b7280">Contract</td><td style="font-family:monospace">${addrShort}</td></tr>
     <tr><td style="padding:6px 0;color:#6b7280">Risk Level</td><td style="color:${alertColor};font-weight:bold">${(p.riskLevel ?? 'unknown').toUpperCase()}</td></tr>
-    ${p.overallScore  !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Score</td><td>${p.overallScore}/100 (Grade ${p.grade ?? '?'})</td></tr>` : ''}
+    ${p.overallScore !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Score</td><td>${p.overallScore}/100 (Grade ${p.grade ?? '?'})</td></tr>` : ''}
     ${p.previousScore !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Previous Score</td><td>${p.previousScore}/100</td></tr>` : ''}
-    ${p.scoreDrop     !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Score Drop</td><td style="color:#ef4444">−${p.scoreDrop} points</td></tr>` : ''}
+    ${p.scoreDrop !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Score Drop</td><td style="color:#ef4444">−${p.scoreDrop} points</td></tr>` : ''}
     ${p.findingSeverity ? `<tr><td style="padding:6px 0;color:#6b7280">Finding</td><td>[${p.findingSeverity.toUpperCase()}] ${p.findingTitle ?? ''}</td></tr>` : ''}
     ${p.daysRemaining !== undefined ? `<tr><td style="padding:6px 0;color:#6b7280">Expires In</td><td style="color:${alertColor};font-weight:bold">${p.daysRemaining} day(s)</td></tr>` : ''}
     ${p.expiresAt ? `<tr><td style="padding:6px 0;color:#6b7280">Expiry Date</td><td>${p.expiresAt}</td></tr>` : ''}
@@ -325,14 +353,12 @@ function buildEmailHtml(p: NotificationPayload, certLink: string): string {
  * Persists a delivery record for every attempt (success or failure).
  * Never throws — failures are logged and recorded but don't block callers.
  */
-export async function dispatchNotification(
-  payload: NotificationPayload,
-): Promise<void> {
+export async function dispatchNotification(payload: NotificationPayload): Promise<void> {
   const subs = await prismaRead.auditSubscription.findMany({
     where: {
       contractAddress: payload.contractAddress,
-      isActive:        true,
-      alertTypes:      { has: payload.alertType },
+      isActive: true,
+      alertTypes: { has: payload.alertType },
     },
   });
 
@@ -346,7 +372,7 @@ export async function dispatchNotification(
       const cooldownMs = (sub.cooldownMinutes ?? 60) * 60_000;
       if (now.getTime() - sub.lastTriggeredAt.getTime() < cooldownMs) {
         logger.debug('Audit notification skipped (cooldown)', {
-          subId:     sub.id,
+          subId: sub.id,
           alertType: payload.alertType,
         });
         continue;
@@ -391,51 +417,57 @@ export async function dispatchNotification(
 
     // ── Dispatch to each channel ──────────────────────────────────────────
     for (const ch of channels) {
-      let status = 0, body = '', errorMsg = '';
+      let status = 0,
+        body = '',
+        errorMsg = '';
       let delivered = false;
 
       try {
-        const result  = await ch.deliver();
-        status        = result.status;
-        body          = result.body;
-        delivered     = status >= 200 && status < 300;
+        const result = await ch.deliver();
+        status = result.status;
+        body = result.body;
+        delivered = status >= 200 && status < 300;
         if (!delivered) errorMsg = `HTTP ${status}: ${body.slice(0, 200)}`;
       } catch (err) {
         errorMsg = String(err).slice(0, 500);
-        status   = 0;
+        status = 0;
       }
 
       // Persist delivery record
-      await prismaWrite.auditNotificationDelivery.create({
-        data: {
-          subscriptionId: sub.id,
-          alertType:      payload.alertType,
-          channel:        ch.channel,
-          status:         delivered ? 'success' : 'failed',
-          payload:        payload as unknown as import('@prisma/client').Prisma.InputJsonValue,
-          httpStatus:     status || null,
-          responseBody:   body || null,
-          errorMsg:       errorMsg || null,
-          deliveredAt:    delivered ? now : null,
-        },
-      }).catch((e) =>
-        logger.warn('Failed to persist delivery record', { error: String(e) }),
-      );
+      await prismaWrite.auditNotificationDelivery
+        .create({
+          data: {
+            subscriptionId: sub.id,
+            alertType: payload.alertType,
+            channel: ch.channel,
+            status: delivered ? 'success' : 'failed',
+            payload: payload as unknown as import('@prisma/client').Prisma.InputJsonValue,
+            httpStatus: status || null,
+            responseBody: body || null,
+            errorMsg: errorMsg || null,
+            deliveredAt: delivered ? now : null,
+          },
+        })
+        .catch((e) => logger.warn('Failed to persist delivery record', { error: String(e) }));
 
       logger.info('Audit notification dispatched', {
-        subId:     sub.id,
-        channel:   ch.channel,
+        subId: sub.id,
+        channel: ch.channel,
         alertType: payload.alertType,
-        contract:  payload.contractAddress,
-        success:   delivered,
+        contract: payload.contractAddress,
+        success: delivered,
       });
     }
 
     // Update lastTriggeredAt to enforce cooldown
-    await prismaWrite.auditSubscription.update({
-      where: { id: sub.id },
-      data:  { lastTriggeredAt: now },
-    }).catch(() => { /* non-fatal */ });
+    await prismaWrite.auditSubscription
+      .update({
+        where: { id: sub.id },
+        data: { lastTriggeredAt: now },
+      })
+      .catch(() => {
+        /* non-fatal */
+      });
   }
 }
 
@@ -443,66 +475,84 @@ export async function dispatchNotification(
 
 export async function notifyScoreDrop(
   contractAddress: string,
-  certId:          string,
-  version:         number,
-  previousScore:   number,
-  newScore:        number,
-  certHash:        string,
+  certId: string,
+  version: number,
+  previousScore: number,
+  newScore: number,
+  certHash: string,
 ): Promise<void> {
-  const grade    = newScore >= 85 ? 'A' : newScore >= 70 ? 'B' : newScore >= 55 ? 'C' : newScore >= 40 ? 'D' : 'F';
-  const riskLevel = newScore >= 85 ? 'low' : newScore >= 70 ? 'medium' : newScore >= 55 ? 'high' : 'critical';
+  const grade =
+    newScore >= 85 ? 'A' : newScore >= 70 ? 'B' : newScore >= 55 ? 'C' : newScore >= 40 ? 'D' : 'F';
+  const riskLevel =
+    newScore >= 85 ? 'low' : newScore >= 70 ? 'medium' : newScore >= 55 ? 'high' : 'critical';
 
   await dispatchNotification({
-    alertType:       'score_drop',
+    alertType: 'score_drop',
     contractAddress,
     certId,
     version,
-    overallScore:    newScore,
+    overallScore: newScore,
     previousScore,
-    scoreDrop:       previousScore - newScore,
+    scoreDrop: previousScore - newScore,
     grade,
     riskLevel,
     certHash,
-    verifyUrl:       `/api/v1/audit/verify/${certId}`,
-    timestamp:       new Date().toISOString(),
-    platform:        'Soroban Audit Platform',
+    verifyUrl: `/api/v1/audit/verify/${certId}`,
+    timestamp: new Date().toISOString(),
+    platform: 'Soroban Audit Platform',
   });
 }
 
 export async function notifyNewFinding(
   contractAddress: string,
-  certId:          string,
+  certId: string,
   findingSeverity: string,
-  findingTitle:    string,
-  findingCount:    number,
-  certHash:        string,
+  findingTitle: string,
+  findingCount: number,
+  certHash: string,
 ): Promise<void> {
   await dispatchNotification({
-    alertType:       'new_finding',
+    alertType: 'new_finding',
     contractAddress,
     certId,
     findingSeverity,
     findingTitle,
     findingCount,
     certHash,
-    verifyUrl:       `/api/v1/audit/verify/${certId}`,
-    timestamp:       new Date().toISOString(),
-    platform:        'Soroban Audit Platform',
+    verifyUrl: `/api/v1/audit/verify/${certId}`,
+    timestamp: new Date().toISOString(),
+    platform: 'Soroban Audit Platform',
   });
 }
 
 export async function notifyUpgrade(
   contractAddress: string,
-  certId:          string,
-  version:         number,
-  overallScore:    number,
-  certHash:        string,
+  certId: string,
+  version: number,
+  overallScore: number,
+  certHash: string,
 ): Promise<void> {
-  const grade    = overallScore >= 85 ? 'A' : overallScore >= 70 ? 'B' : overallScore >= 55 ? 'C' : overallScore >= 40 ? 'D' : 'F';
-  const riskLevel = overallScore >= 85 ? 'low' : overallScore >= 70 ? 'medium' : overallScore >= 55 ? 'high' : 'critical';
+  const grade =
+    overallScore >= 85
+      ? 'A'
+      : overallScore >= 70
+        ? 'B'
+        : overallScore >= 55
+          ? 'C'
+          : overallScore >= 40
+            ? 'D'
+            : 'F';
+  const riskLevel =
+    overallScore >= 85
+      ? 'low'
+      : overallScore >= 70
+        ? 'medium'
+        : overallScore >= 55
+          ? 'high'
+          : 'critical';
 
   await dispatchNotification({
-    alertType:      'upgrade',
+    alertType: 'upgrade',
     contractAddress,
     certId,
     version,
@@ -510,25 +560,41 @@ export async function notifyUpgrade(
     grade,
     riskLevel,
     certHash,
-    verifyUrl:      `/api/v1/audit/verify/${certId}`,
-    timestamp:      new Date().toISOString(),
-    platform:       'Soroban Audit Platform',
+    verifyUrl: `/api/v1/audit/verify/${certId}`,
+    timestamp: new Date().toISOString(),
+    platform: 'Soroban Audit Platform',
   });
 }
 
 export async function notifyCertificateUpdate(
   contractAddress: string,
-  certId:          string,
-  version:         number,
-  overallScore:    number,
-  certHash:        string,
-  trigger:         string,
+  certId: string,
+  version: number,
+  overallScore: number,
+  certHash: string,
+  trigger: string,
 ): Promise<void> {
-  const grade    = overallScore >= 85 ? 'A' : overallScore >= 70 ? 'B' : overallScore >= 55 ? 'C' : overallScore >= 40 ? 'D' : 'F';
-  const riskLevel = overallScore >= 85 ? 'low' : overallScore >= 70 ? 'medium' : overallScore >= 55 ? 'high' : 'critical';
+  const grade =
+    overallScore >= 85
+      ? 'A'
+      : overallScore >= 70
+        ? 'B'
+        : overallScore >= 55
+          ? 'C'
+          : overallScore >= 40
+            ? 'D'
+            : 'F';
+  const riskLevel =
+    overallScore >= 85
+      ? 'low'
+      : overallScore >= 70
+        ? 'medium'
+        : overallScore >= 55
+          ? 'high'
+          : 'critical';
 
   await dispatchNotification({
-    alertType:      'certificate_update',
+    alertType: 'certificate_update',
     contractAddress,
     certId,
     version,
@@ -536,30 +602,45 @@ export async function notifyCertificateUpdate(
     grade,
     riskLevel,
     certHash,
-    verifyUrl:      `/api/v1/audit/verify/${certId}`,
-    timestamp:      new Date().toISOString(),
-    platform:       `Soroban Audit Platform (trigger: ${trigger})`,
+    verifyUrl: `/api/v1/audit/verify/${certId}`,
+    timestamp: new Date().toISOString(),
+    platform: `Soroban Audit Platform (trigger: ${trigger})`,
   });
 }
 
 export async function notifyCertificateExpiry(
   contractAddress: string,
-  certId:          string,
-  version:         number,
-  overallScore:    number,
-  certHash:        string,
-  expiresAt:       Date,
-  daysRemaining:   number,
+  certId: string,
+  version: number,
+  overallScore: number,
+  certHash: string,
+  expiresAt: Date,
+  daysRemaining: number,
 ): Promise<void> {
   const urgency: 'warning' | 'urgent' | 'critical' =
-    daysRemaining <= 7  ? 'critical' :
-    daysRemaining <= 14 ? 'urgent'   : 'warning';
+    daysRemaining <= 7 ? 'critical' : daysRemaining <= 14 ? 'urgent' : 'warning';
 
-  const grade    = overallScore >= 85 ? 'A' : overallScore >= 70 ? 'B' : overallScore >= 55 ? 'C' : overallScore >= 40 ? 'D' : 'F';
-  const riskLevel = overallScore >= 85 ? 'low' : overallScore >= 70 ? 'medium' : overallScore >= 55 ? 'high' : 'critical';
+  const grade =
+    overallScore >= 85
+      ? 'A'
+      : overallScore >= 70
+        ? 'B'
+        : overallScore >= 55
+          ? 'C'
+          : overallScore >= 40
+            ? 'D'
+            : 'F';
+  const riskLevel =
+    overallScore >= 85
+      ? 'low'
+      : overallScore >= 70
+        ? 'medium'
+        : overallScore >= 55
+          ? 'high'
+          : 'critical';
 
   await dispatchNotification({
-    alertType:      'certificate_expiry',
+    alertType: 'certificate_expiry',
     contractAddress,
     certId,
     version,
@@ -567,11 +648,11 @@ export async function notifyCertificateExpiry(
     grade,
     riskLevel,
     certHash,
-    expiresAt:      expiresAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
     daysRemaining,
     urgency,
-    verifyUrl:      `/api/v1/audit/verify/${certId}`,
-    timestamp:      new Date().toISOString(),
-    platform:       'Soroban Audit Platform',
+    verifyUrl: `/api/v1/audit/verify/${certId}`,
+    timestamp: new Date().toISOString(),
+    platform: 'Soroban Audit Platform',
   });
 }

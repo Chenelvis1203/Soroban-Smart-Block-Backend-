@@ -36,16 +36,13 @@ type ThresholdDays = (typeof THRESHOLDS)[number];
 
 // ── Deduplication via AuditEvent ──────────────────────────────────────────────
 
-async function hasExpiryEventBeenFired(
-  certId:       string,
-  daysThreshold: number,
-): Promise<boolean> {
+async function hasExpiryEventBeenFired(certId: string, daysThreshold: number): Promise<boolean> {
   const existing = await prismaRead.auditEvent.findFirst({
     where: {
       certificateId: certId,
-      eventType:     'certificate_published',
+      eventType: 'certificate_published',
       details: {
-        path:   ['action'],
+        path: ['action'],
         equals: `expiry_warning_${daysThreshold}d`,
       },
     },
@@ -56,21 +53,21 @@ async function hasExpiryEventBeenFired(
 
 async function markExpiryEventFired(
   contractAddress: string,
-  certId:          string,
-  daysThreshold:   number,
-  daysRemaining:   number,
+  certId: string,
+  daysThreshold: number,
+  daysRemaining: number,
 ): Promise<void> {
   await prismaWrite.auditEvent.create({
     data: {
       contractAddress,
       certificateId: certId,
-      eventType:     'certificate_published',
+      eventType: 'certificate_published',
       triggerSource: 'automatic',
-      timestamp:     new Date(),
+      timestamp: new Date(),
       details: {
-        action:        `expiry_warning_${daysThreshold}d`,
+        action: `expiry_warning_${daysThreshold}d`,
         daysRemaining,
-        threshold:     daysThreshold,
+        threshold: daysThreshold,
       } as import('@prisma/client').Prisma.InputJsonValue,
     },
   });
@@ -79,22 +76,22 @@ async function markExpiryEventFired(
 // ── Single check cycle ────────────────────────────────────────────────────────
 
 async function runExpiryCheckCycle(): Promise<void> {
-  const now       = new Date();
+  const now = new Date();
   // Look ahead 31 days to catch all three thresholds in one query
   const lookAhead = new Date(now.getTime() + 31 * 86400000);
 
   const expiring = await prismaRead.auditCertificate.findMany({
     where: {
-      status:    'published',
+      status: 'published',
       expiresAt: { gte: now, lte: lookAhead },
     },
     select: {
-      id:              true,
+      id: true,
       contractAddress: true,
-      version:         true,
-      overallScore:    true,
+      version: true,
+      overallScore: true,
       certificateHash: true,
-      expiresAt:       true,
+      expiresAt: true,
     },
   });
 
@@ -105,7 +102,7 @@ async function runExpiryCheckCycle(): Promise<void> {
   for (const cert of expiring) {
     if (!cert.expiresAt) continue;
 
-    const msRemaining   = cert.expiresAt.getTime() - now.getTime();
+    const msRemaining = cert.expiresAt.getTime() - now.getTime();
     const daysRemaining = Math.ceil(msRemaining / 86400000);
 
     // Determine which thresholds apply and haven't fired yet
@@ -116,16 +113,15 @@ async function runExpiryCheckCycle(): Promise<void> {
       if (alreadyFired) continue;
 
       const urgency: 'warning' | 'urgent' | 'critical' =
-        threshold === 7  ? 'critical' :
-        threshold === 14 ? 'urgent'   : 'warning';
+        threshold === 7 ? 'critical' : threshold === 14 ? 'urgent' : 'warning';
 
       // ── WS broadcast ───────────────────────────────────────────────────────
       broadcastCertExpiry({
         contractAddress: cert.contractAddress,
-        certId:          cert.id,
+        certId: cert.id,
         certificateHash: cert.certificateHash,
-        version:         cert.version,
-        expiresAt:       cert.expiresAt.toISOString(),
+        version: cert.version,
+        expiresAt: cert.expiresAt.toISOString(),
         daysRemaining,
         urgency,
         renewUrl: `/api/v1/contracts/${cert.contractAddress}/audit/refresh`,
@@ -142,38 +138,38 @@ async function runExpiryCheckCycle(): Promise<void> {
         daysRemaining,
       ).catch((e) =>
         logger.warn('Expiry push notification failed', {
-          certId: cert.id, error: String(e),
+          certId: cert.id,
+          error: String(e),
         }),
       );
 
       // ── Persist deduplication event ───────────────────────────────────────
-      await markExpiryEventFired(
-        cert.contractAddress, cert.id, threshold, daysRemaining,
-      );
+      await markExpiryEventFired(cert.contractAddress, cert.id, threshold, daysRemaining);
 
       // ── Auto re-audit at 7-day threshold ──────────────────────────────────
       // Fire a full re-audit so a fresh cert is ready before the current expires
       if (threshold === 7) {
         runAuditPipeline({
           contractAddress: cert.contractAddress,
-          trigger:         'scheduled',
-          mode:            'full',
-          calledBy:        'expiry-checker',
+          trigger: 'scheduled',
+          mode: 'full',
+          calledBy: 'expiry-checker',
         }).catch((e) =>
           logger.warn('Expiry-triggered re-audit failed', {
-            address: cert.contractAddress, error: String(e),
+            address: cert.contractAddress,
+            error: String(e),
           }),
         );
 
         logger.info('Auto re-audit triggered (7-day expiry)', {
           contractAddress: cert.contractAddress,
-          certId:          cert.id,
+          certId: cert.id,
         });
       }
 
       logger.info('Certificate expiry alert fired', {
         contractAddress: cert.contractAddress,
-        certId:          cert.id,
+        certId: cert.id,
         daysRemaining,
         threshold,
         urgency,
@@ -190,11 +186,14 @@ export function startAuditExpiryChecker(): void {
   if (expiryTimer) return;
 
   // First run after 2-minute startup grace
-  setTimeout(() => {
-    runExpiryCheckCycle().catch((e) =>
-      logger.error('Expiry check cycle error', { error: String(e) }),
-    );
-  }, 2 * 60 * 1000);
+  setTimeout(
+    () => {
+      runExpiryCheckCycle().catch((e) =>
+        logger.error('Expiry check cycle error', { error: String(e) }),
+      );
+    },
+    2 * 60 * 1000,
+  );
 
   expiryTimer = setInterval(() => {
     runExpiryCheckCycle().catch((e) =>

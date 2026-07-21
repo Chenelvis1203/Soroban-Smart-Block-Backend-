@@ -11,64 +11,68 @@ import type { AddressInfo } from 'node:net';
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
-const mockKyc = {
-  id: 'kyc_1',
-  userId: 'user_1',
-  tier: 'tier1',
-  status: 'approved',
-  blocked: false,
-  blockReason: null,
-  dailyLimitUsd: 1000,
-  monthlyLimitUsd: 10000,
-  dailyUsedUsd: 0,
-  monthlyUsedUsd: 0,
-  usageResetAt: null,
-  jurisdiction: 'US',
-  providerKycIds: {},
-  documentType: null,
-  documentCountry: null,
-  livenessScore: null,
-  pepScreened: true,
-  sanctionsScreened: true,
-  verifiedAt: new Date(),
-  expiresAt: new Date(Date.now() + 365 * 86400_000),
-  createdAt: new Date(),
-  updatedAt: new Date(),
-};
+const { mockKyc, mockOrder } = vi.hoisted(() => {
+  const mockKyc = {
+    id: 'kyc_1',
+    userId: 'user_1',
+    tier: 'tier1',
+    status: 'approved',
+    blocked: false,
+    blockReason: null,
+    dailyLimitUsd: 1000,
+    monthlyLimitUsd: 10000,
+    dailyUsedUsd: 0,
+    monthlyUsedUsd: 0,
+    usageResetAt: null,
+    jurisdiction: 'US',
+    providerKycIds: {},
+    documentType: null,
+    documentCountry: null,
+    livenessScore: null,
+    pepScreened: true,
+    sanctionsScreened: true,
+    verifiedAt: new Date(),
+    expiresAt: new Date(Date.now() + 365 * 86400_000),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
-const mockOrder = {
-  id: 'order_1',
-  userId: 'user_1',
-  kycId: 'kyc_1',
-  provider: 'moonpay',
-  providerOrderId: 'mp_123',
-  direction: 'buy',
-  status: 'processing',
-  fiatAmount: 100,
-  fiatCurrency: 'USD',
-  cryptoAsset: 'USDC',
-  walletAddress: 'GABCDEF',
-  paymentMethod: 'credit_card',
-  exchangeRate: 1.0,
-  cryptoAmount: 98.5,
-  platformFeeUsd: 0.5,
-  providerFeeUsd: 1.0,
-  networkFeeUsd: 0,
-  totalCostUsd: 101.5,
-  txHash: null,
-  refundAmount: null,
-  refundStatus: null,
-  refundedAt: null,
-  userIp: '1.2.3.4',
-  userCountry: 'US',
-  metadata: {},
-  completedAt: null,
-  failedAt: null,
-  failureReason: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-  events: [],
-};
+  const mockOrder = {
+    id: 'order_1',
+    userId: 'user_1',
+    kycId: 'kyc_1',
+    provider: 'moonpay',
+    providerOrderId: 'mp_123',
+    direction: 'buy',
+    status: 'processing',
+    fiatAmount: 100,
+    fiatCurrency: 'USD',
+    cryptoAsset: 'USDC',
+    walletAddress: 'GABCDEF',
+    paymentMethod: 'credit_card',
+    exchangeRate: 1.0,
+    cryptoAmount: 98.5,
+    platformFeeUsd: 0.5,
+    providerFeeUsd: 1.0,
+    networkFeeUsd: 0,
+    totalCostUsd: 101.5,
+    txHash: null,
+    refundAmount: null,
+    refundStatus: null,
+    refundedAt: null,
+    userIp: '1.2.3.4',
+    userCountry: 'US',
+    metadata: {},
+    completedAt: null,
+    failedAt: null,
+    failureReason: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    events: [],
+  };
+
+  return { mockKyc, mockOrder };
+});
 
 vi.mock('../src/db', () => ({
   prismaWrite: {
@@ -111,21 +115,29 @@ vi.mock('../src/middleware/asyncHandler', () => ({
 
 vi.mock('../src/auth/middleware', () => ({
   requireAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
-    (_req as express.Request & { user: unknown }).user = { id: 'user_1', address: 'GABCDEF', role: 'user', tier: 'free', sessionId: 'sess_1', appId: 'app_1' };
+    (_req as express.Request & { user: unknown }).user = {
+      id: 'user_1',
+      address: 'GABCDEF',
+      role: 'user',
+      tier: 'free',
+      sessionId: 'sess_1',
+      appId: 'app_1',
+    };
     next();
   },
-  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
+    next(),
 }));
 
 vi.mock('../src/services/ramp/kyc', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/services/ramp/kyc')>();
   return {
     ...actual,
-    checkKycAllowance: vi.fn().mockResolvedValue({ allowed: true, kycId: 'kyc_1', tier: 'tier1' }),
-    getOrCreateKycRecord: vi.fn().mockResolvedValue(mockKyc),
-    recordKycUsage: vi.fn().mockResolvedValue(undefined),
-    approveKyc: vi.fn().mockResolvedValue(undefined),
-    blockKyc: vi.fn().mockResolvedValue(undefined),
+    checkKycAllowance: vi.fn().mockImplementation(actual.checkKycAllowance),
+    getOrCreateKycRecord: vi.fn().mockImplementation(actual.getOrCreateKycRecord),
+    recordKycUsage: vi.fn().mockImplementation(actual.recordKycUsage),
+    approveKyc: vi.fn().mockImplementation(actual.approveKyc),
+    blockKyc: vi.fn().mockImplementation(actual.blockKyc),
   };
 });
 
@@ -133,13 +145,13 @@ vi.mock('../src/services/ramp/order-management', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/services/ramp/order-management')>();
   return {
     ...actual,
-    createOrder: vi.fn().mockResolvedValue(mockOrder),
-    transitionOrder: vi.fn().mockResolvedValue(undefined),
-    attachProviderOrderId: vi.fn().mockResolvedValue(undefined),
-    markRefundInitiated: vi.fn().mockResolvedValue(undefined),
-    getOrder: vi.fn().mockResolvedValue({ ...mockOrder, events: [] }),
-    getOrderByProviderRef: vi.fn().mockResolvedValue(mockOrder),
-    listUserOrders: vi.fn().mockResolvedValue([mockOrder]),
+    createOrder: vi.fn().mockImplementation(actual.createOrder),
+    transitionOrder: vi.fn().mockImplementation(actual.transitionOrder),
+    attachProviderOrderId: vi.fn().mockImplementation(actual.attachProviderOrderId),
+    markRefundInitiated: vi.fn().mockImplementation(actual.markRefundInitiated),
+    getOrder: vi.fn().mockImplementation(actual.getOrder),
+    getOrderByProviderRef: vi.fn().mockImplementation(actual.getOrderByProviderRef),
+    listUserOrders: vi.fn().mockImplementation(actual.listUserOrders),
   };
 });
 
@@ -271,7 +283,12 @@ describe('POST /ramp/quote', () => {
     const res = await fetch(`${baseUrl}/ramp/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'buy', fiatAmount: -50, cryptoAsset: 'USDC', paymentMethod: 'credit_card' }),
+      body: JSON.stringify({
+        direction: 'buy',
+        fiatAmount: -50,
+        cryptoAsset: 'USDC',
+        paymentMethod: 'credit_card',
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -280,7 +297,12 @@ describe('POST /ramp/quote', () => {
     const res = await fetch(`${baseUrl}/ramp/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'buy', fiatAmount: 100, cryptoAsset: 'DOGE', paymentMethod: 'credit_card' }),
+      body: JSON.stringify({
+        direction: 'buy',
+        fiatAmount: 100,
+        cryptoAsset: 'DOGE',
+        paymentMethod: 'credit_card',
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -289,7 +311,12 @@ describe('POST /ramp/quote', () => {
     const res = await fetch(`${baseUrl}/ramp/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'buy', fiatAmount: 100, cryptoAsset: 'USDC', paymentMethod: 'venmo' }),
+      body: JSON.stringify({
+        direction: 'buy',
+        fiatAmount: 100,
+        cryptoAsset: 'USDC',
+        paymentMethod: 'venmo',
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -324,7 +351,13 @@ describe('POST /ramp/execute', () => {
     const res = await fetch(`${baseUrl}/ramp/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'moonpay', direction: 'buy', fiatAmount: 100, cryptoAsset: 'USDC', paymentMethod: 'credit_card' }),
+      body: JSON.stringify({
+        provider: 'moonpay',
+        direction: 'buy',
+        fiatAmount: 100,
+        cryptoAsset: 'USDC',
+        paymentMethod: 'credit_card',
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -333,7 +366,14 @@ describe('POST /ramp/execute', () => {
     const res = await fetch(`${baseUrl}/ramp/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'unknown', direction: 'buy', fiatAmount: 100, cryptoAsset: 'USDC', walletAddress: 'GABC', paymentMethod: 'credit_card' }),
+      body: JSON.stringify({
+        provider: 'unknown',
+        direction: 'buy',
+        fiatAmount: 100,
+        cryptoAsset: 'USDC',
+        walletAddress: 'GABC',
+        paymentMethod: 'credit_card',
+      }),
     });
     expect(res.status).toBe(400);
   });
@@ -349,9 +389,13 @@ describe('POST /ramp/execute', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        provider: 'moonpay', direction: 'buy', fiatAmount: 100,
-        cryptoAsset: 'USDC', walletAddress: 'GABCDEF',
-        paymentMethod: 'credit_card', country: 'IR',
+        provider: 'moonpay',
+        direction: 'buy',
+        fiatAmount: 100,
+        cryptoAsset: 'USDC',
+        walletAddress: 'GABCDEF',
+        paymentMethod: 'credit_card',
+        country: 'IR',
       }),
     });
     expect(res.status).toBe(400);
@@ -539,7 +583,8 @@ describe('KYC allowance checks', () => {
   it('blocks sanctioned jurisdictions via checkKycAllowance mock', async () => {
     const { checkKycAllowance } = await import('../src/services/ramp/kyc');
     vi.mocked(checkKycAllowance as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      allowed: false, reason: 'Jurisdiction IR is not supported',
+      allowed: false,
+      reason: 'Jurisdiction IR is not supported',
     });
     const result = await checkKycAllowance('user_2', 100, 'IR');
     expect(result.allowed).toBe(false);
@@ -549,7 +594,9 @@ describe('KYC allowance checks', () => {
   it('allows tier1 user for $100 transaction', async () => {
     const { checkKycAllowance } = await import('../src/services/ramp/kyc');
     vi.mocked(checkKycAllowance as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      allowed: true, kycId: 'kyc_1', tier: 'tier1',
+      allowed: true,
+      kycId: 'kyc_1',
+      tier: 'tier1',
     });
     const result = await checkKycAllowance('user_1', 100, 'US');
     expect(result.allowed).toBe(true);
@@ -558,7 +605,8 @@ describe('KYC allowance checks', () => {
   it('blocks daily limit exceeded', async () => {
     const { checkKycAllowance } = await import('../src/services/ramp/kyc');
     vi.mocked(checkKycAllowance as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      allowed: false, reason: 'Daily limit of $1,000 exceeded for tier1',
+      allowed: false,
+      reason: 'Daily limit of $1,000 exceeded for tier1',
     });
     const result = await checkKycAllowance('user_1', 100, 'US');
     expect(result.allowed).toBe(false);
@@ -568,7 +616,8 @@ describe('KYC allowance checks', () => {
   it('requires tier2 for $5000 transaction when user is tier1', async () => {
     const { checkKycAllowance } = await import('../src/services/ramp/kyc');
     vi.mocked(checkKycAllowance as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      allowed: false, reason: 'KYC upgrade required: tier2 verification needed',
+      allowed: false,
+      reason: 'KYC upgrade required: tier2 verification needed',
     });
     const result = await checkKycAllowance('user_1', 5000, 'US');
     expect(result.allowed).toBe(false);
@@ -586,9 +635,14 @@ describe('Order management', () => {
       return mockOrder;
     });
     const order = await createOrder({
-      userId: 'user_1', provider: 'moonpay', direction: 'buy',
-      fiatAmount: 100, fiatCurrency: 'USD', cryptoAsset: 'USDC',
-      walletAddress: 'GABCDEF', paymentMethod: 'credit_card',
+      userId: 'user_1',
+      provider: 'moonpay',
+      direction: 'buy',
+      fiatAmount: 100,
+      fiatCurrency: 'USD',
+      cryptoAsset: 'USDC',
+      walletAddress: 'GABCDEF',
+      paymentMethod: 'credit_card',
     });
     expect(order.id).toBe('order_1');
     expect(prismaWrite.rampOrderEvent.create).toHaveBeenCalledOnce();
@@ -616,13 +670,20 @@ describe('AML monitoring', () => {
     (prismaRead.rampOrder.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
     // Call the real raiseFlagIfNeeded (not the mocked version used by HTTP routes)
-    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<typeof import('../src/services/ramp/aml')>('../src/services/ramp/aml');
+    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<
+      typeof import('../src/services/ramp/aml')
+    >('../src/services/ramp/aml');
     await realRaise({
-      userId: 'user_1', orderId: 'order_1',
-      fiatAmountUsd: 60_000, direction: 'buy', userCountry: 'US',
+      userId: 'user_1',
+      orderId: 'order_1',
+      fiatAmountUsd: 60_000,
+      direction: 'buy',
+      userCountry: 'US',
     });
     const createCalls = (prismaWrite.rampAmlFlag.create as ReturnType<typeof vi.fn>).mock.calls;
-    const largeFlag = createCalls.find((c: unknown[]) => (c[0] as { data: { flagType: string } }).data.flagType === 'large_single');
+    const largeFlag = createCalls.find(
+      (c: unknown[]) => (c[0] as { data: { flagType: string } }).data.flagType === 'large_single',
+    );
     expect(largeFlag).toBeDefined();
   });
 
@@ -631,13 +692,21 @@ describe('AML monitoring', () => {
     (prismaRead.rampOrder.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prismaRead.rampOrder.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<typeof import('../src/services/ramp/aml')>('../src/services/ramp/aml');
+    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<
+      typeof import('../src/services/ramp/aml')
+    >('../src/services/ramp/aml');
     await realRaise({
-      userId: 'user_1', orderId: 'order_1',
-      fiatAmountUsd: 500, direction: 'buy', userCountry: 'NG',
+      userId: 'user_1',
+      orderId: 'order_1',
+      fiatAmountUsd: 500,
+      direction: 'buy',
+      userCountry: 'NG',
     });
     const createCalls = (prismaWrite.rampAmlFlag.create as ReturnType<typeof vi.fn>).mock.calls;
-    const hrjFlag = createCalls.find((c: unknown[]) => (c[0] as { data: { flagType: string } }).data.flagType === 'high_risk_jurisdiction');
+    const hrjFlag = createCalls.find(
+      (c: unknown[]) =>
+        (c[0] as { data: { flagType: string } }).data.flagType === 'high_risk_jurisdiction',
+    );
     expect(hrjFlag).toBeDefined();
   });
 
@@ -646,13 +715,21 @@ describe('AML monitoring', () => {
     (prismaRead.rampOrder.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prismaRead.rampOrder.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
-    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<typeof import('../src/services/ramp/aml')>('../src/services/ramp/aml');
+    const { raiseFlagIfNeeded: realRaise } = await vi.importActual<
+      typeof import('../src/services/ramp/aml')
+    >('../src/services/ramp/aml');
     await realRaise({
-      userId: 'user_1', orderId: 'order_1',
-      fiatAmountUsd: 500, direction: 'buy', userCountry: 'US',
+      userId: 'user_1',
+      orderId: 'order_1',
+      fiatAmountUsd: 500,
+      direction: 'buy',
+      userCountry: 'US',
     });
     const createCalls = (prismaWrite.rampAmlFlag.create as ReturnType<typeof vi.fn>).mock.calls;
-    const hrjFlag = createCalls.find((c: unknown[]) => (c[0] as { data: { flagType: string } }).data.flagType === 'high_risk_jurisdiction');
+    const hrjFlag = createCalls.find(
+      (c: unknown[]) =>
+        (c[0] as { data: { flagType: string } }).data.flagType === 'high_risk_jurisdiction',
+    );
     expect(hrjFlag).toBeUndefined();
   });
 });
@@ -667,10 +744,13 @@ describe('Reconciliation engine', () => {
 
     const { getProviderOrderStatus } = await import('../src/services/ramp/gateway');
     vi.mocked(getProviderOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      providerOrderId: 'mp_123', status: 'processing',
+      providerOrderId: 'mp_123',
+      status: 'processing',
     });
 
-    const { runReconciliation } = await vi.importActual<typeof import('../src/services/ramp/reconciliation')>('../src/services/ramp/reconciliation');
+    const { runReconciliation } = await vi.importActual<
+      typeof import('../src/services/ramp/reconciliation')
+    >('../src/services/ramp/reconciliation');
     const result = await runReconciliation('moonpay', '2026-07-16');
 
     expect(result.ordersChecked).toBe(1);
@@ -685,14 +765,20 @@ describe('Reconciliation engine', () => {
 
     const { getProviderOrderStatus } = await import('../src/services/ramp/gateway');
     vi.mocked(getProviderOrderStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      providerOrderId: 'mp_123', status: 'completed', txHash: '0xabc',
+      providerOrderId: 'mp_123',
+      status: 'completed',
+      txHash: '0xabc',
     });
 
     (prismaRead.rampOrder.findUnique as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ...mockOrder, status: 'processing', events: [],
+      ...mockOrder,
+      status: 'processing',
+      events: [],
     });
 
-    const { runReconciliation } = await vi.importActual<typeof import('../src/services/ramp/reconciliation')>('../src/services/ramp/reconciliation');
+    const { runReconciliation } = await vi.importActual<
+      typeof import('../src/services/ramp/reconciliation')
+    >('../src/services/ramp/reconciliation');
     const result = await runReconciliation('moonpay', '2026-07-16');
 
     expect(result.discrepancyCount).toBe(1);

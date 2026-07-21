@@ -10,7 +10,6 @@ import { logger } from '../logger';
 import { z } from 'zod';
 import {
   traverseUpstream,
-  BATCH_SIZE,
   DEFAULT_MAX_DEPTH,
   DEFAULT_MAX_NODES,
   DEFAULT_TIMEOUT_MS,
@@ -156,7 +155,12 @@ graphRouter.post(
     const { query, parameters, timeout } = cypherQuerySchema.parse(req.body);
 
     // Security checks
-    if (query.includes('CREATE') || query.includes('DELETE') || query.includes('SET') || query.includes('REMOVE')) {
+    if (
+      query.includes('CREATE') ||
+      query.includes('DELETE') ||
+      query.includes('SET') ||
+      query.includes('REMOVE')
+    ) {
       return res.status(403).json({
         error: 'Write operations are not allowed through this endpoint',
       });
@@ -316,7 +320,7 @@ graphRouter.get(
 
     if (result.data.length > 0) {
       const rawData = result.data[0];
-      
+
       if (rawData.nodes) {
         for (const node of rawData.nodes) {
           const nodeId = node.id || node.identity;

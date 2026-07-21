@@ -11,21 +11,19 @@
  *   compact true — single-line compact badge (default false)
  */
 
-import crypto from 'crypto';
-
 // ── Colour palette ────────────────────────────────────────────────────────────
 
 const RISK_COLORS: Record<string, { bg: string; shadow: string; text: string }> = {
-  low:      { bg: '#44cc11', shadow: '#44b511', text: '#fff' },
-  medium:   { bg: '#dfb317', shadow: '#c9a003', text: '#fff' },
-  high:     { bg: '#e05d44', shadow: '#c9432f', text: '#fff' },
+  low: { bg: '#44cc11', shadow: '#44b511', text: '#fff' },
+  medium: { bg: '#dfb317', shadow: '#c9a003', text: '#fff' },
+  high: { bg: '#e05d44', shadow: '#c9432f', text: '#fff' },
   critical: { bg: '#9b0000', shadow: '#7a0000', text: '#fff' },
-  unknown:  { bg: '#9f9f9f', shadow: '#888',    text: '#fff' },
+  unknown: { bg: '#9f9f9f', shadow: '#888', text: '#fff' },
 };
 
-const LABEL_BG      = '#555';
-const LABEL_SHADOW  = '#333';
-const LABEL_TEXT    = '#fff';
+const LABEL_BG = '#555';
+const LABEL_SHADOW = '#333';
+const LABEL_TEXT = '#fff';
 
 // ── SVG font metrics (Verdana 11px approximation) ────────────────────────────
 
@@ -38,11 +36,11 @@ function textWidth(s: string): number {
 // ── Badge renderers ───────────────────────────────────────────────────────────
 
 interface BadgeData {
-  label:     string; // left section text
-  message:   string; // right section text
+  label: string; // left section text
+  message: string; // right section text
   riskLevel: string;
-  score:     number;
-  grade:     string;
+  score: number;
+  grade: string;
   contractAddress: string;
   verifyUrl: string;
   generatedAt: string;
@@ -140,9 +138,9 @@ function renderPlastic(d: BadgeData): string {
 
 function renderCompact(d: BadgeData): string {
   const colors = RISK_COLORS[d.riskLevel] ?? RISK_COLORS.unknown;
-  const text   = `Audit ${d.score}`;
-  const w      = textWidth(text) + 8;
-  const h      = 20;
+  const text = `Audit ${d.score}`;
+  const w = textWidth(text) + 8;
+  const h = 20;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
   width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img"
@@ -161,7 +159,7 @@ function renderCompact(d: BadgeData): string {
 // ── Audit not-found badge ─────────────────────────────────────────────────────
 
 function renderNotAudited(contractAddress: string, style: string): string {
-  const label   = 'soroban audit';
+  const label = 'soroban audit';
   const message = 'not audited';
   const lw = textWidth(label);
   const rw = textWidth(message);
@@ -190,7 +188,7 @@ function renderNotAudited(contractAddress: string, style: string): string {
 export type BadgeStyle = 'flat' | 'flat-square' | 'plastic';
 
 export interface BadgeOptions {
-  style:   BadgeStyle;
+  style: BadgeStyle;
   compact: boolean;
 }
 
@@ -213,25 +211,25 @@ export function generateBadgeSvg(
 ): string {
   if (!cert) return renderNotAudited(contractAddress, opts.style);
 
-  const score    = cert.overallScore;
-  const grade    = score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
-  const risk     = score >= 85 ? 'low' : score >= 70 ? 'medium' : score >= 55 ? 'high' : 'critical';
+  const score = cert.overallScore;
+  const grade = score >= 85 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
+  const risk = score >= 85 ? 'low' : score >= 70 ? 'medium' : score >= 55 ? 'high' : 'critical';
   const isExpired = !!cert.expiresAt && cert.expiresAt < new Date();
-  const baseUrl  = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
+  const baseUrl = process.env.PUBLIC_API_BASE_URL ?? 'https://explorer.soroban.network';
 
   const data: BadgeData = {
-    label:           'soroban audit',
-    message:         isExpired ? `${score} (expired)` : `${score} ${grade}`,
-    riskLevel:       isExpired ? 'unknown' : risk,
+    label: 'soroban audit',
+    message: isExpired ? `${score} (expired)` : `${score} ${grade}`,
+    riskLevel: isExpired ? 'unknown' : risk,
     score,
     grade,
     contractAddress: cert.contractAddress,
-    verifyUrl:       `${baseUrl}/api/v1/audit/verify/${cert.id}`,
-    generatedAt:     cert.generatedAt.toISOString(),
+    verifyUrl: `${baseUrl}/api/v1/audit/verify/${cert.id}`,
+    generatedAt: cert.generatedAt.toISOString(),
   };
 
-  if (opts.compact)                    return renderCompact(data);
-  if (opts.style === 'plastic')        return renderPlastic(data);
-  if (opts.style === 'flat-square')    return renderFlat(data, true);
+  if (opts.compact) return renderCompact(data);
+  if (opts.style === 'plastic') return renderPlastic(data);
+  if (opts.style === 'flat-square') return renderFlat(data, true);
   return renderFlat(data, false);
 }

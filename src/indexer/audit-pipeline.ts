@@ -24,29 +24,15 @@
  *   manual       → POST /api/v1/contracts/:address/audit/refresh
  */
 
-import crypto from 'crypto';
 import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
-import {
-  runAudit,
-  needsReaudit,
-  verifyCertificateSignature,
-  CertificatePayload,
-  hashCertificate,
-  signCertificate,
-} from './audit-engine';
+import { runAudit } from './audit-engine';
 import { emitPostAuditAlerts } from './audit-monitor';
 import { anchorCertificateForPipeline } from '../lib/anchor-service';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type TriggerType =
-  | 'initial'
-  | 'upgrade'
-  | 'dependency'
-  | 'daily'
-  | 'weekly'
-  | 'manual';
+export type TriggerType = 'initial' | 'upgrade' | 'dependency' | 'daily' | 'weekly' | 'manual';
 
 export type AuditMode = 'full' | 'incremental';
 
@@ -76,61 +62,57 @@ export interface PipelineResult {
 // ── Dimension change detection (incremental mode) ─────────────────────────────
 
 /** Returns which dimensions have new data since the last certificate was generated. */
-async function changedDimensions(
-  contractAddress: string,
-  since: Date,
-): Promise<Set<string>> {
+async function changedDimensions(contractAddress: string, since: Date): Promise<Set<string>> {
   const changed = new Set<string>();
 
-  const [
-    newUpgrade,
-    newReentrancy,
-    newMev,
-    newFreeze,
-    newAdvisory,
-    newSanction,
-    newPortfolio,
-  ] = await Promise.all([
-    prismaRead.wasmUpgradeHistory.findFirst({
-      where: { contractAddress, createdAt: { gt: since } },
-      select: { id: true },
-    }),
-    prismaRead.reentrancyAlert.findFirst({
-      where: { contractAddress, createdAt: { gt: since } },
-      select: { id: true },
-    }),
-    prismaRead.mevEvent.findFirst({
-      where: { protocolAddress: contractAddress, createdAt: { gt: since } },
-      select: { id: true },
-    }),
-    prismaRead.freezeViolation.findFirst({
-      where: { contractAddress, createdAt: { gt: since } },
-      select: { id: true },
-    }),
-    prismaRead.threatAdvisory.findFirst({
-      where: {
-        affectedContracts: { has: contractAddress },
-        createdAt: { gt: since },
-      },
-      select: { id: true },
-    }),
-    prismaRead.sanctionedAddress.findFirst({
-      where: { addedAt: { gt: since } },
-      select: { id: true },
-    }),
-    prismaRead.portfolioSnapshot.findFirst({
-      where: { contractAddress, snapshotAt: { gt: since } },
-      select: { id: true },
-    }),
-  ]);
+  const [newUpgrade, newReentrancy, newMev, newFreeze, newAdvisory, newSanction, newPortfolio] =
+    await Promise.all([
+      prismaRead.wasmUpgradeHistory.findFirst({
+        where: { contractAddress, createdAt: { gt: since } },
+        select: { id: true },
+      }),
+      prismaRead.reentrancyAlert.findFirst({
+        where: { contractAddress, createdAt: { gt: since } },
+        select: { id: true },
+      }),
+      prismaRead.mevEvent.findFirst({
+        where: { protocolAddress: contractAddress, createdAt: { gt: since } },
+        select: { id: true },
+      }),
+      prismaRead.freezeViolation.findFirst({
+        where: { contractAddress, createdAt: { gt: since } },
+        select: { id: true },
+      }),
+      prismaRead.threatAdvisory.findFirst({
+        where: {
+          affectedContracts: { has: contractAddress },
+          createdAt: { gt: since },
+        },
+        select: { id: true },
+      }),
+      prismaRead.sanctionedAddress.findFirst({
+        where: { addedAt: { gt: since } },
+        select: { id: true },
+      }),
+      prismaRead.portfolioSnapshot.findFirst({
+        where: { contractAddress, snapshotAt: { gt: since } },
+        select: { id: true },
+      }),
+    ]);
 
-  if (newUpgrade)   { changed.add('security'); changed.add('governance'); }
+  if (newUpgrade) {
+    changed.add('security');
+    changed.add('governance');
+  }
   if (newReentrancy) changed.add('security');
-  if (newMev)        { changed.add('security'); changed.add('economics'); }
-  if (newFreeze)     changed.add('security');
-  if (newAdvisory)   changed.add('security');
-  if (newSanction)   changed.add('compliance');
-  if (newPortfolio)  changed.add('economics');
+  if (newMev) {
+    changed.add('security');
+    changed.add('economics');
+  }
+  if (newFreeze) changed.add('security');
+  if (newAdvisory) changed.add('security');
+  if (newSanction) changed.add('compliance');
+  if (newPortfolio) changed.add('economics');
 
   return changed;
 }
@@ -144,13 +126,15 @@ async function changedDimensions(
  */
 async function anchorOnChain(
   contractAddress: string,
-  certId:          string,
+  certId: string,
   certificateHash: string,
 ): Promise<string | null> {
   try {
     const result = await anchorCertificateForPipeline(certId, certificateHash);
     logger.info('Certificate anchored', {
-      certId, txHash: result.txHash, simulated: result.simulated,
+      certId,
+      txHash: result.txHash,
+      simulated: result.simulated,
     });
     return result.txHash;
   } catch (e) {
@@ -275,10 +259,7 @@ async function buildIncrementalScores(
 
   if (!prev) return null;
 
-  const stored = prev.scores as Record<
-    string,
-    { score: number; detail: Record<string, unknown> }
-  >;
+  const stored = prev.scores as Record<string, { score: number; detail: Record<string, unknown> }>;
 
   // Validate all five dimensions exist in stored snapshot
   const required = ['security', 'governance', 'economic', 'compliance', 'liquidity'];
@@ -374,9 +355,13 @@ export async function runAuditPipeline(opts: PipelineOptions): Promise<PipelineR
   // Full incremental score-merging is a future optimisation — the engine
   // currently recomputes all dimensions for correctness.
   const triggerSource: 'scheduled' | 'automatic' | 'manual' | 'external' =
-    trigger === 'manual' ? 'manual' :
-    trigger === 'initial' || trigger === 'dependency' ? 'automatic' :
-    trigger === 'upgrade' ? 'automatic' : 'scheduled';
+    trigger === 'manual'
+      ? 'manual'
+      : trigger === 'initial' || trigger === 'dependency'
+        ? 'automatic'
+        : trigger === 'upgrade'
+          ? 'automatic'
+          : 'scheduled';
 
   const certId = await runAudit(contractAddress, triggerSource);
 
@@ -554,9 +539,7 @@ export function triggerUpgradeAudit(contractAddress: string): void {
  * Called when a new critical ThreatAdvisory is added that affects one or more
  * contracts. Each affected contract receives an immediate full re-audit.
  */
-export async function triggerDependencyAudit(
-  affectedContracts: string[],
-): Promise<void> {
+export async function triggerDependencyAudit(affectedContracts: string[]): Promise<void> {
   logger.info('Dependency audit triggered', {
     count: affectedContracts.length,
   });

@@ -18,8 +18,8 @@
  *   userId          = "slack:<team_id>:<channel_id>" | "discord:<guild_id>:<channel_id>"
  */
 
-import crypto  from 'crypto';
-import axios   from 'axios';
+import crypto from 'crypto';
+import axios from 'axios';
 import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
 import { cacheGet, cacheSet } from '../cache';
@@ -30,18 +30,18 @@ export type BotPlatform = 'slack' | 'discord';
 
 export interface SlashCommandResult {
   responseType: 'ephemeral' | 'in_channel';
-  text?:        string;
-  blocks?:      unknown[];
-  embeds?:      DiscordEmbed[]; // Discord only
+  text?: string;
+  blocks?: unknown[];
+  embeds?: DiscordEmbed[]; // Discord only
 }
 
 interface DiscordEmbed {
-  title:       string;
+  title: string;
   description: string;
-  color:       number;
-  fields:      Array<{ name: string; value: string; inline?: boolean }>;
-  footer?:     { text: string };
-  url?:        string;
+  color: number;
+  fields: Array<{ name: string; value: string; inline?: boolean }>;
+  footer?: { text: string };
+  url?: string;
 }
 
 // ── Shared score helpers ───────────────────────────────────────────────────────
@@ -63,33 +63,43 @@ function scoreColor(s: number): number {
   if (s >= 85) return 0x22c55e; // green
   if (s >= 70) return 0xeab308; // amber
   if (s >= 55) return 0xef4444; // red
-  return 0x7f1d1d;              // dark red
+  return 0x7f1d1d; // dark red
 }
 
 // ── Fetch audit data for a contract ──────────────────────────────────────────
 
 async function fetchAuditSummary(contractAddress: string) {
   const cacheKey = `bot:audit:${contractAddress}`;
-  const cached   = await cacheGet<Record<string, unknown>>(cacheKey);
+  const cached = await cacheGet<Record<string, unknown>>(cacheKey);
   if (cached) return cached;
 
   const cert = await prismaRead.auditCertificate.findFirst({
-    where:   { contractAddress, status: 'published' },
+    where: { contractAddress, status: 'published' },
     orderBy: { version: 'desc' },
     select: {
-      id: true, version: true, overallScore: true,
-      securityScore: true, governanceScore: true,
-      economicScore: true, complianceScore: true, liquidityScore: true,
-      totalFindings: true, criticalFindings: true, highFindings: true,
-      openFindings: true, certificateHash: true,
-      generatedAt: true, expiresAt: true, anchorTxHash: true,
+      id: true,
+      version: true,
+      overallScore: true,
+      securityScore: true,
+      governanceScore: true,
+      economicScore: true,
+      complianceScore: true,
+      liquidityScore: true,
+      totalFindings: true,
+      criticalFindings: true,
+      highFindings: true,
+      openFindings: true,
+      certificateHash: true,
+      generatedAt: true,
+      expiresAt: true,
+      anchorTxHash: true,
     },
   });
 
   if (!cert) return null;
 
   const contract = await prismaRead.contract.findUnique({
-    where:  { address: contractAddress },
+    where: { address: contractAddress },
     select: { name: true, tokenSymbol: true, isToken: true },
   });
 
@@ -109,15 +119,18 @@ function buildAuditBlocks(
     return [
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: `No audit certificate found for \`${contractAddress}\`.\nTrigger one at: *${baseUrl}/api/v1/contracts/${contractAddress}/audit/refresh*` },
+        text: {
+          type: 'mrkdwn',
+          text: `No audit certificate found for \`${contractAddress}\`.\nTrigger one at: *${baseUrl}/api/v1/contracts/${contractAddress}/audit/refresh*`,
+        },
       },
     ];
   }
 
   const { cert, contract } = data;
-  const name  = contract?.name ?? contract?.tokenSymbol ?? contractAddress.slice(0, 12) + '...';
+  const name = contract?.name ?? contract?.tokenSymbol ?? contractAddress.slice(0, 12) + '...';
   const grade = scoreGrade(cert.overallScore);
-  const risk  = riskLabel(cert.overallScore);
+  const risk = riskLabel(cert.overallScore);
   const emoji = riskEmoji(cert.overallScore);
   const daysLeft = cert.expiresAt
     ? Math.ceil((cert.expiresAt.getTime() - Date.now()) / 86400000)
@@ -146,7 +159,9 @@ function buildAuditBlocks(
           `*Findings:* ${cert.totalFindings} total — ${cert.criticalFindings} critical, ${cert.highFindings} high, ${cert.openFindings} open`,
           daysLeft !== null ? `*Certificate expires in* ${daysLeft} day(s)` : '',
           cert.anchorTxHash ? `*On-chain anchor:* ✅` : `*On-chain anchor:* ⏳ not anchored`,
-        ].filter(Boolean).join('\n'),
+        ]
+          .filter(Boolean)
+          .join('\n'),
       },
     },
     {
@@ -155,24 +170,29 @@ function buildAuditBlocks(
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Full Report' },
-          url:  `${baseUrl}/api/v1/contracts/${contractAddress}/audit`,
+          url: `${baseUrl}/api/v1/contracts/${contractAddress}/audit`,
           style: 'primary',
         },
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Verify Certificate' },
-          url:  `${baseUrl}/api/v1/audit/verify/${cert.id}`,
+          url: `${baseUrl}/api/v1/audit/verify/${cert.id}`,
         },
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Download PDF' },
-          url:  `${baseUrl}/api/v1/contracts/${contractAddress}/audit/pdf`,
+          url: `${baseUrl}/api/v1/contracts/${contractAddress}/audit/pdf`,
         },
       ],
     },
     {
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `_Audited ${new Date(cert.generatedAt).toISOString().slice(0, 10)} · Soroban Audit Platform_` }],
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `_Audited ${new Date(cert.generatedAt).toISOString().slice(0, 10)} · Soroban Audit Platform_`,
+        },
+      ],
     },
   ];
 }
@@ -186,34 +206,41 @@ function buildAuditEmbed(
 ): DiscordEmbed {
   if (!data) {
     return {
-      title:       'Contract Not Audited',
+      title: 'Contract Not Audited',
       description: `No audit certificate found for \`${contractAddress}\``,
-      color:       0x9f9f9f,
-      fields:      [{ name: 'Trigger audit', value: `POST ${baseUrl}/api/v1/contracts/${contractAddress}/audit/refresh` }],
+      color: 0x9f9f9f,
+      fields: [
+        {
+          name: 'Trigger audit',
+          value: `POST ${baseUrl}/api/v1/contracts/${contractAddress}/audit/refresh`,
+        },
+      ],
     };
   }
 
   const { cert, contract } = data;
-  const name  = contract?.name ?? contract?.tokenSymbol ?? contractAddress.slice(0, 16) + '...';
+  const name = contract?.name ?? contract?.tokenSymbol ?? contractAddress.slice(0, 16) + '...';
   const grade = scoreGrade(cert.overallScore);
 
   return {
-    title:       `📋 ${name} — Audit Report v${cert.version}`,
+    title: `📋 ${name} — Audit Report v${cert.version}`,
     description: `**Overall: ${cert.overallScore}/100** (Grade ${grade}) · ${riskLabel(cert.overallScore).toUpperCase()}`,
-    color:       scoreColor(cert.overallScore),
-    url:         `${baseUrl}/api/v1/contracts/${contractAddress}/audit`,
+    color: scoreColor(cert.overallScore),
+    url: `${baseUrl}/api/v1/contracts/${contractAddress}/audit`,
     fields: [
-      { name: '🔒 Security',   value: String(cert.securityScore),   inline: true },
+      { name: '🔒 Security', value: String(cert.securityScore), inline: true },
       { name: '🏛 Governance', value: String(cert.governanceScore), inline: true },
-      { name: '💰 Economic',   value: String(cert.economicScore),   inline: true },
+      { name: '💰 Economic', value: String(cert.economicScore), inline: true },
       { name: '📜 Compliance', value: String(cert.complianceScore), inline: true },
-      { name: '💧 Liquidity',  value: String(cert.liquidityScore),  inline: true },
-      { name: '\u200B',        value: '\u200B',                     inline: true },
-      { name: '🚨 Critical',   value: String(cert.criticalFindings), inline: true },
-      { name: '⚠️ High',       value: String(cert.highFindings),    inline: true },
-      { name: '📂 Open',       value: String(cert.openFindings),    inline: true },
+      { name: '💧 Liquidity', value: String(cert.liquidityScore), inline: true },
+      { name: '\u200B', value: '\u200B', inline: true },
+      { name: '🚨 Critical', value: String(cert.criticalFindings), inline: true },
+      { name: '⚠️ High', value: String(cert.highFindings), inline: true },
+      { name: '📂 Open', value: String(cert.openFindings), inline: true },
     ],
-    footer: { text: `Audited ${new Date(cert.generatedAt).toISOString().slice(0,10)} · Soroban Audit Platform` },
+    footer: {
+      text: `Audited ${new Date(cert.generatedAt).toISOString().slice(0, 10)} · Soroban Audit Platform`,
+    },
   };
 }
 
@@ -247,10 +274,10 @@ function buildHelpBlocks(baseUrl: string, platform: BotPlatform): unknown[] {
 
 async function subscribeChannel(
   contractAddress: string,
-  platform:        BotPlatform,
-  webhookUrl:      string,
-  channelId:       string,
-  channelName:     string,
+  platform: BotPlatform,
+  webhookUrl: string,
+  channelId: string,
+  channelName: string,
 ): Promise<{ ok: boolean; message: string }> {
   const userId = `${platform}:${channelId}`;
 
@@ -260,38 +287,54 @@ async function subscribeChannel(
     select: { id: true },
   });
   if (existing) {
-    return { ok: false, message: `Channel is already subscribed to \`${contractAddress.slice(0, 16)}...\`` };
+    return {
+      ok: false,
+      message: `Channel is already subscribed to \`${contractAddress.slice(0, 16)}...\``,
+    };
   }
 
   // Verify contract exists
   const contract = await prismaRead.contract.findUnique({
-    where: { address: contractAddress }, select: { address: true },
+    where: { address: contractAddress },
+    select: { address: true },
   });
   if (!contract) {
-    return { ok: false, message: `Contract \`${contractAddress.slice(0, 16)}...\` not found in the explorer index.` };
+    return {
+      ok: false,
+      message: `Contract \`${contractAddress.slice(0, 16)}...\` not found in the explorer index.`,
+    };
   }
 
   await prismaWrite.auditSubscription.create({
     data: {
       contractAddress,
       userId,
-      alertTypes:      ['score_drop', 'new_finding', 'upgrade', 'certificate_update', 'certificate_expiry'],
-      threshold:       10,
+      alertTypes: [
+        'score_drop',
+        'new_finding',
+        'upgrade',
+        'certificate_update',
+        'certificate_expiry',
+      ],
+      threshold: 10,
       cooldownMinutes: 60,
-      slackWebhookUrl: platform === 'slack'   ? webhookUrl : null,
-      slackChannel:    platform === 'slack'   ? channelName : null,
-      webhookUrl:      platform === 'discord' ? webhookUrl : null,
-      isActive:        true,
+      slackWebhookUrl: platform === 'slack' ? webhookUrl : null,
+      slackChannel: platform === 'slack' ? channelName : null,
+      webhookUrl: platform === 'discord' ? webhookUrl : null,
+      isActive: true,
     },
   });
 
-  return { ok: true, message: `✅ Subscribed to audit alerts for \`${contractAddress.slice(0, 16)}...\`. You'll receive notifications for score drops, new findings, upgrades, and certificate updates.` };
+  return {
+    ok: true,
+    message: `✅ Subscribed to audit alerts for \`${contractAddress.slice(0, 16)}...\`. You'll receive notifications for score drops, new findings, upgrades, and certificate updates.`,
+  };
 }
 
 async function unsubscribeChannel(
   contractAddress: string,
-  platform:        BotPlatform,
-  channelId:       string,
+  platform: BotPlatform,
+  channelId: string,
 ): Promise<{ ok: boolean; message: string }> {
   const userId = `${platform}:${channelId}`;
 
@@ -301,32 +344,33 @@ async function unsubscribeChannel(
   });
 
   if (!sub) {
-    return { ok: false, message: `No active subscription found for \`${contractAddress.slice(0, 16)}...\` in this channel.` };
+    return {
+      ok: false,
+      message: `No active subscription found for \`${contractAddress.slice(0, 16)}...\` in this channel.`,
+    };
   }
 
   await prismaWrite.auditSubscription.update({
     where: { id: sub.id },
-    data:  { isActive: false },
+    data: { isActive: false },
   });
 
-  return { ok: true, message: `✅ Unsubscribed from audit alerts for \`${contractAddress.slice(0, 16)}...\`.` };
+  return {
+    ok: true,
+    message: `✅ Unsubscribed from audit alerts for \`${contractAddress.slice(0, 16)}...\`.`,
+  };
 }
 
 // ── Weekly digest builder ─────────────────────────────────────────────────────
 
 export async function buildWeeklyDigest(baseUrl: string): Promise<{
-  blocks:  unknown[];
-  embeds:  DiscordEmbed[];
-  text:    string;
+  blocks: unknown[];
+  embeds: DiscordEmbed[];
+  text: string;
 }> {
   const since7d = new Date(Date.now() - 7 * 86400000);
 
-  const [
-    newCerts,
-    mostImproved,
-    newCritical,
-    totalAudited,
-  ] = await Promise.all([
+  const [newCerts, mostImproved, newCritical, totalAudited] = await Promise.all([
     // New certificates this week
     prismaRead.auditCertificate.count({
       where: { status: 'published', generatedAt: { gte: since7d } },
@@ -334,12 +378,14 @@ export async function buildWeeklyDigest(baseUrl: string): Promise<{
 
     // Most improved: highest score delta (new cert vs previous)
     prismaRead.auditCertificate.findMany({
-      where:   { status: 'published', generatedAt: { gte: since7d } },
+      where: { status: 'published', generatedAt: { gte: since7d } },
       orderBy: { overallScore: 'desc' },
-      take:    5,
+      take: 5,
       select: {
-        contractAddress: true, overallScore: true,
-        version: true, criticalFindings: true,
+        contractAddress: true,
+        overallScore: true,
+        version: true,
+        criticalFindings: true,
       },
     }),
 
@@ -349,14 +395,19 @@ export async function buildWeeklyDigest(baseUrl: string): Promise<{
     }),
 
     // Total unique audited contracts
-    prismaRead.auditCertificate.groupBy({
-      by:    ['contractAddress'],
-      where: { status: 'published' },
-    }).then((r) => r.length),
+    prismaRead.auditCertificate
+      .groupBy({
+        by: ['contractAddress'],
+        where: { status: 'published' },
+      })
+      .then((r) => r.length),
   ]);
 
   const improvdLines = mostImproved
-    .map((c, i) => `${i + 1}. \`${c.contractAddress.slice(0, 16)}...\` — Score ${c.overallScore} (Grade ${scoreGrade(c.overallScore)})`)
+    .map(
+      (c, i) =>
+        `${i + 1}. \`${c.contractAddress.slice(0, 16)}...\` — Score ${c.overallScore} (Grade ${scoreGrade(c.overallScore)})`,
+    )
     .join('\n');
 
   // Slack blocks
@@ -386,39 +437,44 @@ export async function buildWeeklyDigest(baseUrl: string): Promise<{
         {
           type: 'button',
           text: { type: 'plain_text', text: 'View Leaderboard' },
-          url:  `${baseUrl}/api/v1/audit/leaderboard`,
+          url: `${baseUrl}/api/v1/audit/leaderboard`,
           style: 'primary',
         },
         {
           type: 'button',
           text: { type: 'plain_text', text: 'Platform Stats' },
-          url:  `${baseUrl}/api/v1/audit/stats`,
+          url: `${baseUrl}/api/v1/audit/stats`,
         },
       ],
     },
     {
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `_Week of ${since7d.toISOString().slice(0, 10)} · Soroban Audit Platform_` }],
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `_Week of ${since7d.toISOString().slice(0, 10)} · Soroban Audit Platform_`,
+        },
+      ],
     },
   ];
 
   // Discord embed
   const embeds: DiscordEmbed[] = [
     {
-      title:       '📊 Weekly Audit Digest',
+      title: '📊 Weekly Audit Digest',
       description: `**${newCerts}** new audits this week across **${totalAudited}** contracts`,
-      color:       0x1e40af,
+      color: 0x1e40af,
       fields: [
         { name: '🚨 New Critical Findings', value: String(newCritical), inline: true },
-        { name: '📋 Total Audited',         value: String(totalAudited), inline: true },
-        { name: '\u200B',                    value: '\u200B',            inline: true },
+        { name: '📋 Total Audited', value: String(totalAudited), inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
         {
-          name:  '🏆 Top Scores This Week',
+          name: '🏆 Top Scores This Week',
           value: improvdLines || '_No new audits_',
         },
       ],
-      url:    `${baseUrl}/api/v1/audit/leaderboard`,
-      footer: { text: `Week of ${since7d.toISOString().slice(0,10)} · Soroban Audit Platform` },
+      url: `${baseUrl}/api/v1/audit/leaderboard`,
+      footer: { text: `Week of ${since7d.toISOString().slice(0, 10)} · Soroban Audit Platform` },
     },
   ];
 
@@ -431,9 +487,9 @@ export async function buildWeeklyDigest(baseUrl: string): Promise<{
 
 export function verifySlackSignature(
   signingSecret: string,
-  timestamp:     string,
-  body:          string,
-  signature:     string,
+  timestamp: string,
+  body: string,
+  signature: string,
 ): boolean {
   if (!signingSecret || !timestamp || !signature) return false;
   // Reject if timestamp is more than 5 minutes old
@@ -441,16 +497,11 @@ export function verifySlackSignature(
   if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
 
   const baseString = `v0:${timestamp}:${body}`;
-  const computed   = 'v0=' + crypto
-    .createHmac('sha256', signingSecret)
-    .update(baseString)
-    .digest('hex');
+  const computed =
+    'v0=' + crypto.createHmac('sha256', signingSecret).update(baseString).digest('hex');
 
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(computed, 'utf8'),
-      Buffer.from(signature, 'utf8'),
-    );
+    return crypto.timingSafeEqual(Buffer.from(computed, 'utf8'), Buffer.from(signature, 'utf8'));
   } catch {
     return false;
   }
@@ -461,7 +512,7 @@ export function verifySlackSignature(
 export function verifyDiscordSignature(
   publicKey: string,
   timestamp: string,
-  body:      string,
+  body: string,
   signature: string,
 ): boolean {
   if (!publicKey || !timestamp || !signature) return false;
@@ -470,7 +521,12 @@ export function verifyDiscordSignature(
     const msg = Buffer.from(timestamp + body);
     const sig = Buffer.from(signature, 'hex');
     const key = Buffer.from(publicKey, 'hex');
-    return crypto.verify(null, msg, { key, format: 'der', type: 'spki', dsaEncoding: 'ieee-p1363' }, sig);
+    return crypto.verify(
+      null,
+      msg,
+      { key, format: 'der', type: 'spki', dsaEncoding: 'ieee-p1363' },
+      sig,
+    );
   } catch {
     // crypto.verify with raw Ed25519 may not be available in all Node versions
     // Fall back to accepting (callers should validate at ingress in production)
@@ -482,30 +538,35 @@ export function verifyDiscordSignature(
 // ── Main slash command handler ────────────────────────────────────────────────
 
 export async function handleSlashCommand(
-  platform:    BotPlatform,
-  text:        string,        // command text after /audit
-  channelId:   string,        // channel/conversation id
-  channelName: string,        // human-readable channel name
-  webhookUrl:  string,        // for subscribing — response URL or incoming webhook
-  baseUrl:     string,
+  platform: BotPlatform,
+  text: string, // command text after /audit
+  channelId: string, // channel/conversation id
+  channelName: string, // human-readable channel name
+  webhookUrl: string, // for subscribing — response URL or incoming webhook
+  baseUrl: string,
 ): Promise<SlashCommandResult> {
-  const parts   = text.trim().split(/\s+/);
-  const subCmd  = parts[0]?.toLowerCase() ?? '';
-  const arg     = parts[1] ?? '';
+  const parts = text.trim().split(/\s+/);
+  const subCmd = parts[0]?.toLowerCase() ?? '';
+  const arg = parts[1] ?? '';
 
   // /audit help
   if (!subCmd || subCmd === 'help') {
     return {
       responseType: 'ephemeral',
       blocks: buildHelpBlocks(baseUrl, platform) as unknown[],
-      text:   'Soroban Audit Bot — use /audit help for usage',
+      text: 'Soroban Audit Bot — use /audit help for usage',
     };
   }
 
   // /audit digest
   if (subCmd === 'digest') {
     const digest = await buildWeeklyDigest(baseUrl);
-    return { responseType: 'in_channel', blocks: digest.blocks, embeds: digest.embeds, text: digest.text };
+    return {
+      responseType: 'in_channel',
+      blocks: digest.blocks,
+      embeds: digest.embeds,
+      text: digest.text,
+    };
   }
 
   // /audit subscribe <address>
@@ -537,15 +598,19 @@ export async function handleSlashCommand(
   if (platform === 'discord') {
     return {
       responseType: 'in_channel',
-      embeds:       [buildAuditEmbed(contractAddress, data, baseUrl)],
-      text:         data ? `Audit for ${contractAddress.slice(0, 16)}... — Score ${data.cert.overallScore}` : 'No audit found',
+      embeds: [buildAuditEmbed(contractAddress, data, baseUrl)],
+      text: data
+        ? `Audit for ${contractAddress.slice(0, 16)}... — Score ${data.cert.overallScore}`
+        : 'No audit found',
     };
   }
 
   return {
     responseType: 'in_channel',
-    blocks:       buildAuditBlocks(contractAddress, data, baseUrl),
-    text:         data ? `Audit for ${contractAddress.slice(0, 16)}... — Score ${data.cert.overallScore}` : 'No audit found',
+    blocks: buildAuditBlocks(contractAddress, data, baseUrl),
+    text: data
+      ? `Audit for ${contractAddress.slice(0, 16)}... — Score ${data.cert.overallScore}`
+      : 'No audit found',
   };
 }
 
@@ -553,9 +618,9 @@ export async function handleSlashCommand(
 
 export async function postToSlackChannel(
   webhookUrl: string,
-  blocks:     unknown[],
-  text:       string,
-  channel?:   string,
+  blocks: unknown[],
+  text: string,
+  channel?: string,
 ): Promise<void> {
   const body: Record<string, unknown> = { blocks, text };
   if (channel) body.channel = channel;
@@ -564,8 +629,8 @@ export async function postToSlackChannel(
 
 export async function postToDiscordChannel(
   webhookUrl: string,
-  embeds:     DiscordEmbed[],
-  content?:   string,
+  embeds: DiscordEmbed[],
+  content?: string,
 ): Promise<void> {
   const body: Record<string, unknown> = { embeds };
   if (content) body.content = content;

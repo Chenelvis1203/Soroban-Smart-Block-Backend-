@@ -18,20 +18,33 @@
 
 import { prismaWrite, prismaRead } from '../../db';
 import { logger } from '../../logger';
-import type { KycTier, KycStatus, ProviderName } from './types';
+import type { KycTier, ProviderName } from './types';
 
 // ── FATF / OFAC blocked jurisdictions ────────────────────────────────────────
 
 const BLOCKED_JURISDICTIONS = new Set([
-  'IR', 'KP', 'SY', 'CU', 'SD', 'MM', 'RU', 'BY',
-  'VE', 'AF', 'YE', 'LY', 'SO', 'SS', 'ZW',
+  'IR',
+  'KP',
+  'SY',
+  'CU',
+  'SD',
+  'MM',
+  'RU',
+  'BY',
+  'VE',
+  'AF',
+  'YE',
+  'LY',
+  'SO',
+  'SS',
+  'ZW',
 ]);
 
 // ── Tier limits ───────────────────────────────────────────────────────────────
 
 const TIER_LIMITS: Record<KycTier, { dailyUsd: number; monthlyUsd: number }> = {
-  tier1: { dailyUsd: 1_000,   monthlyUsd: 10_000   },
-  tier2: { dailyUsd: 10_000,  monthlyUsd: 100_000  },
+  tier1: { dailyUsd: 1_000, monthlyUsd: 10_000 },
+  tier2: { dailyUsd: 10_000, monthlyUsd: 100_000 },
   tier3: { dailyUsd: 500_000, monthlyUsd: 5_000_000 },
 };
 
@@ -53,10 +66,7 @@ function todayDateString(): string {
  * Retrieve or create the KYC record for a user.
  * Never throws — returns null on unexpected DB error.
  */
-export async function getOrCreateKycRecord(
-  userId: string,
-  jurisdiction?: string,
-) {
+export async function getOrCreateKycRecord(userId: string, jurisdiction?: string) {
   try {
     const existing = await prismaRead.rampKycRecord.findUnique({ where: { userId } });
     if (existing) return existing;
@@ -86,10 +96,7 @@ export async function checkKycAllowance(
   userId: string,
   fiatAmountUsd: number,
   jurisdiction?: string,
-): Promise<
-  | { allowed: true; kycId: string; tier: KycTier }
-  | { allowed: false; reason: string }
-> {
+): Promise<{ allowed: true; kycId: string; tier: KycTier } | { allowed: false; reason: string }> {
   // Block sanctioned jurisdictions immediately
   if (jurisdiction && BLOCKED_JURISDICTIONS.has(jurisdiction.toUpperCase())) {
     return { allowed: false, reason: `Jurisdiction ${jurisdiction} is not supported` };
@@ -131,7 +138,7 @@ export async function checkKycAllowance(
   const resetDate = kyc.usageResetAt;
   const needsReset = !resetDate || resetDate.toISOString().slice(0, 10) < todayDateString();
 
-  let dailyUsed = needsReset ? 0 : kyc.dailyUsedUsd;
+  const dailyUsed = needsReset ? 0 : kyc.dailyUsedUsd;
   const monthlyUsed = kyc.monthlyUsedUsd;
 
   if (dailyUsed + fiatAmountUsd > limits.dailyUsd) {

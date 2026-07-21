@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BATCH_SIZE, DEFAULT_MAX_DEPTH, DEFAULT_MAX_NODES, DEFAULT_TIMEOUT_MS } from '../src/indexer/graph-traversal-db';
+import {
+  BATCH_SIZE,
+  DEFAULT_MAX_DEPTH,
+  DEFAULT_MAX_NODES,
+  DEFAULT_TIMEOUT_MS,
+} from '../src/indexer/graph-traversal-db';
 
 const prismaMock = vi.hoisted(() => ({
   contractDependency: {
@@ -53,11 +58,10 @@ describe('traverseUpstream', () => {
 
   it('respects maxDepth option', async () => {
     // Depth 1: C2, C3 depend on C1
-    prismaMock.contractDependency.findMany
-      .mockResolvedValueOnce([
-        { sourceAddress: 'C2', targetAddress: 'C1', id: 'e1' },
-        { sourceAddress: 'C3', targetAddress: 'C1', id: 'e2' },
-      ]);
+    prismaMock.contractDependency.findMany.mockResolvedValueOnce([
+      { sourceAddress: 'C2', targetAddress: 'C1', id: 'e1' },
+      { sourceAddress: 'C3', targetAddress: 'C1', id: 'e2' },
+    ]);
 
     const { traverseUpstream } = await import('../src/indexer/graph-traversal-db');
     const result = await traverseUpstream('C1', { maxDepth: 1 });
@@ -69,11 +73,10 @@ describe('traverseUpstream', () => {
   });
 
   it('respects maxNodes option', async () => {
-    prismaMock.contractDependency.findMany
-      .mockResolvedValueOnce([
-        { sourceAddress: 'C2', targetAddress: 'C1', id: 'e1' },
-        { sourceAddress: 'C3', targetAddress: 'C1', id: 'e2' },
-      ]);
+    prismaMock.contractDependency.findMany.mockResolvedValueOnce([
+      { sourceAddress: 'C2', targetAddress: 'C1', id: 'e1' },
+      { sourceAddress: 'C3', targetAddress: 'C1', id: 'e2' },
+    ]);
 
     const { traverseUpstream } = await import('../src/indexer/graph-traversal-db');
     const result = await traverseUpstream('C1', { maxDepth: 5, maxNodes: 1 });

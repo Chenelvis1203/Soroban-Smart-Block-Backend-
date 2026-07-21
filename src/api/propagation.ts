@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { SEVERITY_MULTIPLIER, Severity } from '../indexer/severity';
 
 export const propagationRouter = Router();
 

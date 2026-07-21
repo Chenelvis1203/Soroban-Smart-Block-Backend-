@@ -369,6 +369,7 @@ model PropagationAnalysis {
 
 
 
+
 model IndexerState {
   id         String   @id @default("singleton")
   lastLedger Int      @default(0)
@@ -4170,3 +4171,420 @@ model ContractDependency {
   @@map("contract_dependencies")
 }
 
+model BridgeVolume {
+  id          String   @id @default(uuid())
+  protocol    String   @db.VarChar(50)
+  chain       String   @db.VarChar(50)
+  asset       String   @db.VarChar(50)
+  volume      Decimal  @db.Decimal(30, 7)
+  count       Int      @default(0)
+  period      String   @db.VarChar(20)
+  periodStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([protocol, chain, asset, period, periodStart])
+  @@index([protocol, period])
+  @@index([chain, period])
+  @@index([periodStart])
+  @@map("bridge_volumes")
+}
+
+// ── Auth models ───────────────────────────────────────────────────────────────
+
+model WalletUser {
+  id          String    @id @default(cuid())
+  address     String    @unique
+  role        String    @default("user")
+  tier        String    @default("free")
+  displayName String?
+  email       String?
+  avatarUrl   String?
+  isActive    Boolean   @default(true)
+  isMultiSig  Boolean   @default(false)
+  metadata    Json      @default("{}")
+  lastLogin   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sessions AuthSession[]
+  events   AuthEvent[]
+  webhooks AuthWebhook[]
+
+  @@index([address])
+  @@map("wallet_users")
+}
+
+model AuthSession {
+  id               String    @id
+  userId           String
+  tokenHash        String
+  refreshTokenHash String
+  deviceInfo       Json?
+  appId            String?
+  isActive         Boolean   @default(true)
+  revokedAt        DateTime?
+  revocationReason String?
+  lastActivity     DateTime  @default(now())
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+
+  user WalletUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([refreshTokenHash])
+  @@map("auth_sessions")
+}
+
+model AuthEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String?
+  eventType String
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user WalletUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("auth_events")
+}
+
+model AuthWebhook {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  events    Json
+  secret    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  user WalletUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_webhooks")
+}
+
+model MultiSigWallet {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique
+  signers       Json
+  threshold     Int
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("multisig_wallets")
+}
+
+model OAuthApp {
+  id           String   @id @default(cuid())
+  clientId     String   @unique
+  clientSecret String
+  name         String
+  redirectUris Json
+  scopes       Json
+  ownerId      String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("oauth_apps")
+}
+
+model OAuthCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  clientId    String
+  userId      String
+  redirectUri String
+  scopes      Json
+  used        Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_codes")
+}
+
+// ── Universal ABI Extraction (#289) ──────────────────────────────────────────
+
+model WasmAbiExtract {
+  id              String   @id @default(cuid())
+  contractAddress String   @unique
+  source          String // on-chain-spec | inferred | sep-matched | generic | manual
+  functions       Json // ExtractedFunction[]
+  exports         Json // WasmExport[]
+  imports         Json // WasmImport[]
+  sepStandards    String[]
+  coverageScore   Float    @default(0)
+  warnings        String[]
+  wasmHash        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([contractAddress])
+  @@index([source])
+  @@map("wasm_abi_extracts")
+}
+
+model AbiCoverageReport {
+  id                   String   @id @default(cuid())
+  contractAddress      String
+  totalCalls           Int
+  matchedCalls         Int
+  coveragePercent      Float
+  falsePositives       String[]
+  falseNegatives       String[]
+  confidenceByFunction Json
+  createdAt            DateTime @default(now())
+
+  @@index([contractAddress])
+  @@index([createdAt])
+  @@map("abi_coverage_reports")
+}
+
+model AbiCommunityContribution {
+  id           String   @id @default(cuid())
+  address      String
+  functionName String
+  params       Json
+  returns      String
+  contributor  String?
+  approved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([address])
+  @@map("abi_community_contributions")
+}
+
+
+// ============================================================================
+// Fiat On/Off-Ramp Gateway (#fiat-ramp)
+// ============================================================================
+
+/// Universal KYC record — one per user, shared across all ramp providers.
+model RampKycRecord {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  /// tier1 = email+phone only ($0–$1k/day)
+  /// tier2 = ID verification ($1k–$10k/day)
+  /// tier3 = full KYC + source of funds ($10k+/day)
+  tier              String    @default("tier1")
+  /// pending | submitted | approved | rejected | expired
+  status            String    @default("pending")
+  documentType      String?
+  documentCountry   String?
+  livenessScore     Float?
+  pepScreened       Boolean   @default(false)
+  sanctionsScreened Boolean   @default(false)
+  verifiedAt        DateTime?
+  expiresAt         DateTime?
+  /// Map of provider name → provider-side KYC session/customer ID
+  providerKycIds    Json      @default("{}")
+  dailyLimitUsd     Float     @default(1000)
+  monthlyLimitUsd   Float     @default(10000)
+  dailyUsedUsd      Float     @default(0)
+  monthlyUsedUsd    Float     @default(0)
+  usageResetAt      DateTime?
+  jurisdiction      String?
+  blocked           Boolean   @default(false)
+  blockReason       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  orders RampOrder[]
+
+  @@index([status])
+  @@index([tier])
+  @@index([jurisdiction])
+  @@map("ramp_kyc_records")
+}
+
+/// Full lifecycle of a single fiat ↔ crypto ramp order.
+model RampOrder {
+  id              String    @id @default(cuid())
+  userId          String
+  kycId           String?
+  /// buy | sell
+  direction       String
+  provider        String
+  providerOrderId String?
+  /// pending | processing | completed | failed | refunded | cancelled
+  status          String    @default("pending")
+  fiatAmount      Float
+  fiatCurrency    String    @default("USD")
+  cryptoAmount    Float?
+  cryptoAsset     String
+  walletAddress   String
+  paymentMethod   String
+  exchangeRate    Float?
+  platformFeeUsd  Float     @default(0)
+  providerFeeUsd  Float     @default(0)
+  networkFeeUsd   Float     @default(0)
+  totalCostUsd    Float     @default(0)
+  txHash          String?
+  refundAmount    Float?
+  refundStatus    String?
+  refundedAt      DateTime?
+  userIp          String?
+  userCountry     String?
+  metadata        Json      @default("{}")
+  completedAt     DateTime?
+  failedAt        DateTime?
+  failureReason   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  kyc    RampKycRecord? @relation(fields: [kycId], references: [id])
+  events RampOrderEvent[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
+  @@index([providerOrderId])
+  @@index([direction])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, status])
+  @@map("ramp_orders")
+}
+
+/// Immutable audit log — one row per order state change.
+model RampOrderEvent {
+  id          String   @id @default(cuid())
+  orderId     String
+  fromStatus  String?
+  toStatus    String
+  triggeredBy String   @default("system")
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  order RampOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("ramp_order_events")
+}
+
+/// Daily provider reconciliation run results.
+model RampReconciliation {
+  id               String    @id @default(cuid())
+  provider         String
+  /// YYYY-MM-DD
+  periodDate       String
+  /// pending | running | completed | failed
+  status           String    @default("pending")
+  ordersChecked    Int       @default(0)
+  discrepancyCount Int       @default(0)
+  discrepancies    Json      @default("[]")
+  totalVolumeUsd   Float     @default(0)
+  errorRate        Float     @default(0)
+  runAt            DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([provider, periodDate])
+  @@index([status])
+  @@index([provider])
+  @@map("ramp_reconciliations")
+}
+
+/// AML monitoring alert raised against a user or order.
+model RampAmlFlag {
+  id          String    @id @default(cuid())
+  userId      String
+  orderId     String?
+  /// structuring | rapid_in_out | high_risk_jurisdiction | large_single | velocity
+  flagType    String
+  /// low | medium | high | critical
+  severity    String    @default("medium")
+  description String
+  metadata    Json      @default("{}")
+  resolved    Boolean   @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@index([flagType])
+  @@index([resolved])
+  @@index([createdAt(sort: Desc)])
+  @@map("ramp_aml_flags")
+}
+
+// ─── Real-Time On-Chain Fraud Detection Engine (Issue #553) ─────────────────
+
+model FraudAlert {
+  id                String   @id @default(cuid())
+  transactionHash   String   @map("transaction_hash")
+  targetAddress     String   @map("target_address")
+  riskScore         Float    @map("risk_score")
+  severity          String
+  alertType         String   @map("alert_type")
+  explanation       Json
+  mitigationApplied Boolean  @default(false) @map("mitigation_applied")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([transactionHash])
+  @@index([targetAddress])
+  @@index([severity])
+  @@index([alertType])
+  @@map("fraud_alerts")
+}
+
+model FeatureStoreEntry {
+  id         String   @id @default(cuid())
+  entityId   String   @unique @map("entity_id")
+  entityType String   @map("entity_type")
+  features   Json
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([entityId])
+  @@map("fraud_feature_store")
+}
+
+model ModelRegistryEntry {
+  id         String   @id @default(cuid())
+  name       String
+  type       String
+  version    String
+  status     String
+  metrics    Json
+  parameters Json
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([name, version])
+  @@map("fraud_model_registry")
+}
+
+model ModelDriftMetrics {
+  id                     String   @id @default(cuid())
+  modelId                String   @map("model_id")
+  featureDrifts          Json     @map("feature_drifts")
+  predictionDrift        Float    @map("prediction_drift")
+  driftThresholdExceeded Boolean  @map("drift_threshold_exceeded")
+  timestamp              DateTime @default(now())
+
+  @@index([modelId])
+  @@map("fraud_model_drift")
+}
+
+model FraudRetrainingLog {
+  id             String   @id @default(cuid())
+  modelId        String   @map("model_id")
+  status         String
+  datasetSize    Int      @map("dataset_size")
+  accuracyAfter  Float    @map("accuracy_after")
+  precisionAfter Float    @map("precision_after")
+  recallAfter    Float    @map("recall_after")
+  completedAt    DateTime @default(now()) @map("completed_at")
+
+}

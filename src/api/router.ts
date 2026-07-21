@@ -41,11 +41,6 @@ import { tokenPricesRouter } from './token-prices';
 import { portfolioRouter } from './portfolio';
 import { exportsRouter } from './exports';
 import { syncStateRouter } from './sync-state';
-import { yieldDistributionRouter } from './yield-distribution';
-import { yieldRouter } from './yield';
-import { dtccSettlementRouter } from './dtcc-settlement';
-import { commodityComplianceRouter } from './commodity-compliance';
-import { settlementBatchRouter } from './settlement-batch';
 import { governanceRouter } from './governance';
 import { systemicRouter } from './systemic';
 import { benchmarkRouter } from './benchmarks';
@@ -78,6 +73,7 @@ import { sandboxRouter } from './sandbox';
 // ── Freeze Management ─────────────────────────────────────────────────────────
 
 // ── Predictive Analytics ──────────────────────────────────────────────────────
+import { fraudRouter } from './fraud';
 
 export const router = Router();
 
@@ -113,6 +109,9 @@ router.use('/exports', exportsRouter);
 router.use('/admin/rate-limits', rateLimitAdminRouter);
 router.use('/market/alerts', alertsRouter);
 router.use('/oracles/intelligence', oracleIntelligenceRouter);
+
+// ── Predictive Analytics ──────────────────────────────────────────────────────
+router.use('/fraud', fraudRouter);
 
 // ── Natural Language Query Interface (#328) ───────────────────────────────────
 // nlq invokes LLM APIs — compute-heavy and billed per request; key required
