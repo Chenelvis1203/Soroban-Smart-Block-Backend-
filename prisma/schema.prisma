@@ -22,57 +22,6 @@ model Ledger {
   @@index([closeTime])
 }
 
-model Contract {
-  id                 String  @id @default(cuid())
-  address            String  @unique
-  name               String?
-  description        String?
-  abi                Json?
-  functionSignatures Json?
-  isToken            Boolean @default(false)
-  tokenSymbol        String?
-  tokenName          String?
-  tokenDecimals      Int?
-  wasmHash           String?
-  isVerified         Boolean @default(false)
-
-  verificationBadge  String? // gold | silver | bronze | null
-  lastVerifiedAt     DateTime?
-  safetyScore        Int?
-  verifiedProperties Int       @default(0)
-  totalProperties    Int       @default(0)
-  vulnerabilities    Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  transactions     Transaction[]
-  events           Event[]
-  wasmUpgrades     WasmUpgradeHistory[]
-  verificationRuns VerificationRun[]
-
-  @@index([address])
-  @@index([verificationBadge])
-  @@index([safetyScore])
-}
-
-model VerificationRun {
-  id              String    @id @default(cuid())
-  contractAddress String
-  contract        Contract  @relation(fields: [contractAddress], references: [address])
-  status          String    @default("pending") // pending | running | completed | failed
-  badge           String? // gold | silver | bronze
-  safetyScore     Int?
-  report          Json?
-  startedAt       DateTime  @default(now())
-  completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-
-  @@index([contractAddress])
-  @@index([status])
-  @@index([safetyScore])
-}
-
 model WasmUpgradeHistory {
   id              String   @id @default(cuid())
   contractAddress String
@@ -181,6 +130,142 @@ model EventDefinition {
   @@index([contractAddress])
 }
 
+model AuditCertificate {
+  id               String   @id @default(cuid())
+  contractAddress  String
+  version          Int      @default(1)
+  status           String   // "draft" | "published" | "superseded" | "revoked"
+  generatedAt      DateTime
+  expiresAt        DateTime?
+  overallScore     Int
+  securityScore    Int
+  governanceScore  Int
+  economicScore    Int
+  complianceScore  Int
+  liquidityScore   Int
+  signatureAlgorithm String
+  signature          String
+  publicKey          String
+  certificateHash    String
+  anchorTxHash       String?
+  totalFindings    Int      @default(0)
+  openFindings     Int      @default(0)
+  criticalFindings Int      @default(0)
+  highFindings     Int      @default(0)
+  mediumFindings   Int      @default(0)
+  lowFindings      Int      @default(0)
+  resolvedFindings Int      @default(0)
+  findings         Json
+  scores           Json
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  auditFindings AuditFinding[]
+  auditEvents   AuditEvent[]
+  contract      Contract? @relation(fields: [contractAddress], references: [address])
+
+  @@unique([contractAddress, version])
+  @@index([contractAddress, status])
+  @@index([overallScore(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+model AuditFinding {
+  id            String   @id @default(cuid())
+  certificateId String
+  category      String
+  severity      String
+  title         String
+  description   String
+  detail        String?
+  recommendation String?
+  status        String
+  resolvedAt    DateTime?
+  resolutionNote String?
+  cweId         String?
+  cvssVector    String?
+  cvssScore     Float?
+  txHash        String?
+  createdAt     DateTime @default(now())
+
+  certificate AuditCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  @@index([certificateId])
+  @@index([severity, status])
+  @@index([category])
+}
+
+model AuditEvent {
+  id              String   @id @default(cuid())
+  contractAddress String
+  certificateId   String?
+  eventType       String
+  previousScore   Int?
+  newScore        Int?
+  triggerSource   String
+  details         Json?
+  timestamp       DateTime
+  createdAt       DateTime @default(now())
+
+  certificate AuditCertificate? @relation(fields: [certificateId], references: [id])
+
+  @@index([contractAddress, timestamp(sort: Desc)])
+  @@index([eventType])
+  @@index([certificateId])
+}
+
+model Contract {
+  id                 String  @id @default(cuid())
+  address            String  @unique
+  name               String?
+  description        String?
+  abi                Json?
+  functionSignatures Json?
+  isToken            Boolean @default(false)
+  tokenSymbol        String?
+  tokenName          String?
+  tokenDecimals      Int?
+  wasmHash           String?
+  isVerified         Boolean @default(false)
+
+  verificationBadge  String? // gold | silver | bronze | null
+  lastVerifiedAt     DateTime?
+  safetyScore        Int?
+  verifiedProperties Int       @default(0)
+  totalProperties    Int       @default(0)
+  vulnerabilities    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions     Transaction[]
+  events           Event[]
+  wasmUpgrades     WasmUpgradeHistory[]
+  verificationRuns VerificationRun[]
+  auditCerts       AuditCertificate[]
+
+  @@index([address])
+  @@index([verificationBadge])
+  @@index([safetyScore])
+}
+
+model VerificationRun {
+  id              String    @id @default(cuid())
+  contractAddress String
+  contract        Contract  @relation(fields: [contractAddress], references: [address])
+  status          String    @default("pending") // pending | running | completed | failed
+  badge           String? // gold | silver | bronze
+  safetyScore     Int?
+  report          Json?
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([contractAddress])
+  @@index([status])
+  @@index([safetyScore])
+}
+
 model SessionAuthorization {
   id                String   @id @default(cuid())
   eventId           String   @unique
@@ -195,6 +280,56 @@ model SessionAuthorization {
 
   @@index([contractAddress])
   @@index([expiryLedger])
+}
+
+model DexPool {
+  id              String   @id @default(cuid())
+  poolAddress     String   @unique
+  chain           String
+  protocol        String
+  poolType        String   // "constant_product" | "stable" | "concentrated"
+  feeBps          Int      // fee in basis points
+
+  // Token A
+  tokenA          String
+  tokenASymbol    String
+  tokenADecimals  Int
+  reserveA        Decimal  @db.Decimal(30, 7)
+
+  // Token B
+  tokenB          String
+  tokenBSymbol    String
+  tokenBDecimals  Int
+  reserveB        Decimal  @db.Decimal(30, 7)
+
+  // Price data
+  priceAUsd       Float?
+  priceBUsd       Float?
+
+  // Metrics
+  tvlUsd          Float?
+  volume1hUsd     Float?
+  volume24hUsd    Float?
+  volume7dUsd     Float?
+  volume30dUsd    Float?
+  fees24hUsd      Float?
+  aprPct          Float?
+  ilRiskScore     Float?
+
+  lastSyncedAt    DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  priceDevA       PriceDeviation[] @relation("priceDevA")
+  priceDevB       PriceDeviation[] @relation("priceDevB")
+  buyPool         ArbitrageOpportunity[] @relation("buyPool")
+  sellPool        ArbitrageOpportunity[] @relation("sellPool")
+
+  @@index([poolAddress])
+  @@index([protocol])
+  @@index([tvlUsd(sort: Desc)])
 }
 
 model VulnerabilityAdvisory {
@@ -232,19 +367,7 @@ model PropagationAnalysis {
   @@index([vulnerableContract])
 }
 
-// Duplicate DexPool model removed to avoid conflicts with the actual definition
-// model DexPool {
-//   id             String   @id @default(cuid())
-//   address        String   @unique
-//   name           String?
-//   tvlUsd         Decimal  @default(0)
-//   tokenA         String?
-//   tokenB         String?
-//   createdAt      DateTime @default(now())
-//   updatedAt      DateTime @updatedAt
-// 
-//   @@index([address])
-// }
+
 
 
 model IndexerState {
@@ -1562,76 +1685,7 @@ model TimerAlert {
 // Migration: 20260619000000_arbitrage_intelligence_platform
 // =========================================================================
 
-model DexPool {
-  id              String      @id @default(uuid())
-  contractAddress String      @unique @db.VarChar(56)
-  dexName         String      @db.VarChar(100)
-  poolType        String      @db.VarChar(30)
-  aprPct          Float?
-  feeBps          Int?
-  feeTier         Decimal?    @db.Decimal(5, 4)
-  fees24h         Decimal?    @db.Decimal(30, 0)
-  fees24hUsd      Decimal?
-  firstSeenLedger Int?
-  ilRiskScore     Float?
-  isActive        Boolean     @default(true)
-  lastEventLedger Int?
-  lastSyncedAt    DateTime?
-  pairKey         String?
-  poolAddress     String?     @unique
-  poolPrices      PoolPrice[]
-  priceAUsd       Decimal?
-  priceBUsd       Decimal?
-  protocol        String?
-  reserveA        Decimal?
-  reserveB        Decimal?
-  tokenA          String      @db.VarChar(56)
-  tokenADecimals  Int?
-  tokenASymbol    String?     @db.VarChar(20)
-  tokenB          String      @db.VarChar(56)
-  tokenBDecimals  Int?
-  tokenBSymbol    String?     @db.VarChar(20)
-  totalLiquidity  Decimal?    @db.Decimal(30, 0)
-  tvlUsd          Decimal?
-  volume1hUsd     Decimal?
-  volume24h       Decimal?    @db.Decimal(30, 0)
-  volume24hUsd    Decimal?
-  volume7dUsd     Decimal?
-  volume30dUsd    Decimal?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @default(now())
 
-  priceDevA   PriceDeviation[]       @relation("priceDevA")
-  priceDevB   PriceDeviation[]       @relation("priceDevB")
-  arbBuyOpps  ArbitrageOpportunity[] @relation("buyPool")
-  arbSellOpps ArbitrageOpportunity[] @relation("sellPool")
-
-  @@index([dexName])
-  @@index([tokenA, tokenB])
-  @@index([isActive])
-}
-
-model PoolPrice {
-  id          BigInt   @id @default(autoincrement())
-  poolId      String
-  blockNumber BigInt
-  timestamp   DateTime
-  reserveA    Decimal  @db.Decimal(30, 0)
-  reserveB    Decimal  @db.Decimal(30, 0)
-  spotPrice   Decimal  @db.Decimal(30, 18)
-  twap1m      Decimal? @db.Decimal(30, 18)
-  twap5m      Decimal? @db.Decimal(30, 18)
-  twap1h      Decimal? @db.Decimal(30, 18)
-  vwap        Decimal? @db.Decimal(30, 18)
-  tick        Int?
-  sqrtPrice   Decimal? @db.Decimal(40, 0)
-
-  pool DexPool @relation(fields: [poolId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@unique([poolId, blockNumber])
-  @@index([poolId, timestamp])
-  @@index([timestamp])
-}
 
 model PriceDeviation {
   id                  BigInt   @id @default(autoincrement())
@@ -4095,22 +4149,26 @@ model BridgeAlert {
   @@map("bridge_alerts")
 }
 
-model MonitoredAddress {
-  id              String   @id @default(uuid())
-  address         String   @db.VarChar(100)
-  chain           String   @db.VarChar(50)
-  label           String?
-  minAlertUsd     Decimal? @db.Decimal(20, 2)
-  alertOnTx       Boolean  @default(true)
-  alertOnBridging Boolean  @default(true)
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// ─── End Data Mesh Platform ─────────────────────────────────────────────────
 
-  @@unique([address, chain])
-  @@index([address])
-  @@index([chain])
-  @@map("monitored_addresses")
+// ─── Arbitrage Intelligence Platform (Issue #ARB) ────────────────────────────
+
+// ── Contract Dependency Graph (#574) ─────────────────────────────────────────
+
+model ContractDependency {
+  id             String   @id @default(cuid())
+  sourceAddress  String
+  targetAddress  String
+  isActive       Boolean  @default(true)
+  weight         Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([targetAddress, isActive])
+  @@index([sourceAddress, isActive])
+  @@index([targetAddress])
+  @@index([sourceAddress])
+  @@map("contract_dependencies")
 }
 
 model BridgeVolume {
@@ -4529,6 +4587,4 @@ model FraudRetrainingLog {
   recallAfter    Float    @map("recall_after")
   completedAt    DateTime @default(now()) @map("completed_at")
 
-  @@map("fraud_retraining_logs")
 }
-

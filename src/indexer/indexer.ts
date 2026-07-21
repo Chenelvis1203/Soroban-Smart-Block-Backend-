@@ -15,6 +15,7 @@ import { decodeTransaction, decodeEvent } from './decoder';
 import { decodeZkpVerification, recordZkpVerification } from './zkp-verifier';
 import { processAaTransaction } from './aa-indexer';
 import { feedOrchestrator } from '../feed/orchestrator';
+import { enqueueInitialAudit } from './audit-pipeline';
 import { amIResponsibleFor, getRangeCursor, isP2pEnabled, setRangeCursor } from '../p2p';
 
 const BATCH = config.indexerBatchSize;
@@ -181,6 +182,12 @@ export async function processLedgerRange(
       create: { address: event.contractId },
     });
 
+    // Queue an initial audit for newly discovered contracts (fires after 5 min)
+    enqueueInitialAudit(event.contractId);
+
+    const existingTx = await prisma.transaction.findUnique({
+      where: { hash: event.transactionHash },
+    });
     const existingTx = await prisma.transaction.findUnique({
       where: { hash: event.transactionHash },
     });

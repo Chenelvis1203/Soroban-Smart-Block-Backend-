@@ -40,6 +40,23 @@ import { marketRouter } from './market';
 import { tokenPricesRouter } from './token-prices';
 import { portfolioRouter } from './portfolio';
 import { exportsRouter } from './exports';
+import { syncStateRouter } from './sync-state';
+import { governanceRouter } from './governance';
+import { systemicRouter } from './systemic';
+import { benchmarkRouter } from './benchmarks';
+import { networkRouter } from './network';
+import { emergencyBaseRouter } from './emergency-router';
+import { stellarRouter } from './stellar';
+import { privacyRouter } from './privacy';
+import { mevRouter } from './mev';
+import { developerRouter } from './developer/router';
+import { scheduleRouter } from './schedule';
+import feedRouter from './feed';
+import backfillRouter from './backfill';
+import marketRouter from './market';
+import feedSSERouter from './feedSSE';
+import { arbitrageRouter } from './arbitrage';
+import { auditRouter } from './audit';
 import { rateLimitAdminRouter } from './rate-limits';
 import { alertsRouter } from './alerts';
 import { oracleIntelligenceRouter } from './oracle-intelligence';
@@ -59,7 +76,6 @@ import { sandboxRouter } from './sandbox';
 import { fraudRouter } from './fraud';
 
 export const router = Router();
-
 
 // ── Core Stellar / Soroban ────────────────────────────────────────────────────
 router.use('/i18n', i18nRouter);
@@ -140,3 +156,21 @@ import { governanceTreasuryRouter } from './governance-treasury';
 router.use('/governance/treasury', governanceTreasuryRouter);
 import { governanceRouter } from './governance';
 router.use('/governance', governanceRouter);
+router.use('/systemic', systemicRouter);
+router.use('/benchmarks', benchmarkRouter);
+router.use('/network', networkRouter);
+router.use('/emergency', emergencyBaseRouter);
+router.use('/stellar', stellarRouter);
+router.use('/privacy', privacyRouter);
+router.use('/mev', mevRouter);
+router.use('/developer', developerRouter);
+router.use('/schedule', scheduleRouter);
+// Data Mesh Platform APIs
+router.use('/feed', feedRouter);
+router.use('/feed/backfill', backfillRouter);
+router.use('/feed/sse', feedSSERouter);
+router.use('/market', marketRouter);
+// Arbitrage Intelligence Platform
+router.use('/arbitrage', arbitrageRouter);
+// Smart Contract Audit Trail & Certificate Platform
+router.use('/audit', auditRouter);

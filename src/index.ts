@@ -36,6 +36,12 @@ import { rejectUntrustedForwardedHeaders } from './middleware/proxyTrust';
 import { billingRouter } from './services/stripe-billing';
 import { logger } from './logger';
 import { feedOrchestrator } from './feed/orchestrator';
+import { startAuditPipeline } from './indexer/audit-pipeline';
+import { startAuditScheduler } from './indexer/audit-scheduler';
+import { startContinuousAuditMonitor } from './indexer/audit-monitor';
+import { attachAuditWebSocket } from './ws/auditBroadcaster';
+import { startAuditExpiryChecker } from './indexer/audit-expiry-checker';
+import { startAuditDigestScheduler } from './indexer/audit-digest-scheduler';
 import { startPriceUpdater, stopPriceUpdater } from './services/pricing';
 import { startBridgeWorker, stopBridgeWorker } from './bridge-tracker';
 import { writeFile, mkdir } from 'fs/promises';
@@ -453,6 +459,13 @@ async function main() {
     logger.debug('Arbitrage WebSocket disabled (ENABLE_ARBITRAGE_WS not set)');
   }
 
+  const httpServer = createServer(app);
+  attachWebSocketServer(httpServer);
+  attachPrivacyWebSocket(httpServer);
+  attachComposabilityWebSocket(httpServer);
+  attachArbitrageWebSocket(httpServer);
+  attachAuditWebSocket(httpServer); // /ws/audit — score alerts, finding alerts, signals
+
   if (!process.env.DISABLE_INDEXER) {
     if (ENABLE_POOL_MONITOR) {
       try {
@@ -494,6 +507,41 @@ async function main() {
       startBridgeWorker();
     } catch (err) {
       logger.warn('Bridge worker failed to start', { error: String(err) });
+    }
+
+    // Audit Pipeline — initial-audit queue drain (fires within 5 min of first detection)
+    try {
+      startAuditPipeline();
+    } catch (err) {
+      logger.warn('Audit pipeline failed to start', { error: String(err) });
+    }
+
+    // Audit Scheduler — daily (TVL > $100K, incremental) + weekly (all, full recompute)
+    try {
+      startAuditScheduler();
+    } catch (err) {
+      logger.warn('Audit scheduler failed to start', { error: String(err) });
+    }
+
+    // Continuous Audit Monitor — real-time 7-signal detector, 1-min poll
+    try {
+      startContinuousAuditMonitor();
+    } catch (err) {
+      logger.warn('Continuous audit monitor failed to start', { error: String(err) });
+    }
+
+    // Certificate Expiry Checker — 30/14/7-day warnings, auto re-audit at 7d
+    try {
+      startAuditExpiryChecker();
+    } catch (err) {
+      logger.warn('Audit expiry checker failed to start', { error: String(err) });
+    }
+
+    // Weekly Audit Digest Scheduler — posts to Slack/Discord every Monday 09:00 UTC
+    try {
+      startAuditDigestScheduler();
+    } catch (err) {
+      logger.warn('Audit digest scheduler failed to start', { error: String(err) });
     }
   }
 
