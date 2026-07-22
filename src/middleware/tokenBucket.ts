@@ -15,7 +15,6 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import type { RedisClientType } from 'redis';
 import { logger } from '../logger';
 
 // ─── Tier definitions ─────────────────────────────────────────────────────────
@@ -29,11 +28,11 @@ interface TierLimits {
 }
 
 export const TIER_LIMITS: Record<RateLimitTier, TierLimits> = {
-  unauthenticated: { perMinute: 60,    burst: 10,  ttlSeconds: 3600 },
-  free:            { perMinute: 1000,  burst: 50,  ttlSeconds: 86400 },
-  developer:       { perMinute: 1000,  burst: 50,  ttlSeconds: 86400 },
-  pro:             { perMinute: 10000, burst: 200, ttlSeconds: 2592000 },
-  enterprise:      { perMinute: 60000, burst: 500, ttlSeconds: 2592000 },
+  unauthenticated: { perMinute: 60, burst: 10, ttlSeconds: 3600 },
+  free: { perMinute: 1000, burst: 50, ttlSeconds: 86400 },
+  developer: { perMinute: 1000, burst: 50, ttlSeconds: 86400 },
+  pro: { perMinute: 10000, burst: 200, ttlSeconds: 2592000 },
+  enterprise: { perMinute: 60000, burst: 500, ttlSeconds: 2592000 },
 };
 
 // ─── Endpoint group multipliers (fraction of tier limit) ─────────────────────
@@ -45,11 +44,11 @@ interface EndpointGroup {
 }
 
 const ENDPOINT_GROUPS: EndpointGroup[] = [
-  { pattern: /^\/api\/v1\/events/,             name: 'events',    multiplier: 1.0 },
-  { pattern: /^\/api\/v1\/(search|nft\/search)/,name: 'search',   multiplier: 0.5 },
-  { pattern: /^\/api\/v1\/contracts.*POST/,    name: 'contracts', multiplier: 0.17 },
-  { pattern: /^\/api\/v1\/simulate/,           name: 'simulate',  multiplier: 0.08 },
-  { pattern: /^\/ws/,                          name: 'websocket', multiplier: 0.05 },
+  { pattern: /^\/api\/v1\/events/, name: 'events', multiplier: 1.0 },
+  { pattern: /^\/api\/v1\/(search|nft\/search)/, name: 'search', multiplier: 0.5 },
+  { pattern: /^\/api\/v1\/contracts.*POST/, name: 'contracts', multiplier: 0.17 },
+  { pattern: /^\/api\/v1\/simulate/, name: 'simulate', multiplier: 0.08 },
+  { pattern: /^\/ws/, name: 'websocket', multiplier: 0.05 },
 ];
 
 function getEndpointMultiplier(method: string, path: string): number {
@@ -132,9 +131,13 @@ function checkMemoryBucket(
 
 // ─── Public interface ─────────────────────────────────────────────────────────
 
-let redisClient: RedisClientType | null = null;
+interface TokenBucketRedisClient {
+  eval(script: string, options: { keys: string[]; arguments: string[] }): Promise<unknown>;
+}
 
-export function setRateLimitRedisClient(client: RedisClientType): void {
+let redisClient: TokenBucketRedisClient | null = null;
+
+export function setRateLimitRedisClient(client: TokenBucketRedisClient): void {
   redisClient = client;
 }
 
@@ -142,7 +145,7 @@ export interface TokenBucketResult {
   allowed: boolean;
   remaining: number;
   limit: number;
-  resetAt: number;  // unix seconds
+  resetAt: number; // unix seconds
   tier: RateLimitTier;
 }
 
@@ -168,7 +171,7 @@ export async function checkTokenBucket(
 
   if (redisClient) {
     try {
-      const result = await redisClient.eval(TOKEN_BUCKET_LUA, {
+      const result = (await redisClient.eval(TOKEN_BUCKET_LUA, {
         keys: [redisKey],
         arguments: [
           String(effectiveCapacity),
@@ -176,7 +179,7 @@ export async function checkTokenBucket(
           String(now),
           String(baseLimits.ttlSeconds),
         ],
-      }) as [number, number, number];
+      })) as [number, number, number];
 
       return {
         allowed: result[0] === 1,
@@ -186,7 +189,7 @@ export async function checkTokenBucket(
         tier,
       };
     } catch (err) {
-      logger.warn({ err }, '[token-bucket] Redis eval failed, using memory fallback');
+      logger.warn('[token-bucket] Redis eval failed, using memory fallback', { err });
     }
   }
 

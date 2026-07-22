@@ -108,6 +108,12 @@ export const typeDefs = `#graphql
     transfers(limit: Int = 50): [Event!]
   }
 
+  type TokenPage implements Page {
+    data: [Token!]!
+    hasNext: Boolean!
+    nextCursor: Cursor
+  }
+
   # ── Wallet ─────────────────────────────────────────────────────────
   type Wallet @key(fields: "address") {
     address: ID!
@@ -168,7 +174,7 @@ export const typeDefs = `#graphql
     token(address: ID!): Token
 
     """List all known tokens"""
-    tokens: [Token!]!
+    tokens(cursor: Cursor, limit: Int = 20): TokenPage!
 
     """Fetch a wallet by Stellar address"""
     wallet(address: ID!): Wallet

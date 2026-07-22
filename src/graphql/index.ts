@@ -14,14 +14,19 @@ export const schema = makeExecutableSchema({
   },
 });
 
+// GraphiQL IDE is disabled in production unless ENABLE_GRAPHIQL=true.
+const graphiqlEnabled =
+  process.env.NODE_ENV !== 'production' || process.env.ENABLE_GRAPHIQL === 'true';
+
 const yoga = createYoga({
   schema,
   context: createContext,
   plugins: [complexityPlugin, depthLimitPlugin],
   graphqlEndpoint: '/api/graphql',
-  graphiql: {
-    title: 'Soroban Explorer GraphQL API',
-    defaultQuery: `# Welcome to the Soroban Explorer GraphQL API
+  graphiql: graphiqlEnabled
+    ? {
+        title: 'Soroban Explorer GraphQL API',
+        defaultQuery: `# Welcome to the Soroban Explorer GraphQL API
 # Example: fetch the latest 5 transactions
 query LatestTransactions {
   transactions(limit: 5) {
@@ -49,7 +54,8 @@ query ContractDetails($address: ID!) {
     }
   }
 }`,
-  },
+      }
+    : false,
   logging: false,
 });
 

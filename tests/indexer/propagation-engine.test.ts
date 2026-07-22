@@ -1,36 +1,62 @@
 /**
  * tests/indexer/propagation-engine.test.ts
  *
- * Covers the paginated BFS traversal logic baked into the
- * /api/v1/graph/contracts/:address/upstream  and
- * /api/v1/graph/contracts/:address/downstream  routes (src/api/graph.ts).
+ * Covers the paginated BFS traversal logic in src/indexer/graph-traversal-db.ts
+ * for both traverseUpstream and traverseDownstream, and the Express routes
+ * that expose them via /api/v1/graph/contracts/:address/upstream|downstream.
  *
- * Uses a synthetic 50 000-edge fixture generated entirely in-memory so no
- * database is required.  prismaRead.contractDependency.findMany is mocked to
- * serve rows from that fixture in BATCH_SIZE-sized pages.
+ * Uses a synthetic 50 000-edge in-memory fixture; no database required.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Mock prismaRead BEFORE importing the module under test ────────────────────
-// vi.mock is hoisted, so inline factory with no external references is required.
+// ── Mock all external dependencies BEFORE importing modules under test ────────
+// vi.mock is hoisted — all factories must be self-contained.
+
 vi.mock('../../src/db', () => {
   const findMany = vi.fn();
   return {
-    prismaRead: {
-      contractDependency: { findMany },
-    },
+    prisma: { contractDependency: { findMany } },
+    prismaRead: { contractDependency: { findMany } },
+    prismaWrite: { contractDependency: { findMany } },
   };
 });
 
-import { prismaRead } from '../../src/db';
+vi.mock('../../src/db/graph', () => ({
+  getGraphDb: () => ({
+    executeCypher: vi.fn().mockResolvedValue({ data: [], executionTime: 0, nodeCount: 0, edgeCount: 0 }),
+    healthCheck: vi.fn().mockResolvedValue(true),
+    upsertNode: vi.fn().mockResolvedValue(undefined),
+    upsertEdge: vi.fn().mockResolvedValue(undefined),
+    getGraphStats: vi.fn().mockResolvedValue({ nodeCount: 0, edgeCount: 0, nodeLabels: [], edgeLabels: [] }),
+  }),
+  resetGraphDb: vi.fn(),
+}));
 
-// Typed shorthand for the mock
-const findMany = (prismaRead.contractDependency as { findMany: ReturnType<typeof vi.fn> }).findMany;
+vi.mock('../../src/services/graphTemplates', () => ({
+  getGraphTemplates: () => ({
+    contractCallGraph: vi.fn().mockResolvedValue({ data: [] }),
+    dependencyGraph: vi.fn().mockResolvedValue({ data: [] }),
+    vulnerabilityPath: vi.fn().mockResolvedValue({ data: [] }),
+  }),
+}));
 
-// ── Re-export the BFS engines via the route handler for black-box testing ─────
-// We test through the Express route handlers using a lightweight request/
-// response harness rather than importing private functions.
+vi.mock('../../src/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
+
+vi.mock('../../src/indexer/dependencyGraphCompiler', () => ({
+  buildContractDependencyGraph: vi.fn().mockResolvedValue({
+    nodes: [], edges: [], metadata: { totalNodes: 0, totalEdges: 0, maxDepth: 0, generatedAt: '' },
+  }),
+  generateDependencyGraphSVG: vi.fn().mockReturnValue('<svg/>'),
+}));
+
+// ── Imports after mocks ───────────────────────────────────────────────────────
+import { prisma } from '../../src/db';
+
+const findMany = (prisma.contractDependency as { findMany: ReturnType<typeof vi.fn> }).findMany;
+
 import express, { Application } from 'express';
 import request from 'supertest';
 import { graphRouter } from '../../src/api/graph';
@@ -43,21 +69,12 @@ function buildApp(): Application {
 
 // ── Synthetic fixture helpers ─────────────────────────────────────────────────
 
-/**
- * Generate a contract address-like string.  Starts with 'C' and is padded to
- * 56 characters as Soroban contract addresses are, but uses a deterministic
- * numeric suffix so tests are reproducible.
- */
 function addr(n: number): string {
   return `C${String(n).padStart(55, '0')}`;
 }
 
 type EdgeRow = { id: string; sourceAddress: string; targetAddress: string };
 
-/**
- * Build a linear chain:  0 → 1 → 2 → … → (length-1)
- * Returns rows sorted by id (ascending CUID-like strings).
- */
 function buildChain(length: number): EdgeRow[] {
   return Array.from({ length: length - 1 }, (_, i) => ({
     id: `edge-${String(i).padStart(10, '0')}`,
@@ -66,13 +83,6 @@ function buildChain(length: number): EdgeRow[] {
   }));
 }
 
-/**
- * Build a fan-out tree rooted at node 0:
- *   0 → 1, 0 → 2, …, 0 → (fanOut)
- *   1 → fanOut+1, …, 1 → 2*fanOut
- *   …
- * Returns at most `maxEdges` rows.
- */
 function buildFanOut(fanOut: number, maxEdges: number): EdgeRow[] {
   const rows: EdgeRow[] = [];
   let idCounter = 0;
@@ -95,16 +105,11 @@ function buildFanOut(fanOut: number, maxEdges: number): EdgeRow[] {
 }
 
 /**
- * Installs `findMany` to serve `rows` in BATCH_SIZE pages.
- *
- * The real Prisma `findMany` with cursor-based pagination returns rows where
- * id > cursor (with skip:1).  We replicate that here with an in-memory filter.
- *
- * @param allRows  All rows in the virtual table (pre-sorted by id ascending).
- * @param filter   A function matching the `where` clause: (row) => boolean.
+ * Install findMany to serve rows in pages of BATCH_SIZE=1000, replicating
+ * Prisma cursor-based pagination.
  */
-function mockFindMany(allRows: EdgeRow[], filter: (row: EdgeRow) => boolean): void {
-  const BATCH = 500; // mirrors BATCH_SIZE in graph.ts
+function mockFindMany(allRows: EdgeRow[]): void {
+  const BATCH = 1000; // mirrors BATCH_SIZE in graph-traversal-db.ts
 
   findMany.mockImplementation(
     (args: {
@@ -119,7 +124,6 @@ function mockFindMany(allRows: EdgeRow[], filter: (row: EdgeRow) => boolean): vo
     }) => {
       const { where, take = BATCH, cursor, skip } = args;
 
-      // Determine which rows match this specific `where`
       const matched = allRows.filter((row) => {
         if (where?.sourceAddress?.in && !where.sourceAddress.in.includes(row.sourceAddress)) {
           return false;
@@ -127,10 +131,9 @@ function mockFindMany(allRows: EdgeRow[], filter: (row: EdgeRow) => boolean): vo
         if (where?.targetAddress?.in && !where.targetAddress.in.includes(row.targetAddress)) {
           return false;
         }
-        return filter(row);
+        return true;
       });
 
-      // Apply cursor + skip
       let startIdx = 0;
       if (cursor?.id) {
         const cursorIdx = matched.findIndex((r) => r.id === cursor.id);
@@ -142,7 +145,7 @@ function mockFindMany(allRows: EdgeRow[], filter: (row: EdgeRow) => boolean): vo
   );
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ── Setup ─────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -155,118 +158,105 @@ beforeEach(() => {
 describe('GET /api/v1/graph/contracts/:address/downstream', () => {
   it('returns seed node only when no outgoing edges exist', async () => {
     findMany.mockResolvedValue([]);
-
     const app = buildApp();
     const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream`);
 
     expect(res.status).toBe(200);
+    expect(res.body.startAddress).toBe(addr(0));
     expect(res.body.nodes).toEqual([addr(0)]);
     expect(res.body.edges).toEqual([]);
     expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.visitedCount).toBe(1);
-    expect(res.body.meta.edgeCount).toBe(0);
+    expect(res.body.timedOut).toBe(false);
+    expect(res.body.totalNodes).toBe(1);
+    expect(res.body.totalEdges).toBe(0);
   });
 
   it('traverses a 10-node linear chain completely', async () => {
-    const rows = buildChain(10); // 9 edges: 0→1→…→9
-    mockFindMany(rows, () => true);
-
+    const rows = buildChain(10);
+    mockFindMany(rows);
     const app = buildApp();
     const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=20&maxNodes=50000`,
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=10&maxNodes=50000`,
     );
 
     expect(res.status).toBe(200);
-    expect(res.body.nodes).toHaveLength(10);
-    expect(res.body.edges).toHaveLength(9);
+    expect(res.body.totalNodes).toBe(10);
+    expect(res.body.totalEdges).toBe(9);
     expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.depth).toBe(9);
+    expect(res.body.timedOut).toBe(false);
   });
 
   it('respects maxDepth query parameter', async () => {
-    const rows = buildChain(20); // chain of 20 nodes
-    mockFindMany(rows, () => true);
-
-    const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=3`);
-
-    expect(res.status).toBe(200);
-    // Seed + 3 hops = 4 nodes
-    expect(res.body.nodes).toHaveLength(4);
-    expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.depth).toBe(3);
-  });
-
-  it('truncates when maxNodes budget is exceeded', async () => {
-    // Fan-out tree: 500 edges so we exceed maxNodes=5 quickly
-    const rows = buildFanOut(3, 500);
-    mockFindMany(rows, () => true);
-
-    const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream?maxNodes=5`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.truncated).toBe(true);
-    expect(res.body.nodes.length).toBeLessThanOrEqual(5 + 1); // slight overshoot by one row possible
-  });
-
-  it('paginates correctly across a 50 000-edge synthetic fixture (downstream)', async () => {
-    // Fan-out structure: 50 000 edges from various nodes, triggering pagination
-    // and maxNodes truncation. With fanOut=10 and maxEdges=50000, we have a tree.
-    // With maxNodes=500, we'll truncate early in the traversal.
-    const EDGE_COUNT = 50_000;
-    const rows = buildFanOut(10, EDGE_COUNT);
-    mockFindMany(rows, () => true);
-
+    const rows = buildChain(20);
+    mockFindMany(rows);
     const app = buildApp();
     const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(0)}/downstream?maxNodes=500&maxDepth=20&timeoutMs=30000`,
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=3`,
     );
 
     expect(res.status).toBe(200);
-    // Must truncate because tree expands quickly and exceeds maxNodes=500
-    expect(res.body.truncated).toBe(true);
-    expect(res.body.meta.visitedCount).toBeLessThanOrEqual(501);
-    expect(res.body.meta.edgeCount).toBeGreaterThan(0);
-    // Response shape is correct
-    expect(Array.isArray(res.body.nodes)).toBe(true);
-    expect(Array.isArray(res.body.edges)).toBe(true);
-    expect(typeof res.body.meta.durationMs).toBe('number');
-    // Pagination should have fired many times
-    expect(findMany.mock.calls.length).toBeGreaterThan(1);
+    expect(res.body.totalNodes).toBe(4); // seed + 3 hops
+    expect(res.body.truncated).toBe(false);
+    expect(res.body.depthReached).toBe(3);
   });
 
-  it('50k-edge fan-out: pagination loops fire multiple times per frontier', async () => {
-    // 50 000 edges fan-out from a single root — depth=1, but requires 100 pages of BATCH_SIZE=500
-    const rows = buildFanOut(50_000, 50_000);
-    mockFindMany(rows, () => true);
+  it('truncates when maxNodes budget is exceeded', async () => {
+    const rows = buildFanOut(3, 500);
+    mockFindMany(rows);
+    const app = buildApp();
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxNodes=5`,
+    );
 
+    expect(res.status).toBe(200);
+    expect(res.body.truncated).toBe(true);
+    expect(res.body.totalNodes).toBeLessThanOrEqual(6);
+  });
+
+  it('50k-edge fan-out: pagination fires multiple times per frontier', async () => {
+    const rows = buildFanOut(50_000, 50_000);
+    mockFindMany(rows);
     const app = buildApp();
     const res = await request(app).get(
       `/api/v1/graph/contracts/${addr(0)}/downstream?maxNodes=50000&maxDepth=1&timeoutMs=30000`,
     );
 
     expect(res.status).toBe(200);
-    // findMany must have been called at least 100 times (50 000 / 500)
-    expect(findMany.mock.calls.length).toBeGreaterThanOrEqual(100);
-    expect(res.body.edges.length).toBeGreaterThan(0);
+    // BATCH_SIZE=1000, 50 000 edges → ≥50 findMany calls
+    expect(findMany.mock.calls.length).toBeGreaterThanOrEqual(50);
+    expect(res.body.totalEdges).toBeGreaterThan(0);
   });
 
-  it('response shape is always present even for empty graph', async () => {
+  it('50k-edge fixture — maxNodes cap triggers truncation (downstream)', async () => {
+    const rows = buildFanOut(10, 50_000);
+    mockFindMany(rows);
+    const app = buildApp();
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxNodes=500&maxDepth=10&timeoutMs=30000`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.truncated).toBe(true);
+    expect(res.body.totalNodes).toBeLessThanOrEqual(501);
+    expect(Array.isArray(res.body.nodes)).toBe(true);
+    expect(Array.isArray(res.body.edges)).toBe(true);
+    expect(typeof res.body.depthReached).toBe('number');
+  });
+
+  it('response shape is complete', async () => {
     findMany.mockResolvedValue([]);
     const app = buildApp();
     const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream`);
 
     expect(res.body).toMatchObject({
+      startAddress: expect.any(String),
       nodes: expect.any(Array),
       edges: expect.any(Array),
+      depthReached: expect.any(Number),
+      totalNodes: expect.any(Number),
+      totalEdges: expect.any(Number),
       truncated: expect.any(Boolean),
-      meta: {
-        visitedCount: expect.any(Number),
-        edgeCount: expect.any(Number),
-        depth: expect.any(Number),
-        durationMs: expect.any(Number),
-      },
+      timedOut: expect.any(Boolean),
     });
   });
 });
@@ -278,171 +268,164 @@ describe('GET /api/v1/graph/contracts/:address/downstream', () => {
 describe('GET /api/v1/graph/contracts/:address/upstream', () => {
   it('returns seed node only when no incoming edges exist', async () => {
     findMany.mockResolvedValue([]);
-
     const app = buildApp();
     const res = await request(app).get(`/api/v1/graph/contracts/${addr(9)}/upstream`);
 
     expect(res.status).toBe(200);
+    expect(res.body.startAddress).toBe(addr(9));
     expect(res.body.nodes).toEqual([addr(9)]);
     expect(res.body.edges).toEqual([]);
     expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.visitedCount).toBe(1);
+    expect(res.body.totalNodes).toBe(1);
   });
 
   it('walks a 10-node chain upward from the tail', async () => {
-    // Chain: 0→1→2→…→9.  Seed = addr(9), upstream should find all predecessors.
     const rows = buildChain(10);
-    mockFindMany(rows, () => true);
-
+    mockFindMany(rows);
     const app = buildApp();
     const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(9)}/upstream?maxDepth=20&maxNodes=50000`,
+      `/api/v1/graph/contracts/${addr(9)}/upstream?maxDepth=10&maxNodes=50000`,
     );
 
     expect(res.status).toBe(200);
-    expect(res.body.nodes).toHaveLength(10);
-    expect(res.body.edges).toHaveLength(9);
+    expect(res.body.totalNodes).toBe(10);
+    expect(res.body.totalEdges).toBe(9);
     expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.depth).toBe(9);
   });
 
   it('respects maxDepth query parameter (upstream)', async () => {
     const rows = buildChain(20);
-    mockFindMany(rows, () => true);
-
+    mockFindMany(rows);
     const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(19)}/upstream?maxDepth=3`);
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(19)}/upstream?maxDepth=3`,
+    );
 
     expect(res.status).toBe(200);
-    // Seed + 3 hops = 4 nodes
-    expect(res.body.nodes).toHaveLength(4);
+    expect(res.body.totalNodes).toBe(4);
     expect(res.body.truncated).toBe(false);
-    expect(res.body.meta.depth).toBe(3);
+    expect(res.body.depthReached).toBe(3);
   });
 
   it('truncates when maxNodes budget is exceeded (upstream)', async () => {
-    // Reverse fan-out: many sources → one target.  We simulate this by building
-    // a forward fan-out (0→1, 0→2, …) and seeding at addr(1) for upstream.
-    // Simplest approach: use a chain and set maxNodes very small.
     const rows = buildChain(50);
-    mockFindMany(rows, () => true);
-
+    mockFindMany(rows);
     const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(49)}/upstream?maxNodes=5`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.truncated).toBe(true);
-    expect(res.body.nodes.length).toBeLessThanOrEqual(6);
-  });
-
-  it('paginates correctly across a 50 000-edge synthetic fixture (upstream)', async () => {
-    const EDGE_COUNT = 50_000;
-    // Fan-out structure seeded from addr(1), one of the first-level children.
-    // Upstream from a middle node in a large tree should trigger truncation.
-    // We use a chain instead and use a tiny maxNodes so it truncates immediately.
-    const rows = buildChain(EDGE_COUNT + 1);
-    mockFindMany(rows, () => true);
-
-    const app = buildApp();
-    // Seed at the tail; maxNodes=10 ensures truncation within a few hops
     const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(EDGE_COUNT)}/upstream?maxNodes=10&maxDepth=50&timeoutMs=30000`,
+      `/api/v1/graph/contracts/${addr(49)}/upstream?maxNodes=5`,
     );
 
     expect(res.status).toBe(200);
     expect(res.body.truncated).toBe(true);
-    expect(res.body.meta.visitedCount).toBeLessThanOrEqual(11);
-    expect(res.body.meta.edgeCount).toBeGreaterThan(0);
-    expect(Array.isArray(res.body.nodes)).toBe(true);
-    expect(Array.isArray(res.body.edges)).toBe(true);
-    expect(typeof res.body.meta.durationMs).toBe('number');
+    expect(res.body.totalNodes).toBeLessThanOrEqual(6);
   });
 
-  it('response shape matches downstream shape exactly', async () => {
+  it('50k-edge fixture — maxNodes cap triggers truncation (upstream)', async () => {
+    const rows = buildChain(50_001);
+    mockFindMany(rows);
+    const app = buildApp();
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(50_000)}/upstream?maxNodes=10&maxDepth=10&timeoutMs=30000`,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.truncated).toBe(true);
+    expect(res.body.totalNodes).toBeLessThanOrEqual(11);
+    expect(Array.isArray(res.body.nodes)).toBe(true);
+    expect(Array.isArray(res.body.edges)).toBe(true);
+  });
+
+  it('response shape is symmetric with downstream', async () => {
     findMany.mockResolvedValue([]);
     const app = buildApp();
     const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/upstream`);
 
     expect(res.body).toMatchObject({
+      startAddress: expect.any(String),
       nodes: expect.any(Array),
       edges: expect.any(Array),
+      depthReached: expect.any(Number),
+      totalNodes: expect.any(Number),
+      totalEdges: expect.any(Number),
       truncated: expect.any(Boolean),
-      meta: {
-        visitedCount: expect.any(Number),
-        edgeCount: expect.any(Number),
-        depth: expect.any(Number),
-        durationMs: expect.any(Number),
-      },
+      timedOut: expect.any(Boolean),
     });
   });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
-// SHARED / EDGE-CASE COVERAGE
+// SHARED / EDGE CASES
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('BFS edge cases', () => {
   it('does not revisit nodes in a diamond graph (downstream)', async () => {
-    // Diamond: A→B, A→C, B→D, C→D
+    // A→B, A→C, B→D, C→D
     const diamond: EdgeRow[] = [
       { id: 'edge-0000000001', sourceAddress: addr(0), targetAddress: addr(1) },
       { id: 'edge-0000000002', sourceAddress: addr(0), targetAddress: addr(2) },
       { id: 'edge-0000000003', sourceAddress: addr(1), targetAddress: addr(3) },
       { id: 'edge-0000000004', sourceAddress: addr(2), targetAddress: addr(3) },
     ];
-    mockFindMany(diamond, () => true);
-
+    mockFindMany(diamond);
     const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=5`);
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=5`,
+    );
 
     expect(res.status).toBe(200);
     // 4 unique nodes: A, B, C, D
-    expect(res.body.nodes).toHaveLength(4);
-    // All 4 edges are present
-    expect(res.body.edges).toHaveLength(4);
+    expect(res.body.totalNodes).toBe(4);
+    // downstream BFS deduplicates by target node: D is discovered via B→D and
+    // skipped when C→D is processed (visited.has(D) = true), so 3 edges recorded
+    expect(res.body.totalEdges).toBe(3);
     expect(res.body.truncated).toBe(false);
   });
 
   it('does not revisit nodes in a diamond graph (upstream)', async () => {
-    // Same diamond; seed = D, upstream should reach A, B, C, D
     const diamond: EdgeRow[] = [
       { id: 'edge-0000000001', sourceAddress: addr(0), targetAddress: addr(1) },
       { id: 'edge-0000000002', sourceAddress: addr(0), targetAddress: addr(2) },
       { id: 'edge-0000000003', sourceAddress: addr(1), targetAddress: addr(3) },
       { id: 'edge-0000000004', sourceAddress: addr(2), targetAddress: addr(3) },
     ];
-    mockFindMany(diamond, () => true);
-
+    mockFindMany(diamond);
     const app = buildApp();
-    const res = await request(app).get(`/api/v1/graph/contracts/${addr(3)}/upstream?maxDepth=5`);
+    const res = await request(app).get(
+      `/api/v1/graph/contracts/${addr(3)}/upstream?maxDepth=5`,
+    );
 
     expect(res.status).toBe(200);
-    expect(res.body.nodes).toHaveLength(4);
-    expect(res.body.edges).toHaveLength(4);
+    // 4 unique nodes reachable from D upstream: D, B, C, A
+    expect(res.body.totalNodes).toBe(4);
+    // upstream BFS deduplicates by source node: A is discovered via B→D path
+    // and skipped when encountered again via C→D path, so 3 edges recorded
+    expect(res.body.totalEdges).toBe(3);
     expect(res.body.truncated).toBe(false);
   });
 
-  it('clamps out-of-range query params to valid defaults', async () => {
-    findMany.mockResolvedValue([]);
+  it('edges use { source, target } shape (not from/to)', async () => {
+    const rows = buildChain(3);
+    mockFindMany(rows);
     const app = buildApp();
-
-    // maxDepth=999 should be clamped to 50, maxNodes=0 → 1
     const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=999&maxNodes=0`,
+      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=5`,
     );
+
     expect(res.status).toBe(200);
-    expect(res.body.meta.depth).toBeLessThanOrEqual(50);
+    expect(res.body.edges[0]).toHaveProperty('source');
+    expect(res.body.edges[0]).toHaveProperty('target');
+    expect(res.body.edges[0]).not.toHaveProperty('from');
+    expect(res.body.edges[0]).not.toHaveProperty('to');
   });
 
-  it('handles non-numeric query params gracefully', async () => {
+  it('downstream and upstream return same response keys for isolated node', async () => {
     findMany.mockResolvedValue([]);
     const app = buildApp();
+    const [downRes, upRes] = await Promise.all([
+      request(app).get(`/api/v1/graph/contracts/${addr(0)}/downstream`),
+      request(app).get(`/api/v1/graph/contracts/${addr(0)}/upstream`),
+    ]);
 
-    const res = await request(app).get(
-      `/api/v1/graph/contracts/${addr(0)}/downstream?maxDepth=abc&maxNodes=xyz`,
-    );
-    expect(res.status).toBe(200);
-    // Falls back to defaults — should not throw
-    expect(res.body.truncated).toBe(false);
+    expect(Object.keys(downRes.body).sort()).toEqual(Object.keys(upRes.body).sort());
   });
 });

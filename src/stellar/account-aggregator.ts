@@ -517,9 +517,9 @@ export async function getBalanceHistory(
   days = 30,
 ): Promise<Array<{ date: string; xlmBalance: string }>> {
   const resolved = resolveAddress(address);
-  const account = await prisma.stellarAccount.findUnique({ where: { address: resolved } });
+  const dbAccount = await prisma.stellarAccount.findUnique({ where: { address: resolved } });
 
-  const currentBalance = account?.xlmBalance?.toString() ?? '0';
+  const currentBalance = dbAccount?.xlmBalance?.toString() ?? '0';
   const history: Array<{ date: string; xlmBalance: string }> = [];
 
   for (let i = days; i >= 0; i--) {

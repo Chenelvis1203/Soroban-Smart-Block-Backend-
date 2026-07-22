@@ -13,9 +13,9 @@ import { prismaRead, prismaWrite } from '../db';
 import { logger } from '../logger';
 
 const ROUND_TRIP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const RAPID_TRADE_WINDOW_MS = 24 * 60 * 60 * 1000;     // 24h
-const RAPID_TRADE_MIN_COUNT = 3;                         // 3+ trades between same pair
-const PRICE_SPIKE_THRESHOLD = 5;                         // 5x price change = suspicious
+const RAPID_TRADE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
+const RAPID_TRADE_MIN_COUNT = 3; // 3+ trades between same pair
+const PRICE_SPIKE_THRESHOLD = 5; // 5x price change = suspicious
 
 interface SaleRecord {
   id: string;
@@ -164,9 +164,7 @@ export async function analyzeCollectionWashTrading(collectionId: string): Promis
   const now = new Date();
   const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const washSales24h = updates.filter(
-    (u, i) => u.isWash && saleRecords[i].saleAt >= cutoff24h,
-  );
+  const washSales24h = updates.filter((u, i) => u.isWash && saleRecords[i].saleAt >= cutoff24h);
   const washVolume24h = washSales24h.reduce(
     (sum, u, i) => sum + saleRecords.find((s) => s.id === u.id)!.price,
     0,
@@ -177,10 +175,11 @@ export async function analyzeCollectionWashTrading(collectionId: string): Promis
     data: { updatedAt: new Date() },
   });
 
-  logger.info(
-    { collectionId, total: sales.length, washCount: washSales24h.length },
-    '[wash-trading] Analysis complete',
-  );
+  logger.info('[wash-trading] Analysis complete', {
+    collectionId,
+    total: sales.length,
+    washCount: washSales24h.length,
+  });
 }
 
 // ─── Wash trading analytics API data ─────────────────────────────────────────
